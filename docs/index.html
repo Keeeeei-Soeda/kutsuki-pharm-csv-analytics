@@ -71,6 +71,7 @@
     border-radius: 999px;
     font-size: 14px;
     font-weight: 600;
+    margin-right: 6px;
   }
   .btn.secondary { background: var(--accent-2); }
   .btn.ghost {
@@ -95,7 +96,7 @@
     <header class="hero">
       <div class="eyebrow">Kutsuki DataBank Analytics</div>
       <h1>くつき薬局南茨木店<br/>患者獲得モデル分析</h1>
-      <p>門前／非門前の二軸で、処方箋フローとクリニック商圏を可視化したレポートです。生の患者CSVは公開していません。</p>
+      <p>門前／非門前の二軸で、処方箋フロー・商圏・来局率を可視化したレポートです。生の患者CSVは公開していません。</p>
       <div class="meta">
         <span class="chip">受診 2024-09-02 〜 2026-07-31</span>
         <span class="chip">患者 8,885 / 受診 31,924</span>
@@ -117,10 +118,16 @@
         <a class="btn secondary" href="phase2_catchment.html">レポートを開く</a>
         <a class="btn ghost" href="figures/phase2_map.html">地図</a>
       </article>
+
+      <article class="card">
+        <h2>Phase 3 · Choice &amp; Growth</h2>
+        <p>集計来局率GLM・クリニック選択・Huff・成長シナリオ（月1,388→3,000の感度）。</p>
+        <a class="btn" href="phase3_model.html">レポートを開く</a>
+      </article>
     </div>
 
     <div class="note">
-      <strong>注意:</strong> 本サイトの数値は自店受診データに基づく記述分析です。市場全体の選択率や因果効果としては解釈しないでください。
+      <strong>注意:</strong> 本サイトの数値は自店受診データに基づく記述・相関分析です。市場全体の選択率や因果効果としては解釈しないでください。
       個人が特定できる生データ（住所テキスト・受診明細CSV等）はリポジトリに含めていません。
     </div>
 

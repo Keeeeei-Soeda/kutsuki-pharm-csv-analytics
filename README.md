@@ -9,6 +9,7 @@
 - [トップ](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/)
 - [Phase 1](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase1_flow.html)
 - [Phase 2](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase2_catchment.html)
+- [Phase 3](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase3_model.html)
 
 > 生の患者CSVはリポジトリに含めていません（`.gitignore` で除外）。
 
@@ -16,8 +17,9 @@
 
 ## 現状
 
-- Phase 0〜2 完了
+- Phase 0〜3 完了
 - **門前型 89.3%** / 非門前 9.6%
+- Phase3: 距離が来局率の主因（log距離 OR≈0.10）、目標3,000は複合施策が必要
 - HTMLレポートを `docs/` から GitHub Pages 公開
 
 ## セットアップ
@@ -33,7 +35,8 @@ python3 -m src.validate
 python3 -m src.run_early_phases
 python3 -m src.phase1_flow && python3 -m src.export_phase1_html
 python3 -m src.phase2_catchment
-# Pages用にコピー
+python3 -m src.phase3_model
+# Pages用にコピー（phase3_model は docs/ へ自動コピー）
 cp reports/phase1_flow.html reports/phase2_catchment.html docs/
 cp reports/figures/* docs/figures/
 ```
