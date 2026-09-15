@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Matplotlib
+.matplotlib/
+
+# 生データ・個人情報を含むCSVは公開しない（GitHub Pages用）
+data/raw/
+data/interim/
+*.csv
+!data/processed/.gitkeep
+
+# 大きな中間成果（必要なら後で選択的に追加）
+data/processed/*.parquet
+data/processed/*.csv
+
+# ローカル作業用の元ファイル（ルート直下の受領CSV/XLSX）
+/*.csv
+/*.xlsx
+/631*
+/E99*
+
+# Agent / local
+agent-tools/
+.cursor/

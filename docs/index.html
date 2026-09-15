@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>くつき薬局南茨木店 | DataBank Analytics</title>
+<style>
+  :root {
+    --bg: #f3f1eb;
+    --ink: #1c2430;
+    --muted: #5c6675;
+    --accent: #0f6a6a;
+    --accent-2: #c45c26;
+    --line: #d9d2c5;
+    --surface: #fffcf7;
+    --shadow: 0 14px 40px rgba(28,36,48,.10);
+    --sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(1000px 500px at 0% -10%, #e7f2f1, transparent 55%),
+      radial-gradient(800px 400px at 100% 0%, #f8e8dc, transparent 45%),
+      var(--bg);
+    line-height: 1.65;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 20px 80px; }
+  .hero {
+    background: linear-gradient(135deg, #103a3a 0%, #0f6a6a 55%, #2f6f9f 100%);
+    color: #f7fffe;
+    border-radius: 28px;
+    padding: 40px 36px;
+    box-shadow: var(--shadow);
+  }
+  .eyebrow { letter-spacing: .14em; text-transform: uppercase; font-size: 12px; opacity: .8; }
+  h1 { margin: 10px 0 12px; font-size: clamp(28px, 5vw, 40px); line-height: 1.2; }
+  .hero p { margin: 0; max-width: 40rem; opacity: .92; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .chip {
+    background: rgba(255,255,255,.14);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .card {
+    grid-column: span 6;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 800px) { .card { grid-column: span 12; } }
+  .card h2 { margin: 0 0 8px; font-size: 20px; }
+  .card p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  .btn {
+    display: inline-block;
+    text-decoration: none;
+    background: var(--accent);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .btn.secondary { background: var(--accent-2); }
+  .btn.ghost {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .note {
+    margin-top: 28px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    background: #fff8ec;
+    border: 1px solid #e6d0a8;
+    color: #5c4a2a;
+    font-size: 13px;
+  }
+  footer { margin-top: 36px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="eyebrow">Kutsuki DataBank Analytics</div>
+      <h1>くつき薬局南茨木店<br/>患者獲得モデル分析</h1>
+      <p>門前／非門前の二軸で、処方箋フローとクリニック商圏を可視化したレポートです。生の患者CSVは公開していません。</p>
+      <div class="meta">
+        <span class="chip">受診 2024-09-02 〜 2026-07-31</span>
+        <span class="chip">患者 8,885 / 受診 31,924</span>
+        <span class="chip">GitHub Pages</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <article class="card">
+        <h2>Phase 1 · Prescription Flow</h2>
+        <p>門前型 89.3% / 非門前 9.6%。ABC分析・時系列・外生要因・ポートフォリオ・Sankey。</p>
+        <a class="btn" href="phase1_flow.html">レポートを開く</a>
+        <a class="btn ghost" href="figures/phase1_sankey.html">Sankey</a>
+      </article>
+
+      <article class="card">
+        <h2>Phase 2 · Clinic Catchment</h2>
+        <p>クリニック商圏・地区×クリニック・メッシュ来局率・競合圧力・ネットワーク。</p>
+        <a class="btn secondary" href="phase2_catchment.html">レポートを開く</a>
+        <a class="btn ghost" href="figures/phase2_map.html">地図</a>
+      </article>
+    </div>
+
+    <div class="note">
+      <strong>注意:</strong> 本サイトの数値は自店受診データに基づく記述分析です。市場全体の選択率や因果効果としては解釈しないでください。
+      個人が特定できる生データ（住所テキスト・受診明細CSV等）はリポジトリに含めていません。
+    </div>
+
+    <footer>
+      Generated from kutsuki_pharm_csv-analytics · GitHub Pages
+    </footer>
+  </div>
+</body>
+</html>

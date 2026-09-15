@@ -1,0 +1,8 @@
+pharmacy_lat: 34.801298494906895
+pharmacy_lon: 135.56540221590993
+pharmacy_name: くつき薬局南茨木店
+seed: 42
+catchment_road_km_max: 10.0
+gate_distance_km: 0.3
+# LTV仮置き（未保有のため感度分析用）
+gross_margin_per_visit_yen: 2000

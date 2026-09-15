@@ -1,0 +1,26 @@
+[project]
+name = "kutsuki-pharm-csv-analytics"
+version = "0.1.0"
+description = "面/門前薬局の患者獲得モデル分析（くつき薬局南茨木店 DataBank）"
+requires-python = ">=3.9"
+dependencies = [
+  "pandas>=2.0",
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "matplotlib>=3.7",
+  "statsmodels>=0.14",
+  "pytest>=7.4",
+  "openpyxl>=3.1",
+  "pyarrow>=14.0",
+  "scikit-learn>=1.3",
+  "networkx>=3.1",
+  "folium>=0.15",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
