@@ -577,18 +577,18 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
     rep.callout("限界", [house["reason"], "処方日数なし", "LTVは打ち切り下限・粗利仮置き"], kind="warn")
 
     rep.section("cohort", "コホート残存")
-    rep.figure(FIGURES / "phase4_cohort_all.png")
+    rep.figure(FIGURES / "phase4_cohort_all.png", "全体コホート残存")
     rep.figure(FIGURES / "phase4_cohort_gate.png", "門前初回")
     rep.figure(FIGURES / "phase4_cohort_nongate.png", "非門前初回")
 
     rep.section("retention", "初回90日定着")
-    rep.figure(FIGURES / "phase4_retention90.png")
+    rep.figure(FIGURES / "phase4_retention90.png", "90日定着率の層別")
 
     rep.section("survival", "来局間隔")
-    rep.figure(FIGURES / "phase4_intervals.png")
+    rep.figure(FIGURES / "phase4_intervals.png", "再来間隔の分布と生存")
 
     rep.section("ltv", "LTV感度")
-    rep.figure(FIGURES / "phase4_ltv.png")
+    rep.figure(FIGURES / "phase4_ltv.png", "粗利仮定ごとのLTV")
     rep.table(
         ["粗利円", "平均LTV全体", "門前", "非門前"],
         [[int(r["粗利円"]), f"{r['平均LTV_全体']:.0f}", f"{r['平均LTV_門前']:.0f}", f"{r['平均LTV_非門前']:.0f}"] for _, r in ltv["sens"].iterrows()],
@@ -597,10 +597,10 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
 
     if multi.get("ok"):
         rep.section("multi", "マルチレベル（クリニックRE）")
-        rep.figure(FIGURES / "phase4_multilevel.png")
+        rep.figure(FIGURES / "phase4_multilevel.png", "クリニックランダム効果")
 
     rep.section("cluster", "患者クラスタ")
-    rep.figure(FIGURES / "phase4_clusters.png")
+    rep.figure(FIGURES / "phase4_clusters.png", "患者セグメント")
     rep.table(
         ["クラスタ", "人数", "道路km中央", "年齢中央", "平均来局", "非門前率"],
         [

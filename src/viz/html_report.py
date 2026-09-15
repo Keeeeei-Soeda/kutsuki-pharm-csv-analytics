@@ -137,6 +137,24 @@ h3 { margin: 18px 0 8px; font-size: 16px; }
   font-size: 12px;
   margin: 6px 0 0;
 }
+.fig-explain {
+  margin: 8px 0 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.7;
+}
+.fig-explain strong {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
@@ -370,15 +388,30 @@ class HtmlReport:
         """極簡易: 段落をそのまま。"""
         self.blocks.append(f"<p>{_esc(text)}</p>")
 
-    def figure(self, image_path: PathLike, caption: str = "", embed: bool = True) -> None:
+    def figure(
+        self,
+        image_path: PathLike,
+        caption: str = "",
+        embed: bool = True,
+        explain: str = "",
+    ) -> None:
+        from src.viz.figure_explains import FIGURE_EXPLAINS
+
         p = Path(image_path)
         if not p.exists():
             self.blocks.append(f'<p class="caption">（図なし: {_esc(p.name)}）</p>')
             return
         src = img_to_data_uri(p) if embed else str(p)
         cap = f'<p class="caption">{_esc(caption)}</p>' if caption else ""
+        text = explain or FIGURE_EXPLAINS.get(p.name, "")
+        exp = ""
+        if text:
+            exp = (
+                f'<div class="fig-explain" data-fig="{_esc(p.name)}"><strong>この図の読み方</strong>'
+                f"{_esc(text)}</div>"
+            )
         self.blocks.append(
-            f'<div class="figure"><img src="{src}" alt="{_esc(caption or p.name)}"/></div>{cap}'
+            f'<div class="figure"><img src="{src}" alt="{_esc(caption or p.name)}"/></div>{cap}{exp}'
         )
 
     def table(self, headers: Sequence[str], rows: Iterable[Sequence[object]], numeric_cols: Optional[Sequence[int]] = None) -> None:
@@ -495,5 +528,111 @@ def inject_phase_nav(html_path: PathLike, active_phase: int) -> Path:
         text = text.replace("<body>", f"<body>\n{nav}", 1)
     else:
         text = nav + text
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+FIG_EXPLAIN_CSS = """
+.fig-explain {
+  margin: 8px 0 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.7;
+}
+.fig-explain strong {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+"""
+
+# 既存 HTML 内の図の並び（再分析せず解説を差し込む用）
+PHASE_FIGURE_ORDER = {
+    1: [
+        "phase1_monthly_gate.png",
+        "phase1_abc_pareto.png",
+        "phase1_timeseries.png",
+        "phase1_exogenous.png",
+        "phase1_portfolio.png",
+    ],
+    2: [
+        "phase2_clinic_catchments.png",
+        "phase2_district_clinic_heatmap.png",
+        "phase2_district_clinic_nongate.png",
+        "phase2_mesh_visit_rate.png",
+        "phase2_competitor_pressure.png",
+        "phase2_clinic_betweenness.png",
+    ],
+    3: [
+        "phase3_visitrate_glm.png",
+        "phase3_mesh_glm.png",
+        "phase3_clinic_clogit.png",
+        "phase3_huff.png",
+        "phase3_growth_sim.png",
+    ],
+    4: [
+        "phase4_cohort_all.png",
+        "phase4_cohort_gate.png",
+        "phase4_cohort_nongate.png",
+        "phase4_retention90.png",
+        "phase4_intervals.png",
+        "phase4_ltv.png",
+        "phase4_multilevel.png",
+        "phase4_clusters.png",
+    ],
+    6: [
+        "phase6_integrated_diagram.png",
+        "phase6_forecast.png",
+        "phase6_scenario_bands.png",
+    ],
+}
+
+
+def inject_figure_explains(html_path: PathLike, phase: int) -> Path:
+    """既存レポートの各 .figure の直後に解説を挿入する。"""
+    import re
+
+    from src.viz.figure_explains import FIGURE_EXPLAINS
+
+    path = Path(html_path)
+    text = path.read_text(encoding="utf-8")
+    if ".fig-explain {" not in text and "</style>" in text:
+        text = text.replace("</style>", FIG_EXPLAIN_CSS + "\n</style>", 1)
+
+    # 既存の解説を除去して差し替え
+    text = re.sub(
+        r'\s*<div class="fig-explain"[^>]*>.*?</div>',
+        "",
+        text,
+        flags=re.DOTALL,
+    )
+
+    order = PHASE_FIGURE_ORDER.get(phase, [])
+    idx = 0
+
+    def _repl(match: re.Match) -> str:
+        nonlocal idx
+        block = match.group(0)
+        # skip if next sibling already explain (shouldn't after strip)
+        name = order[idx] if idx < len(order) else ""
+        idx += 1
+        explain = FIGURE_EXPLAINS.get(name, "")
+        if not explain:
+            return block
+        return (
+            block
+            + f'\n<div class="fig-explain" data-fig="{_esc(name)}"><strong>この図の読み方</strong>'
+            + _esc(explain)
+            + "</div>"
+        )
+
+    text = re.sub(r'<div class="figure">.*?</div>', _repl, text, flags=re.DOTALL)
     path.write_text(text, encoding="utf-8")
     return path

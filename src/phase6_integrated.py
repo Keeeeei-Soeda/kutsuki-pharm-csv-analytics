@@ -463,10 +463,10 @@ def write_integrated_report(fc: Dict, sim: Dict, diagram: Path, academic: Path) 
     )
 
     rep.section("diagram", "統合モデル")
-    rep.figure(diagram)
+    rep.figure(diagram, "フロー→商圏→選択→定着の接続")
 
     rep.section("forecast", "時間分割予測検証")
-    rep.figure(FIGURES / "phase6_forecast.png")
+    rep.figure(FIGURES / "phase6_forecast.png", "学習／検証の予測比較")
     rep.table(
         ["モデル", "MAE", "MAPE%"],
         [[r["モデル"], f"{r['MAE']:.1f}", f"{r['MAPE%']:.1f}"] for _, r in metrics.iterrows()],
@@ -474,7 +474,7 @@ def write_integrated_report(fc: Dict, sim: Dict, diagram: Path, academic: Path) 
     )
 
     rep.section("sim", "シナリオ予測分布")
-    rep.figure(FIGURES / "phase6_scenario_bands.png")
+    rep.figure(FIGURES / "phase6_scenario_bands.png", "シナリオ別の予測帯")
     rep.table(
         ["シナリオ", "P50", "P10", "P90", "3000到達確率"],
         [

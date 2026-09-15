@@ -39,6 +39,19 @@ def build_phase5_html() -> Path:
         kind="warn",
     )
 
+    from html import escape
+
+    from src.viz.figure_explains import PHASE5_PLANNED_FIGURES
+
+    rep.section("planned", "データが揃ったときに出す予定の図")
+    for title, explain in PHASE5_PLANNED_FIGURES:
+        rep.add_html(
+            f'<div class="card span-12" style="margin-bottom:12px">'
+            f"<h3>{escape(title)}</h3>"
+            f'<div class="fig-explain"><strong>この図の読み方（予定）</strong>{escape(explain)}</div>'
+            f"</div>"
+        )
+
     rep.section("needed", "再開に必要なもの")
     rep.paragraph(
         "少なくとも「日付・イベント種別・対象範囲（自店/競合/地域）・備考」の年表 CSV が必要です。"

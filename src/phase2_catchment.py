@@ -662,7 +662,7 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     )
 
     rep.section("district", "2. 地区 × クリニック", "行正規化＝地区内シェア（自店患者限定）。")
-    rep.figure(FIGURES / "phase2_district_clinic_heatmap.png")
+    rep.figure(FIGURES / "phase2_district_clinic_heatmap.png", "地区内シェア（全体）")
     if (FIGURES / "phase2_district_clinic_nongate.png").exists():
         rep.figure(FIGURES / "phase2_district_clinic_nongate.png", "非門前のみ（軸B）")
     rep.table(
@@ -675,14 +675,14 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     )
 
     rep.section("mesh", "3. メッシュ来局率と空間相関")
-    rep.figure(FIGURES / "phase2_mesh_visit_rate.png")
+    rep.figure(FIGURES / "phase2_mesh_visit_rate.png", "メッシュ来局率の空間分布")
     rep.paragraph(f"Moran's I ≈ {mesh_stats['moran']:.3f}（記述統計。推論のp値は未算出）。")
 
     rep.section("competitor", "4. 競合の空間的圧力")
-    rep.figure(FIGURES / "phase2_competitor_pressure.png")
+    rep.figure(FIGURES / "phase2_competitor_pressure.png", "競合立地に基づく圧力（代理指標）")
 
     rep.section("network", "5. ネットワーク媒介中心性", "地区と自店をつなぐ結節クリニック。")
-    rep.figure(FIGURES / "phase2_clinic_betweenness.png")
+    rep.figure(FIGURES / "phase2_clinic_betweenness.png", "媒介中心性トップ施設")
     rep.table(
         ["クリニック", "媒介中心性"],
         [[idx[:24], f"{val:.4f}"] for idx, val in bt.head(10).items()],

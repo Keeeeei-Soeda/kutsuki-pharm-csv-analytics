@@ -53,7 +53,7 @@ def build_phase1_html() -> Path:
     rep.figure(FIGURES / "phase1_monthly_gate.png", "門前型 / 非門前型の月別推移")
 
     rep.section("abc", "クリニック別ABC")
-    rep.figure(FIGURES / "phase1_abc_pareto.png")
+    rep.figure(FIGURES / "phase1_abc_pareto.png", "累積構成比（パレート）")
     rep.table(
         ["クリニック", "件数", "構成比", "直線km", "門前0.3km"],
         [
@@ -71,20 +71,26 @@ def build_phase1_html() -> Path:
     rep.paragraph(f"門前型の80%到達={n80_g}施設 / 非門前型の80%到達={n80_ng}施設")
 
     rep.section("ts", "時系列")
-    rep.figure(FIGURES / "phase1_timeseries.png")
+    rep.figure(FIGURES / "phase1_timeseries.png", "月次・季節パターン")
 
     rep.section("exo", "外生要因（相関）")
     rep.figure(FIGURES / "phase1_exogenous.png", "花粉は0埋めせず欠測のまま表示")
 
     rep.section("portfolio", "患者ポートフォリオ")
-    rep.figure(FIGURES / "phase1_portfolio.png")
+    rep.figure(FIGURES / "phase1_portfolio.png", "頻度×利用クリニック数など")
 
     rep.section("sankey", "流動 Sankey")
+    from html import escape
+
+    from src.viz.figure_explains import SANKY_EXPLAIN
+
     rep.add_html(
         '<div class="card span-12"><p>'
         '<a href="figures/phase1_sankey.html" target="_blank">全体 Sankey を開く</a> ／ '
         '<a href="figures/phase1_sankey_nongate.html" target="_blank">非門前のみ Sankey</a>'
-        "</p></div>"
+        "</p>"
+        f'<div class="fig-explain"><strong>この図の読み方</strong>{escape(SANKY_EXPLAIN)}</div>'
+        "</div>"
     )
 
     out = REPORTS / "phase1_flow.html"

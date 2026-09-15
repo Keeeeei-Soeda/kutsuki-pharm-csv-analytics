@@ -595,12 +595,12 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
     )
 
     rep.section("visitrate", "集計来局率モデル", "V~Binomial(N,p)。自店来局÷住基人口。")
-    rep.figure(FIGURES / "phase3_visitrate_glm.png")
+    rep.figure(FIGURES / "phase3_visitrate_glm.png", "地区集計 binomial GLM")
     rep.figure(FIGURES / "phase3_mesh_glm.png", "メッシュ拡張")
 
     rep.section("clogit", "クリニック選択（条件付きロジット）", "自店患者に限定。市場選択率ではない。")
     if clogit.get("ok"):
-        rep.figure(FIGURES / "phase3_clinic_clogit.png")
+        rep.figure(FIGURES / "phase3_clinic_clogit.png", "条件付きロジット係数")
         rep.table(
             ["変数", "β", "SE"],
             [
@@ -613,11 +613,11 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
 
     rep.section("huff", "Huff記述ベンチマーク")
     if huff.get("ok"):
-        rep.figure(FIGURES / "phase3_huff.png")
+        rep.figure(FIGURES / "phase3_huff.png", "距離減衰λの当てはまり")
         rep.paragraph(f"最良λ={huff['best_lambda']} / 相関={huff['corr']:.3f}")
 
     rep.section("growth", "Growthシナリオ")
-    rep.figure(FIGURES / "phase3_growth_sim.png")
+    rep.figure(FIGURES / "phase3_growth_sim.png", "月間件数シナリオ感度")
     rep.table(
         ["シナリオ", "予測月間", "倍率", "3000到達"],
         [
