@@ -558,6 +558,7 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 4",
+        active_phase=4,
     )
     rep.add_kpi("90日定着率", f"{ret['rate']:.1%}", f"N={ret['n']:,}")
     rep.add_kpi("間隔中央値", f"{surv['median_gap']:.0f}日", f"≤28日 {surv['share_le28']:.0%}")

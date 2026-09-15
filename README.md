@@ -11,6 +11,7 @@
 - [Phase 2](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase2_catchment.html)
 - [Phase 3](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase3_model.html)
 - [Phase 4](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase4_retention.html)
+- [Phase 5](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase5_causal.html)（データ不足・保留）
 - [Phase 6](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase6_integrated.html)
 
 > 生の患者CSVはリポジトリに含めていません（`.gitignore` で除外）。

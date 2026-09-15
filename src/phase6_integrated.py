@@ -440,6 +440,7 @@ def write_integrated_report(fc: Dict, sim: Dict, diagram: Path, academic: Path) 
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 6",
+        active_phase=6,
     )
     rep.add_kpi("最良予測", fc["best"], f"MAE {fc['best_mae']:.0f}")
     rep.add_kpi("MAPE", f"{fc['best_mape']:.1f}%", "検証期")

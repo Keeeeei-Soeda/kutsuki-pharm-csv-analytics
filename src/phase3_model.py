@@ -568,6 +568,7 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 3",
+        active_phase=3,
     )
     rep.add_kpi("距離OR(log)", f"{vr['or_logdist']:.3f}", "集計Binomial GLM")
     rep.add_kpi("+1km効果", f"×{vr['odds_mult_1km']:.3f}", f"中央距離 {vr['median_km']:.1f}km")

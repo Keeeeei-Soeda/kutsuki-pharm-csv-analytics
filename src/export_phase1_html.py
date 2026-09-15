@@ -31,6 +31,7 @@ def build_phase1_html() -> Path:
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 1",
+        active_phase=1,
     )
     rep.add_kpi("門前型", "89.3%", "28,518 / 31,924件")
     rep.add_kpi("非門前型", "9.6%", "面の実体 3,060件")

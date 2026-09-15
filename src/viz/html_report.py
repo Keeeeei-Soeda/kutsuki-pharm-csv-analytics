@@ -197,12 +197,119 @@ iframe.map {
   body { background: #fff; }
   .hero { break-inside: avoid; }
   .card, .figure { box-shadow: none; }
+  .phase-nav { display: none !important; }
+}
+
+/* Phase navigation */
+.phase-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 252, 247, 0.92);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 4px 18px rgba(28, 36, 48, 0.06);
+}
+.phase-nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 10px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.phase-nav-brand {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+.phase-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.phase-nav a.phase-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  white-space: nowrap;
+}
+.phase-nav a.phase-link:hover { border-color: var(--accent); color: var(--accent); }
+.phase-nav a.phase-link.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.phase-nav a.phase-link.blocked {
+  color: var(--muted);
+  background: #f5f2ec;
+  border-style: dashed;
+}
+.phase-nav a.phase-link.blocked.active {
+  background: #a15c12;
+  border-color: #a15c12;
+  border-style: solid;
+  color: #fff;
+}
+.phase-nav .phase-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.85;
+}
+@media (max-width: 720px) {
+  .phase-nav-brand { width: 100%; margin-bottom: 2px; }
+  .phase-nav a.phase-link { padding: 5px 8px; font-size: 11px; }
 }
 """
+
+PHASE_PAGES = [
+    {"n": 1, "href": "phase1_flow.html", "label": "Flow", "blocked": False},
+    {"n": 2, "href": "phase2_catchment.html", "label": "Catchment", "blocked": False},
+    {"n": 3, "href": "phase3_model.html", "label": "Choice", "blocked": False},
+    {"n": 4, "href": "phase4_retention.html", "label": "Retention", "blocked": False},
+    {"n": 5, "href": "phase5_causal.html", "label": "Causal", "blocked": True},
+    {"n": 6, "href": "phase6_integrated.html", "label": "Integrated", "blocked": False},
+]
 
 
 def _esc(text: object) -> str:
     return html.escape("" if text is None else str(text))
+
+
+def phase_nav_html(active_phase: Optional[int] = None, home_href: str = "index.html") -> str:
+    links = []
+    for p in PHASE_PAGES:
+        classes = ["phase-link"]
+        if p["blocked"]:
+            classes.append("blocked")
+        if active_phase == p["n"]:
+            classes.append("active")
+        title = "データ不足" if p["blocked"] else p["label"]
+        links.append(
+            f'<a class="{" ".join(classes)}" href="{_esc(p["href"])}" title="{_esc(title)}">'
+            f'<span class="phase-num">P{p["n"]}</span>{_esc(p["label"])}</a>'
+        )
+    return (
+        '<nav class="phase-nav" aria-label="Phase navigation">'
+        '<div class="phase-nav-inner">'
+        f'<a class="phase-nav-brand" href="{_esc(home_href)}">Kutsuki DataBank</a>'
+        f'<div class="phase-nav-links">{"".join(links)}</div>'
+        "</div></nav>"
+    )
 
 
 def img_to_data_uri(path: PathLike) -> str:
@@ -224,12 +331,14 @@ class HtmlReport:
         pharmacy: str = "",
         period: str = "",
         eyebrow: str = "DataBank Analytics",
+        active_phase: Optional[int] = None,
     ):
         self.title = title
         self.subtitle = subtitle
         self.pharmacy = pharmacy
         self.period = period
         self.eyebrow = eyebrow
+        self.active_phase = active_phase
         self.kpis: List[dict] = []
         self.toc: List[tuple] = []
         self.blocks: List[str] = []
@@ -325,6 +434,7 @@ class HtmlReport:
             chips.append(f'<span class="chip">{_esc(self.period)}</span>')
         chips.append(f'<span class="chip">生成 {datetime.now().strftime("%Y-%m-%d %H:%M")}</span>')
 
+        nav = phase_nav_html(self.active_phase)
         return f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -334,6 +444,7 @@ class HtmlReport:
 <style>{CSS}</style>
 </head>
 <body>
+{nav}
 <div class="wrap">
   <header class="hero">
     <div class="eyebrow">{_esc(self.eyebrow)}</div>
@@ -358,3 +469,31 @@ class HtmlReport:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(self.render(), encoding="utf-8")
         return out
+
+
+def inject_phase_nav(html_path: PathLike, active_phase: int) -> Path:
+    """既存 HTML に Phase ナビを差し込む（再分析せずに更新する用）。"""
+    import re
+
+    path = Path(html_path)
+    text = path.read_text(encoding="utf-8")
+    if 'class="phase-nav"' in text:
+        text = re.sub(
+            r'<nav class="phase-nav"[^>]*>.*?</nav>\s*',
+            "",
+            text,
+            count=1,
+            flags=re.DOTALL,
+        )
+    if ".phase-nav {" not in text:
+        marker = "/* Phase navigation */"
+        nav_css = CSS[CSS.index(marker) :] if marker in CSS else ""
+        if "</style>" in text and nav_css:
+            text = text.replace("</style>", nav_css + "\n</style>", 1)
+    nav = phase_nav_html(active_phase)
+    if "<body>" in text:
+        text = text.replace("<body>", f"<body>\n{nav}", 1)
+    else:
+        text = nav + text
+    path.write_text(text, encoding="utf-8")
+    return path

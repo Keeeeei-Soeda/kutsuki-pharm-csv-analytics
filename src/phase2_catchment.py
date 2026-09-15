@@ -619,6 +619,7 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 2",
+        active_phase=2,
     )
     rep.add_kpi("Moran's I", f"{mesh_stats['moran']:.3f}", "メッシュ来局率・kNN=6")
     rep.add_kpi("分析メッシュ", f"{mesh_stats['n']}", "5km圏メッシュ")

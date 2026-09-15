@@ -190,16 +190,93 @@ iframe.map {
   body { background: #fff; }
   .hero { break-inside: avoid; }
   .card, .figure { box-shadow: none; }
+  .phase-nav { display: none !important; }
+}
+
+/* Phase navigation */
+.phase-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 252, 247, 0.92);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 4px 18px rgba(28, 36, 48, 0.06);
+}
+.phase-nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 10px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.phase-nav-brand {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+.phase-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.phase-nav a.phase-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  white-space: nowrap;
+}
+.phase-nav a.phase-link:hover { border-color: var(--accent); color: var(--accent); }
+.phase-nav a.phase-link.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.phase-nav a.phase-link.blocked {
+  color: var(--muted);
+  background: #f5f2ec;
+  border-style: dashed;
+}
+.phase-nav a.phase-link.blocked.active {
+  background: #a15c12;
+  border-color: #a15c12;
+  border-style: solid;
+  color: #fff;
+}
+.phase-nav .phase-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.85;
+}
+@media (max-width: 720px) {
+  .phase-nav-brand { width: 100%; margin-bottom: 2px; }
+  .phase-nav a.phase-link { padding: 5px 8px; font-size: 11px; }
 }
 </style>
 </head>
 <body>
+<nav class="phase-nav" aria-label="Phase navigation"><div class="phase-nav-inner"><a class="phase-nav-brand" href="index.html">Kutsuki DataBank</a><div class="phase-nav-links"><a class="phase-link" href="phase1_flow.html" title="Flow"><span class="phase-num">P1</span>Flow</a><a class="phase-link" href="phase2_catchment.html" title="Catchment"><span class="phase-num">P2</span>Catchment</a><a class="phase-link" href="phase3_model.html" title="Choice"><span class="phase-num">P3</span>Choice</a><a class="phase-link" href="phase4_retention.html" title="Retention"><span class="phase-num">P4</span>Retention</a><a class="phase-link blocked" href="phase5_causal.html" title="データ不足"><span class="phase-num">P5</span>Causal</a><a class="phase-link active" href="phase6_integrated.html" title="Integrated"><span class="phase-num">P6</span>Integrated</a></div></div></nav>
 <div class="wrap">
   <header class="hero">
     <div class="eyebrow">Kutsuki DataBank / Phase 6</div>
     <h1>Phase 6 Integrated Model</h1>
     <p>Prescription Flow → Catchment → Choice Rate → Growth を一つの式系に統合。時間分割予測とシナリオ分布を検証する。</p>
-    <div class="meta"><span class="chip">くつき薬局南茨木店</span><span class="chip">受診 2024-09-02 〜 2026-07-31</span><span class="chip">生成 2026-09-15 22:23</span></div>
+    <div class="meta"><span class="chip">くつき薬局南茨木店</span><span class="chip">受診 2024-09-02 〜 2026-07-31</span><span class="chip">生成 2026-09-15 22:31</span></div>
   </header>
   <div class="grid"><div class="card span-3 kpi"><div class="label">最良予測</div><div class="value">移動平均3</div><div class="sub">MAE 126</div></div><div class="card span-3 kpi"><div class="label">MAPE</div><div class="value">6.8%</div><div class="sub">検証期</div></div><div class="card span-3 kpi"><div class="label">現状月次</div><div class="value">1,388</div><div class="sub">目標 3,000</div></div><div class="card span-3 kpi"><div class="label">目標倍率</div><div class="value">2.16×</div><div class="sub">要複合施策</div></div></div>
   <div class="card span-12 toc" style="margin-top:18px"><a href="#diagram">統合モデル</a><a href="#forecast">時間分割予測検証</a><a href="#sim">シナリオ予測分布</a><a href="#academic">学術ポジショニング要約</a></div>
