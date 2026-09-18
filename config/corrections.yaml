@@ -1,0 +1,33 @@
+# 生データの補正定義。
+#
+# 原則:
+#   - data/raw/ は絶対に書き換えない。生データ + この補正定義 = 分析用データ。
+#   - 全置換（sed 等）は禁止。必ず key で該当レコードのみを更新する。
+#   - key が1件にマッチしないときは例外にする（静かな取りこぼしを防ぐ）。
+#
+# 運用:
+#   1. 補正内容が確定するまで enabled: false のままにしておく。
+#   2. 確定したら enabled: true と applied_at を書き、
+#      `python3 -m src.corrections` を実行して reports/correction_impact.md を確認する。
+#
+# propagate_to:
+#   同じ列を持つ他ファイルにも同じ補正を波及させる。
+#   クリニック→薬局_道路km は clinic_master 以外に visit_triangle /
+#   visit_history / patient_clinic_with_distance にも実体として入っており、
+#   1ファイルだけ直すと分析間で数値が食い違う。
+
+corrections:
+  - id: kitagawa_2026_09_17_road_km
+    target: clinic_master
+    propagate_to:
+      - visit_triangle
+      - visit_history
+      - patient_clinic_with_distance
+    key: {クリニックID: C001}
+    column: クリニック→薬局_道路km
+    to: 0.04
+    reason: 北川氏指示（2026-09-17 レビュー）
+    # 適用前チェック: key のクリニックIDが本当に意図したクリニックか名前で突合する。
+    expect_name: 医療法人はせがわ耳鼻咽喉科
+    enabled: false     # ← 北川氏のテキスト到着後、名前突合を済ませてから true にする
+    applied_at: null   # ← 適用時に日付を入れる

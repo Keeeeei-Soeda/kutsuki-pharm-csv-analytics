@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Phase 5 Causal Impact</title>
+<style>
+:root {
+  --bg: #f3f1eb;
+  --surface: #fffcf7;
+  --ink: #1c2430;
+  --muted: #5c6675;
+  --line: #d9d2c5;
+  --accent: #0f6a6a;
+  --accent-2: #c45c26;
+  --gate: #c45c26;
+  --nongate: #2f6f9f;
+  --ok: #2f7d4a;
+  --warn: #a15c12;
+  --shadow: 0 10px 30px rgba(28, 36, 48, 0.08);
+  --radius: 18px;
+  --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #e7f2f1 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #f8e8dc 0%, transparent 50%),
+    var(--bg);
+  line-height: 1.65;
+}
+a { color: var(--accent); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 32px 20px 80px; }
+.hero {
+  background: linear-gradient(135deg, #103a3a 0%, #0f6a6a 55%, #2f6f9f 100%);
+  color: #f7fffe;
+  border-radius: 28px;
+  padding: 36px 36px 28px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  right: -80px; top: -80px;
+  width: 260px; height: 260px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+}
+.hero .eyebrow {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-bottom: 10px;
+}
+.hero h1 {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.2;
+  font-weight: 700;
+}
+.hero p { margin: 0; max-width: 48rem; opacity: 0.92; }
+.meta {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-top: 18px;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+  font-size: 12px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  margin-top: 22px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  box-shadow: var(--shadow);
+}
+.span-3 { grid-column: span 3; }
+.span-4 { grid-column: span 4; }
+.span-6 { grid-column: span 6; }
+.span-8 { grid-column: span 8; }
+.span-12 { grid-column: span 12; }
+@media (max-width: 900px) {
+  .span-3, .span-4, .span-6, .span-8 { grid-column: span 12; }
+}
+.kpi .label { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; }
+.kpi .value {
+  font-size: 28px; font-weight: 700; margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.kpi .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+h2 {
+  margin: 36px 0 12px;
+  font-size: 22px;
+  border-left: 4px solid var(--accent);
+  padding-left: 12px;
+}
+h3 { margin: 18px 0 8px; font-size: 16px; }
+.section-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+.figure {
+  margin: 8px 0 4px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.figure img { display: block; width: 100%; height: auto; }
+.caption {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+.fig-explain {
+  margin: 8px 0 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.7;
+}
+.fig-explain strong {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+th, td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #efeae1;
+  font-weight: 600;
+  white-space: nowrap;
+}
+tr:last-child td { border-bottom: none; }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; }
+.callout {
+  border-radius: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.callout.ok { border-color: #b9d8c4; background: #f2faf5; }
+.callout.warn { border-color: #e6d0a8; background: #fff8ec; }
+.callout ul { margin: 8px 0 0; padding-left: 1.2rem; }
+.toc a {
+  display: inline-block;
+  margin: 0 10px 8px 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  text-decoration: none;
+  font-size: 12px;
+  color: var(--ink);
+}
+.footer {
+  margin-top: 40px;
+  color: var(--muted);
+  font-size: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.tag-gate { color: var(--gate); font-weight: 700; }
+.tag-nongate { color: var(--nongate); font-weight: 700; }
+iframe.map {
+  width: 100%;
+  height: 520px;
+  border: 0;
+  border-radius: 14px;
+}
+@media print {
+  body { background: #fff; }
+  .hero { break-inside: avoid; }
+  .card, .figure { box-shadow: none; }
+  .phase-nav { display: none !important; }
+}
+
+/* Phase navigation */
+.phase-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 252, 247, 0.92);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 4px 18px rgba(28, 36, 48, 0.06);
+}
+.phase-nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 10px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.phase-nav-brand {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+.phase-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.phase-nav a.phase-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  white-space: nowrap;
+}
+.phase-nav a.phase-link:hover { border-color: var(--accent); color: var(--accent); }
+.phase-nav a.phase-link.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.phase-nav a.phase-link.blocked {
+  color: var(--muted);
+  background: #f5f2ec;
+  border-style: dashed;
+}
+.phase-nav a.phase-link.blocked.active {
+  background: #a15c12;
+  border-color: #a15c12;
+  border-style: solid;
+  color: #fff;
+}
+.phase-nav .phase-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.85;
+}
+@media (max-width: 720px) {
+  .phase-nav-brand { width: 100%; margin-bottom: 2px; }
+  .phase-nav a.phase-link { padding: 5px 8px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+<div id="version-switch" style="background:#103a3a;color:#f7fffe;padding:10px 16px;font-size:13px;font-family:'Hiragino Sans',sans-serif;text-align:center">
+<strong>学術用（旧UI）版</strong>です。サイドバー・来院経路・商圏マップを含む薬局向けの最新版は
+<a href="../index.html" style="color:#9fe3dd">こちら</a>。
+</div>
+<nav class="phase-nav" aria-label="Phase navigation"><div class="phase-nav-inner"><a class="phase-nav-brand" href="index.html">Kutsuki DataBank</a><div class="phase-nav-links"><a class="phase-link" href="phase1_flow.html" title="Flow"><span class="phase-num">P1</span>Flow</a><a class="phase-link" href="phase2_catchment.html" title="Catchment"><span class="phase-num">P2</span>Catchment</a><a class="phase-link" href="phase3_model.html" title="Choice"><span class="phase-num">P3</span>Choice</a><a class="phase-link" href="phase4_retention.html" title="Retention"><span class="phase-num">P4</span>Retention</a><a class="phase-link blocked active" href="phase5_causal.html" title="データ不足"><span class="phase-num">P5</span>Causal</a><a class="phase-link" href="phase6_integrated.html" title="Integrated"><span class="phase-num">P6</span>Integrated</a></div></div></nav>
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Kutsuki DataBank / Phase 5</div>
+    <h1>Phase 5 Causal Impact</h1>
+    <p>施策・イベントの因果効果推定。現状はイベント年表・介入日が未整備のため分析を保留しています。</p>
+    <div class="meta"><span class="chip">くつき薬局南茨木店</span><span class="chip">データ不足 · 保留中</span><span class="chip">生成 2026-09-15 22:53</span></div>
+  </header>
+  <div class="grid"><div class="card span-3 kpi"><div class="label">ステータス</div><div class="value">データ不足</div><div class="sub">イベント年表待ち</div></div><div class="card span-3 kpi"><div class="label">予定手法</div><div class="value">ITS / DiD</div><div class="sub">CausalImpact 想定</div></div><div class="card span-3 kpi"><div class="label">必要データ</div><div class="value">介入日</div><div class="sub">開局・施策・競合変化</div></div><div class="card span-3 kpi"><div class="label">Phase 6</div><div class="value">先行実施</div><div class="sub">統合モデルは公開済</div></div></div>
+  <div class="card span-12 toc" style="margin-top:18px"><a href="#planned">データが揃ったときに出す予定の図</a><a href="#needed">再開に必要なもの</a><a href="#next">揃ったあとの予定</a></div>
+  <div class="callout warn"><strong>現在の状況</strong><ul><li>因果推定（中断時系列・差分の差分・CausalImpact）に必要なイベント年表が未入手です。</li><li>開局・改装・キャンペーン・近隣競合の開閉・価格変更などの介入日が揃うまで本 Phase は実行しません。</li><li>回帰係数や相関を因果効果としては解釈しない方針を維持します。</li></ul></div><h2 id="planned">データが揃ったときに出す予定の図</h2><div class="card span-12" style="margin-bottom:12px"><h3>介入前後の月次件数（ITS）</h3><div class="fig-explain"><strong>この図の読み方（予定）</strong>イベント日を縦線で入れ、介入前後の水準・傾きの変化を示します。反実仮想（起きなかった場合の線）との差が効果の候補です。</div></div><div class="card span-12" style="margin-bottom:12px"><h3>CausalImpact 事後分布</h3><div class="fig-explain"><strong>この図の読み方（予定）</strong>介入後の累積効果の事後分布。ゼロをまたぐかで「効果あり」の確信度を読みます。</div></div><div class="card span-12" style="margin-bottom:12px"><h3>門前／非門前の層別効果</h3><div class="fig-explain"><strong>この図の読み方（予定）</strong>同じ介入が門前流入と面流入で違うかを比較します。</div></div><h2 id="needed">再開に必要なもの</h2><p>少なくとも「日付・イベント種別・対象範囲（自店/競合/地域）・備考」の年表 CSV が必要です。可能であれば施策強度（広告費・チラシ枚数など）も併記してください。</p><div class="card span-12" style="padding:0;overflow:auto"><table><thead><tr><th>項目</th><th>例</th><th>必須</th></tr></thead><tbody><tr><td>介入日</td><td>2025-04-01</td><td>必須</td></tr><tr><td>イベント種別</td><td>近隣クリニック新規開業</td><td>必須</td></tr><tr><td>対象</td><td>競合 / 自店施策</td><td>必須</td></tr><tr><td>強度・メモ</td><td>チラシ2万部</td><td>任意</td></tr></tbody></table></div><h2 id="next">揃ったあとの予定</h2><p>月次処方箋枚数（門前/非門前分解）をアウトカムに、ITS または Bayesian structural time-series （CausalImpact）で介入前後の反実仮想を推定します。並行して Phase 6 の予測ベースラインと比較します。</p>
+  <footer class="footer">
+    自店受診データに基づく記述分析です。市場全体の選択率・因果効果としては解釈しないでください。
+    花粉欠損は0埋めしていません。新患フラグは使用していません。
+  </footer>
+</div>
+</body>
+</html>

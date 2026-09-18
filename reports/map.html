@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>商圏マップ | くつき薬局南茨木店</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+:root {
+  --bg: #f3f1eb; --surface: #fffcf7; --ink: #1c2430; --muted: #5c6675;
+  --line: #d9d2c5; --accent: #0f6a6a; --accent-2: #c45c26;
+  --shadow: 0 10px 30px rgba(28,36,48,.08);
+  --sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { margin:0; font-family: var(--sans); color: var(--ink); background: var(--bg); line-height:1.65; }
+a { color: var(--accent); }
+.wrap { max-width: 960px; margin: 0 auto; padding: 24px 20px 64px; }
+.hero {
+  background: linear-gradient(135deg,#103a3a 0%,#0f6a6a 55%,#2f6f9f 100%);
+  color:#f7fffe; border-radius:28px; padding:30px 32px 24px; box-shadow: var(--shadow);
+}
+.hero .eyebrow { letter-spacing:.14em; text-transform:uppercase; font-size:12px; opacity:.85; }
+.hero h1 { margin:8px 0 10px; font-size: clamp(26px,4vw,36px); line-height:1.2; }
+.hero p { margin:0; opacity:.92; }
+.meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.chip { background: rgba(255,255,255,.14); border-radius:999px; padding:6px 12px; font-size:12px; }
+h2 { margin:32px 0 12px; font-size:22px; border-left:4px solid var(--accent); padding-left:12px; }
+.card { background: var(--surface); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow: var(--shadow); }
+#map { height: 620px; border-radius:18px; border:1px solid var(--line); box-shadow: var(--shadow); }
+.legend-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap:14px; margin-top:14px; }
+.legend-row { display:flex; align-items:center; gap:8px; margin:4px 0; font-size:13px; }
+.swatch { width:16px; height:16px; border-radius:4px; flex:0 0 auto; border:1px solid rgba(0,0,0,.15); }
+.bubble { border-radius:50%; background: rgba(196,92,38,.55); border:1px solid #c45c26; flex:0 0 auto; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.footer { margin-top:36px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:16px; }
+.leaflet-container { font-family: var(--sans); }
+.map-legend {
+  background: rgba(255,252,247,.94); padding:8px 10px; border-radius:10px;
+  border:1px solid var(--line); font-size:12px; line-height:1.5; max-width:190px;
+}
+ul { padding-left: 1.2rem; }
+/* === サイドバーシェル BEGIN === (templates/_sidebar.html と対) */
+:root {
+  --sb-w: 240px;
+  --sb-bg: #f7f4ed;
+  --sb-ink: #1c2430;
+  --sb-muted: #5c6675;
+  --sb-line: #ddd6c8;
+  --sb-accent: #0f6a6a;
+  --sb-active-bg: #e4efee;
+}
+
+/* 旧・上部横並びナビは廃止 */
+.phase-nav { display: none !important; }
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  padding: 10px 16px;
+  background: var(--sb-accent);
+  color: #fff;
+  border-radius: 0 0 10px 0;
+  text-decoration: none;
+  font-size: 13px;
+}
+.skip-link:focus { left: 0; }
+
+body { display: grid; grid-template-columns: var(--sb-w) minmax(0, 1fr); align-items: start; }
+body > .skip-link, body > .topbar, body > .nav-overlay { grid-column: 1 / -1; }
+
+.sidebar {
+  grid-column: 1;
+  align-self: start;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--sb-bg);
+  border-right: 1px solid var(--sb-line);
+  padding: 18px 0 24px;
+  font-size: 13px;
+}
+.wrap { grid-column: 2; max-width: 960px; margin: 0 auto; width: 100%; min-width: 0; }
+
+.sb-brand { display: block; padding: 0 16px 12px; text-decoration: none; color: var(--sb-ink); }
+.sb-brand-name { display: block; font-weight: 700; font-size: 14px; line-height: 1.35; }
+.sb-brand-sub {
+  display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--sb-accent); margin-top: 2px;
+}
+.sb-brand:hover .sb-brand-name { color: var(--sb-accent); }
+
+.sb-period {
+  margin: 0 16px 16px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--sb-line);
+  color: var(--sb-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.sb-heading {
+  margin: 14px 16px 6px;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--sb-muted);
+  font-weight: 700;
+}
+.sidebar ul { list-style: none; margin: 0; padding: 0; }
+
+.sb-nav a {
+  display: block;
+  padding: 7px 14px 7px 16px;
+  border-left: 4px solid transparent;
+  text-decoration: none;
+  color: var(--sb-ink);
+  line-height: 1.35;
+}
+.sb-nav a:hover { background: #efeade; }
+.sb-nav .sb-item-title { display: block; font-size: 12.5px; font-weight: 600; }
+.sb-nav .sb-item-desc { display: block; font-size: 11px; color: var(--sb-muted); margin-top: 1px; }
+.sb-nav a[aria-current="page"] {
+  background: var(--sb-active-bg);
+  border-left-color: var(--sb-accent);
+}
+.sb-nav a[aria-current="page"] .sb-item-title { color: #0b4f4f; }
+.sb-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px dashed #9a8f7c;
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  color: #6b6152;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.sb-nav a.is-blocked .sb-item-title { color: var(--sb-muted); font-weight: 500; }
+
+.sb-toc a {
+  display: block;
+  padding: 5px 14px 5px 16px;
+  border-left: 4px solid transparent;
+  text-decoration: none;
+  color: var(--sb-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.sb-toc a:hover { color: var(--sb-ink); background: #efeade; }
+.sb-toc a.is-current {
+  color: #0b4f4f;
+  font-weight: 700;
+  border-left-color: var(--sb-accent);
+  background: var(--sb-active-bg);
+}
+.sb-toc:empty, .sb-toc ul:empty { display: none; }
+
+.sb-filters { margin-top: 16px; padding-top: 4px; border-top: 1px solid var(--sb-line); }
+.sb-filter-slot {
+  margin: 0 16px 6px;
+  padding: 8px 10px;
+  border: 1px dashed var(--sb-line);
+  border-radius: 8px;
+  color: var(--sb-muted);
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.sb-filter-slot span { font-size: 10px; opacity: .8; }
+
+.sb-footer { margin: 18px 16px 0; padding-top: 12px; border-top: 1px solid var(--sb-line); }
+.sb-generated { margin: 0 0 6px; color: var(--sb-muted); font-size: 11px; }
+.sb-notes-link { font-size: 11px; color: var(--sb-accent); }
+
+/* モバイル用トップバー（>=900px では非表示） */
+.topbar { display: none; }
+.nav-toggle {
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid var(--sb-line); border-radius: 10px;
+  cursor: pointer; padding: 0;
+}
+.nav-toggle-bars, .nav-toggle-bars::before, .nav-toggle-bars::after {
+  display: block; width: 18px; height: 2px; background: var(--sb-ink); border-radius: 2px;
+}
+.nav-toggle-bars { position: relative; }
+.nav-toggle-bars::before, .nav-toggle-bars::after { content: ""; position: absolute; left: 0; }
+.nav-toggle-bars::before { top: -6px; }
+.nav-toggle-bars::after { top: 6px; }
+.topbar-crumb { font-size: 12px; font-weight: 700; color: var(--sb-accent); letter-spacing: .04em; }
+
+/* フォーカスリングは消さない */
+a:focus-visible, button:focus-visible {
+  outline: 3px solid #0f6a6a;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (max-width: 1279px) and (min-width: 900px) {
+  :root { --sb-w: 200px; }
+  .sb-nav .sb-item-desc { font-size: 10.5px; }
+}
+
+@media (max-width: 899px) {
+  body { display: block; }
+  .topbar {
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 60;
+    padding: 8px 12px;
+    background: rgba(255, 252, 247, .95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--sb-line);
+  }
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: min(290px, 86vw);
+    height: 100dvh;
+    z-index: 90;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    box-shadow: 0 0 40px rgba(28, 36, 48, .18);
+  }
+  body.nav-open .sidebar { transform: translateX(0); }
+  .nav-overlay {
+    position: fixed; inset: 0; z-index: 80;
+    background: rgba(18, 24, 32, .45);
+  }
+  body.nav-open { overflow: hidden; }
+  .wrap { max-width: 100%; padding-left: 14px; padding-right: 14px; }
+  .hero { padding: 24px 18px 20px; border-radius: 20px; }
+  .card { padding: 14px; }
+  h2 { font-size: 19px; }
+}
+
+/* 長いクリニック名などが KPI カードを突き破らないように */
+.kpi .value { overflow-wrap: anywhere; line-height: 1.3; }
+.kpi .value:not(:has(*)) { font-size: clamp(20px, 2.1vw, 28px); }
+
+/* モバイルでの横あふれ対策 */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.figure img, iframe, img { max-width: 100%; }
+@media (max-width: 899px) {
+  .meta { gap: 6px; }
+  .chip { font-size: 11px; padding: 5px 10px; }
+  .kpi .value { font-size: 24px; }
+  iframe.map { height: 400px; }
+}
+
+@media print {
+  .sidebar, .topbar, .nav-overlay, .skip-link { display: none !important; }
+  body { display: block; background: #fff; }
+  .wrap { max-width: 100%; }
+}
+/* === サイドバーシェル END === */
+
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">本文へスキップ</a>
+
+<div class="topbar">
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="ナビゲーションを開く">
+    <span class="nav-toggle-bars" aria-hidden="true"></span>
+  </button>
+  <span class="topbar-crumb">Kutsuki DataBank / 地図</span>
+</div>
+
+<div class="nav-overlay" hidden></div>
+
+<aside class="sidebar" id="sidebar">
+  <a class="sb-brand" href="index.html">
+    <span class="sb-brand-name">くつき薬局南茨木店</span>
+    <span class="sb-brand-sub">DataBank Analytics</span>
+  </a>
+
+  <p class="sb-period" title="全ページ共通のデータ期間">受診 2024-09-02 〜 2026-07-31</p>
+
+  <nav class="sb-nav" aria-label="Phase ナビゲーション">
+    <p class="sb-heading" id="sb-h-phase">Phase</p>
+    <ul aria-labelledby="sb-h-phase">
+      <li><a href="phase1_flow.html"><span class="sb-item-title">Phase 1 Prescription Flow</span><span class="sb-item-desc">門前と非門前のフロー</span></a></li>
+      <li><a href="phase2_catchment.html"><span class="sb-item-title">Phase 2 Clinic Catchment</span><span class="sb-item-desc">商圏とクリニック分布</span></a></li>
+      <li><a href="phase3_model.html"><span class="sb-item-title">Phase 3 Choice &amp; Growth</span><span class="sb-item-desc">選択モデルと成長試算</span></a></li>
+      <li><a href="phase4_retention.html"><span class="sb-item-title">Phase 4 Retention &amp; LTV</span><span class="sb-item-desc">残存・定着・LTV</span></a></li>
+      <li><a href="phase5_causal.html" class="is-blocked"><span class="sb-item-title">Phase 5 Causal Impact<span class="sb-badge">データ不足</span></span><span class="sb-item-desc">介入効果の推定</span></a></li>
+      <li><a href="phase6_integrated.html"><span class="sb-item-title">Phase 6 Integrated Model</span><span class="sb-item-desc">統合モデルと予測</span></a></li>
+    </ul>
+    <p class="sb-heading" id="sb-h-extra">追加分析</p>
+    <ul aria-labelledby="sb-h-extra">
+      <li><a href="pathways.html"><span class="sb-item-title">来院経路</span><span class="sb-item-desc">1→2→3回目の診療科遷移</span></a></li>
+      <li><a href="map.html" aria-current="page"><span class="sb-item-title">地図</span><span class="sb-item-desc">商圏・競合・来局率マップ</span></a></li>
+    </ul>
+  </nav>
+
+  <nav class="sb-toc" aria-label="ページ内目次">
+    <p class="sb-heading" id="sb-h-toc">このページの内容</p>
+    <ul aria-labelledby="sb-h-toc">
+      <li><a href="#map-sec">地図</a></li>
+      <li><a href="#legend">凡例と縮尺の考え方</a></li>
+      <li><a href="#notes-sec">読み方と限界</a></li>
+    </ul>
+  </nav>
+
+  <!-- フィルタ領域: 枠のみ確保。機能は未実装。 -->
+  <div class="sb-filters" aria-label="フィルタ（準備中）">
+    <p class="sb-heading">フィルタ</p>
+    <div class="sb-filter-slot" data-filter-slot="period">期間フィルタ<span>準備中</span></div>
+    <div class="sb-filter-slot" data-filter-slot="segment">区分フィルタ<span>準備中</span></div>
+  </div>
+
+  <div class="sb-footer">
+    <p class="sb-generated">生成 2026-09-18 19:24</p>
+    <a class="sb-notes-link" href="#notes">注意事項</a>
+  </div>
+</aside>
+
+<main class="wrap" id="main">
+  <header class="hero">
+    <div class="eyebrow">Kutsuki DataBank / 地図</div>
+    <h1>商圏マップ</h1>
+    <p>自店・クリニック・メッシュ来局率・競合薬局・患者密度をレイヤ切替で重ねて見る。
+       円の大きさは件数の対数で、凡例は実数。</p>
+    <div class="meta">
+      <span class="chip">くつき薬局南茨木店</span>
+      <span class="chip">受診 2024-09-02 〜 2026-07-31</span>
+      <span class="chip">タイル: 国土地理院 / OSM</span>
+    </div>
+  </header>
+
+  <h2 id="map-sec">地図</h2>
+  <div id="map"></div>
+  <p style="color:var(--muted);font-size:13px;margin-top:8px">
+    右上のコントロールでレイヤを切り替えられます。円・矩形をクリックすると内訳が出ます。
+  </p>
+
+  <h2 id="legend">凡例と縮尺の考え方</h2>
+  <div class="card">
+    <div class="legend-grid">
+      <div>
+        <strong style="font-size:13px">クリニック（円＝件数）</strong>
+        <div id="bubble-legend"></div>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
+          半径は <span class="num">log1p(件数)</span> に比例。件数をそのまま半径にすると
+          最大施設1点だけが巨大になり、他が読めなくなるため。<strong>表示している数値は実数</strong>。
+        </p>
+      </div>
+      <div>
+        <strong style="font-size:13px">メッシュ来局率</strong>
+        <div id="mesh-legend"></div>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
+          500mメッシュの「自店来局ユニーク患者 ÷ メッシュ人口」。
+          最大 22.2%。色は非ゼロ値の<strong>五分位</strong>で割っている
+          （対数でも右に寄って読めないため）。
+        </p>
+      </div>
+      <div>
+        <strong style="font-size:13px">その他のレイヤ</strong>
+        <div class="legend-row"><span class="swatch" style="background:#0f6a6a"></span>自店（くつき薬局南茨木店）</div>
+        <div class="legend-row"><span class="swatch" style="background:#2f6f9f"></span>競合薬局（66件）</div>
+        <div class="legend-row"><span class="swatch" style="background:linear-gradient(90deg,#ffeda0,#feb24c,#fc4e2a,#bd0026)"></span>患者密度（KDEヒートマップ）</div>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
+          患者密度は<strong>個別点をプロットしていません</strong>。約250mグリッドに集約し、
+          3件未満のセルは非表示（1102セルを秘匿）。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <h2 id="notes-sec">読み方と限界</h2>
+  <div class="card">
+    <ul>
+      <li>クリニックの円は<strong>自店を経由した処方箋件数</strong>であり、そのクリニックの総発行数ではない。
+          自店シェアの分母は観測できない。</li>
+      <li>メッシュ来局率の分子は自店患者のみ。他薬局の利用は含まないため、
+          地域の「薬局利用率」ではなく<strong>自店の浸透度</strong>として読む。</li>
+      <li>患者密度は集約値。セル単位の件数は 3 件以上のものだけを使っている。</li>
+      <li>競合薬局は所在のみ。処方箋枚数は未取得のため、圧力は立地・営業時間の代理指標。</li>
+      <li>タイルは国土地理院・OpenStreetMap。Google Maps JS API はキー発行と課金設定が必要なため、
+          要件になった段階で差し替える。</li>
+    </ul>
+  </div>
+
+  <footer class="footer" id="notes">
+    自店受診データに基づく記述分析です。市場全体の選択率・因果効果としては解釈しないでください。
+  </footer>
+</main>
+
+<script id="map-data" type="application/json">{"pharmacy": {"lat": 34.801298494906895, "lon": 135.56540221590993, "name": "くつき薬局南茨木店"}, "clinics": [{"id": "C001", "name": "医療法人はせがわ耳鼻咽喉科", "lat": 34.801521, "lon": 135.565216, "n": 14644, "km": 0.03, "sp": "耳鼻咽喉科", "gate": true}, {"id": "C002", "name": "平山皮フ科クリニック", "lat": 34.801105, "lon": 135.565079, "n": 8671, "km": 0.037, "sp": "皮膚科", "gate": true}, {"id": "C003", "name": "藤井クリニック", "lat": 34.801594, "lon": 135.56572, "n": 1120, "km": 0.044, "sp": "内科", "gate": true}, {"id": "C004", "name": "医療法人創康会岸本クリニック", "lat": 34.80061, "lon": 135.565521, "n": 918, "km": 0.077, "sp": "内科", "gate": true}, {"id": "C005", "name": "医療法人 恵仁会　田中病院", "lat": 34.802143, "lon": 135.567459, "n": 782, "km": 0.21, "sp": "内科", "gate": true}, {"id": "C006", "name": "南茨木皮ふ科クリニック", "lat": 34.801895, "lon": 135.564453, "n": 650, "km": 0.109, "sp": "皮膚科", "gate": true}, {"id": "C007", "name": "南茨木グリーンクリニック", "lat": 34.799221, "lon": 135.564026, "n": 486, "km": 0.263, "sp": "泌尿器科", "gate": true}, {"id": "C008", "name": "医療法人　医泉会　かしまクリニック", "lat": 34.797924, "lon": 135.558365, "n": 378, "km": 0.744, "sp": "内科", "gate": false}, {"id": "C009", "name": "髙岡クリニック", "lat": 34.801105, "lon": 135.565079, "n": 353, "km": 0.037, "sp": "精神科", "gate": true}, {"id": "C010", "name": "医療法人高島整形外科", "lat": 34.799358, "lon": 135.563309, "n": 226, "km": 0.288, "sp": "整形外科", "gate": true}, {"id": "C011", "name": "医）廉心会消化器内視鏡ｸﾘﾆｯｸ", "lat": 34.801895, "lon": 135.564453, "n": 218, "km": 0.109, "sp": "内科", "gate": true}, {"id": "C012", "name": "医）やまぐち整形外科・ﾘｳﾏﾁｸﾘﾆｯｸ", "lat": 34.802322, "lon": 135.564743, "n": 197, "km": 0.129, "sp": "整形外科", "gate": true}, {"id": "C013", "name": "医療法人　たに医院", "lat": 34.801411, "lon": 135.5625, "n": 193, "km": 0.265, "sp": "内科", "gate": true}, {"id": "C014", "name": "はしづめ内科", "lat": 34.802322, "lon": 135.564743, "n": 180, "km": 0.129, "sp": "内科", "gate": true}, {"id": "C015", "name": "大阪大学医学部附属病院", "lat": 34.81937, "lon": 135.527527, "n": 146, "km": 3.999, "sp": "内科", "gate": false}, {"id": "C016", "name": "医療法人なかおこどもクリニック", "lat": 34.809437, "lon": 135.56778, "n": 117, "km": 0.931, "sp": "小児科", "gate": false}, {"id": "C017", "name": "大阪医科薬科大学病院", "lat": 34.85228, "lon": 135.62471, "n": 98, "km": 7.839, "sp": "内科", "gate": false}, {"id": "C018", "name": "高原クリニック", "lat": 34.801521, "lon": 135.565216, "n": 66, "km": 0.03, "sp": "内科", "gate": true}, {"id": "C019", "name": "医療法人　歯徳会　芝歯科クリニック", "lat": 34.801178, "lon": 135.56575, "n": 64, "km": 0.034, "sp": "歯科", "gate": true}, {"id": "C020", "name": "社会福祉法人恩賜財団大阪府済生会茨木病院", "lat": 34.820595, "lon": 135.556686, "n": 63, "km": 2.288, "sp": "内科", "gate": false}, {"id": "C021", "name": "医療法人　内野小児科", "lat": 34.800026, "lon": 135.576385, "n": 62, "km": 1.013, "sp": "小児科", "gate": false}, {"id": "C048", "name": "医療法人 愛成会　愛成クリニック", "lat": 34.801819, "lon": 135.64505, "n": 57, "km": 7.273, "sp": "内科", "gate": false}, {"id": "C023", "name": "なかむら整形外科", "lat": 34.795918, "lon": 135.570053, "n": 48, "km": 0.734, "sp": "整形外科", "gate": false}, {"id": "C022", "name": "医療法人徳洲会 吹田徳洲会病院", "lat": 34.79718, "lon": 135.543076, "n": 45, "km": 2.089, "sp": "内科", "gate": false}, {"id": "C024", "name": "えびしまこどもとアレルギーのクリニック", "lat": 34.798561, "lon": 135.554108, "n": 44, "km": 1.075, "sp": "小児科", "gate": false}, {"id": "C025", "name": "医療法人　大森医院", "lat": 34.80117, "lon": 135.57811, "n": 42, "km": 1.16, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C027", "name": "フラワーベルクリニック", "lat": 34.521202, "lon": 135.54213, "n": 42, "km": 31.218, "sp": "小児科", "gate": false}, {"id": "C026", "name": "社会福祉法人恩賜財団大阪府済生会吹田病院", "lat": 34.7616, "lon": 135.534607, "n": 41, "km": 5.234, "sp": "内科", "gate": false}, {"id": "C028", "name": "吉川医院", "lat": 34.816212, "lon": 135.574661, "n": 39, "km": 1.861, "sp": "皮膚科", "gate": false}, {"id": "C029", "name": "茨木市駅うえた眼科", "lat": 34.816513, "lon": 135.576309, "n": 36, "km": 1.963, "sp": "眼科", "gate": false}, {"id": "C030", "name": "医療法人吉原会吉原眼科医院", "lat": 34.815159, "lon": 135.575378, "n": 34, "km": 1.79, "sp": "眼科", "gate": false}, {"id": "C031", "name": "医療法人寿和会　みともり子どもクリニック", "lat": 34.815159, "lon": 135.575378, "n": 34, "km": 1.79, "sp": "小児科", "gate": false}, {"id": "C032", "name": "さかぐち皮フ科クリニック", "lat": 34.810669, "lon": 135.563904, "n": 34, "km": 1.051, "sp": "皮膚科", "gate": false}, {"id": "C036", "name": "医療法人けあき会川尻ｸﾘﾆｯｸ", "lat": 34.814068, "lon": 135.573853, "n": 29, "km": 1.616, "sp": "外科", "gate": false}, {"id": "C037", "name": "みしなこどもクリニック", "lat": 34.811924, "lon": 135.568985, "n": 29, "km": 1.226, "sp": "小児科", "gate": false}, {"id": "C035", "name": "社会福祉法人桃林会遊育園こどもクリニック", "lat": 34.780727, "lon": 135.556519, "n": 29, "km": 2.427, "sp": "小児科", "gate": false}, {"id": "C034", "name": "医療法人みそら　みそら訪問ｸﾘﾆｯｸ茨木院", "lat": 34.801613, "lon": 135.565994, "n": 29, "km": 0.064, "sp": "内科", "gate": true}, {"id": "C033", "name": "社会医療法人祐生会　茨木みどりヶ丘病院", "lat": 34.816029, "lon": 135.555344, "n": 27, "km": 1.878, "sp": "内科", "gate": false}, {"id": "C038", "name": "医療法人和倉会サンタマリア病院", "lat": 34.811714, "lon": 135.570892, "n": 27, "km": 1.262, "sp": "内科", "gate": false}, {"id": "C039", "name": "医療法人　みのりこころのクリニック", "lat": 34.816422, "lon": 135.576309, "n": 26, "km": 1.954, "sp": "精神科", "gate": false}, {"id": "C040", "name": "医療法人ＡＳ産婦人科あやフラウクリニック", "lat": 34.815285, "lon": 135.575226, "n": 26, "km": 1.795, "sp": "産婦人科", "gate": false}, {"id": "C041", "name": "医療法人ﾒﾃﾞｨｶﾙﾒﾝﾀﾙｹｱ横山渡辺ｸﾘｯｸ", "lat": 34.816959, "lon": 135.559814, "n": 25, "km": 1.815, "sp": "精神科", "gate": false}, {"id": "C042", "name": "国立循環器病研究センター", "lat": 34.77626, "lon": 135.537354, "n": 24, "km": 3.783, "sp": "内科", "gate": false}, {"id": "C043", "name": "医療法人睦会福井眼科", "lat": 34.790157, "lon": 135.552704, "n": 24, "km": 1.697, "sp": "眼科", "gate": false}, {"id": "C044", "name": "社会医療法人 愛仁会高槻病院", "lat": 34.856304, "lon": 135.620529, "n": 24, "km": 7.92, "sp": "内科", "gate": false}, {"id": "C046", "name": "医療法人　京優会　谷川記念病院", "lat": 34.818123, "lon": 135.561707, "n": 22, "km": 1.901, "sp": "内科", "gate": false}, {"id": "C045", "name": "なかじま糖尿病内科", "lat": 34.738926, "lon": 135.518402, "n": 22, "km": 8.157, "sp": "内科", "gate": false}, {"id": "C047", "name": "富田るり子皮膚科クリニック", "lat": 34.702797, "lon": 135.499786, "n": 20, "km": 12.486, "sp": "皮膚科", "gate": false}, {"id": "C049", "name": "内科・循環器内科 たにがわクリニック", "lat": 34.85297, "lon": 135.579147, "n": 19, "km": 5.881, "sp": "内科", "gate": false}, {"id": "C050", "name": "医療法人命の冠会 希ファミリークリニック", "lat": 34.817352, "lon": 135.575623, "n": 19, "km": 2.014, "sp": "内科", "gate": false}, {"id": "C051", "name": "医療法人大崎医院", "lat": 34.81591, "lon": 135.573959, "n": 19, "km": 1.803, "sp": "内科", "gate": false}, {"id": "C055", "name": "よしだ内科・呼吸器内科クリニック", "lat": 34.814587, "lon": 135.563919, "n": 16, "km": 1.484, "sp": "内科", "gate": false}, {"id": "C057", "name": "医療法人かおり会　本多医院", "lat": 35.356216, "lon": 136.03891, "n": 16, "km": 75.259, "sp": "内科", "gate": false}, {"id": "C056", "name": "医療法人七覚会ウィルクリニック", "lat": 34.681232, "lon": 135.500305, "n": 16, "km": 14.616, "sp": "皮膚科", "gate": false}, {"id": "C052", "name": "社会医療法人仙養会　北摂総合病院", "lat": 34.826511, "lon": 135.591537, "n": 16, "km": 3.681, "sp": "内科", "gate": false}, {"id": "C054", "name": "医療法人希真会竹村耳鼻咽喉科クリニック", "lat": 34.79998, "lon": 135.583359, "n": 16, "km": 1.646, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C053", "name": "医療法人緑樹会宮川ｸﾘﾆｯｸ", "lat": 34.780025, "lon": 135.562119, "n": 16, "km": 2.384, "sp": "内科", "gate": false}, {"id": "C058", "name": "うがじん歯科医院", "lat": 34.802322, "lon": 135.564743, "n": 15, "km": 0.129, "sp": "歯科", "gate": true}, {"id": "C059", "name": "中之島アイセンターＣＬＩＮＩＣ", "lat": 34.692787, "lon": 135.490158, "n": 15, "km": 13.887, "sp": "眼科", "gate": false}, {"id": "C060", "name": "医療法人薫陶会しおみ整形外科", "lat": 34.810669, "lon": 135.563904, "n": 15, "km": 1.051, "sp": "整形外科", "gate": false}, {"id": "C063", "name": "医療法人　やまにしクリニック", "lat": 35.292927, "lon": 136.002548, "n": 14, "km": 67.617, "sp": "内科", "gate": false}, {"id": "C064", "name": "ファミリークリニックゆい", "lat": 34.801437, "lon": 135.57811, "n": 14, "km": 1.16, "sp": "内科", "gate": false}, {"id": "C062", "name": "やまうちクリニック", "lat": 34.815098, "lon": 135.561371, "n": 13, "km": 1.578, "sp": "精神科", "gate": false}, {"id": "C065", "name": "前羽クリニック", "lat": 34.817883, "lon": 135.559036, "n": 13, "km": 1.934, "sp": "内科", "gate": false}, {"id": "C066", "name": "医療法人大滔会　いながきクリニック", "lat": 34.785473, "lon": 135.554398, "n": 13, "km": 2.026, "sp": "内科", "gate": false}, {"id": "C112", "name": "医療法人恵生会吉本診療所", "lat": 34.703125, "lon": 135.483749, "n": 12, "km": 13.222, "sp": "内科", "gate": false}, {"id": "C073", "name": "やまなか歯科クリニック", "lat": 34.802654, "lon": 135.564392, "n": 12, "km": 0.177, "sp": "歯科", "gate": true}, {"id": "C071", "name": "医療法人ロングウッド　前田クリニック", "lat": 34.820385, "lon": 135.509125, "n": 12, "km": 5.559, "sp": "内科", "gate": false}, {"id": "C069", "name": "高松内科クリニック", "lat": 34.849834, "lon": 135.618042, "n": 12, "km": 7.226, "sp": "内科", "gate": false}, {"id": "C067", "name": "小林メディカルクリニック", "lat": 34.790104, "lon": 135.548706, "n": 12, "km": 1.968, "sp": "内科", "gate": false}, {"id": "C068", "name": "医療法人ＳＫＹスカイクリニック", "lat": 34.816429, "lon": 135.576218, "n": 12, "km": 1.951, "sp": "整形外科", "gate": false}, {"id": "C070", "name": "医療法人光輝会　みつだクリニック", "lat": 34.816601, "lon": 135.561981, "n": 11, "km": 1.73, "sp": "精神科", "gate": false}, {"id": "C072", "name": "医療法人 友紘会 友紘会総合病院", "lat": 34.827789, "lon": 135.526505, "n": 11, "km": 4.614, "sp": "内科", "gate": false}, {"id": "C074", "name": "ひらいわクリニック", "lat": 34.814587, "lon": 135.563919, "n": 11, "km": 1.484, "sp": "内科", "gate": false}, {"id": "C075", "name": "かたおか整形外科手の外科クリニック", "lat": 34.775898, "lon": 135.549744, "n": 11, "km": 3.166, "sp": "整形外科", "gate": false}, {"id": "C076", "name": "南摂津メンタルクリニック", "lat": 34.767029, "lon": 135.570023, "n": 11, "km": 3.834, "sp": "精神科", "gate": false}, {"id": "C077", "name": "医療法人一祐会おかもと頭痛めまい脳神経内", "lat": 34.803223, "lon": 135.513718, "n": 11, "km": 4.724, "sp": "内科", "gate": false}, {"id": "C078", "name": "かめい眼科", "lat": 34.81493, "lon": 135.565521, "n": 11, "km": 1.516, "sp": "眼科", "gate": false}, {"id": "C080", "name": "医療法人ベルフィーヌ　岡本医院", "lat": 34.818031, "lon": 135.579544, "n": 11, "km": 2.265, "sp": "内科", "gate": false}, {"id": "C085", "name": "いしが城谷クリニック", "lat": 34.81673, "lon": 135.57222, "n": 10, "km": 1.825, "sp": "内科", "gate": false}, {"id": "C147", "name": "医療法人健仁会アイルすまいるクリニック", "lat": 34.815247, "lon": 135.561462, "n": 10, "km": 1.592, "sp": "内科", "gate": false}, {"id": "C087", "name": "社会医療法人行岡医学研究会　行岡病院", "lat": 34.710037, "lon": 135.509125, "n": 10, "km": 11.376, "sp": "内科", "gate": false}, {"id": "C081", "name": "医療法人　樹栄会　おおさわ皮膚科形成外科", "lat": 34.791851, "lon": 135.549194, "n": 10, "km": 1.815, "sp": "皮膚科", "gate": false}, {"id": "C084", "name": "医療法人　青木医院", "lat": 34.696518, "lon": 135.530655, "n": 10, "km": 12.076, "sp": "皮膚科", "gate": false}, {"id": "C083", "name": "高島市民病院", "lat": 35.292973, "lon": 136.010941, "n": 10, "km": 68.073, "sp": "内科", "gate": false}, {"id": "C082", "name": "こうもと内科・小児科クリニック", "lat": 34.804638, "lon": 135.57724, "n": 10, "km": 1.143, "sp": "内科", "gate": false}, {"id": "C079", "name": "中神クリニック", "lat": 34.803295, "lon": 135.575226, "n": 10, "km": 0.924, "sp": "内科", "gate": false}, {"id": "C093", "name": "大阪こころの診療所梅田院", "lat": 34.707211, "lon": 135.496536, "n": 9, "km": 12.208, "sp": "精神科", "gate": false}, {"id": "C096", "name": "かえでクリニック", "lat": 34.700279, "lon": 135.543549, "n": 9, "km": 11.409, "sp": "精神科", "gate": false}, {"id": "C095", "name": "澤眼科医院", "lat": 34.827053, "lon": 135.583038, "n": 9, "km": 3.285, "sp": "眼科", "gate": false}, {"id": "C094", "name": "きずな友愛クリニック", "lat": 34.81776, "lon": 135.576523, "n": 9, "km": 2.093, "sp": "内科", "gate": false}, {"id": "C086", "name": "大阪市立総合医療センター", "lat": 34.708454, "lon": 135.523514, "n": 9, "km": 11.01, "sp": "内科", "gate": false}, {"id": "C092", "name": "医療法人はにかむ　ありたき小児科", "lat": 34.808811, "lon": 135.494156, "n": 9, "km": 6.558, "sp": "小児科", "gate": false}, {"id": "C091", "name": "医療法人　みずの眼科", "lat": 34.815098, "lon": 135.561371, "n": 9, "km": 1.578, "sp": "眼科", "gate": false}, {"id": "C090", "name": "医療法人二天会久保こう門胃腸科クリニック", "lat": 34.676941, "lon": 135.510574, "n": 9, "km": 14.708, "sp": "外科", "gate": false}, {"id": "C089", "name": "天王寺記念クリニック", "lat": 34.651012, "lon": 135.517471, "n": 9, "km": 17.276, "sp": "内科", "gate": false}, {"id": "C088", "name": "医療法人社団　日翔会 　くれはクリニック", "lat": 34.795918, "lon": 135.570053, "n": 9, "km": 0.734, "sp": "内科", "gate": false}, {"id": "C111", "name": "大阪整形外科病院", "lat": 34.687294, "lon": 135.46521, "n": 8, "km": 15.637, "sp": "整形外科", "gate": false}, {"id": "C108", "name": "医療法人コスモス会フジモト眼科", "lat": 34.708897, "lon": 135.510971, "n": 8, "km": 11.415, "sp": "眼科", "gate": false}, {"id": "C104", "name": "岡本甲状腺クリニック", "lat": 34.715843, "lon": 135.546463, "n": 8, "km": 9.658, "sp": "内科", "gate": false}, {"id": "C106", "name": "おおみや形成外科クリニック", "lat": 34.816826, "lon": 135.571548, "n": 8, "km": 1.815, "sp": "外科", "gate": false}, {"id": "C105", "name": "医療法人H＆L会ながや内科･循環器内科", "lat": 34.808006, "lon": 135.491287, "n": 8, "km": 6.808, "sp": "内科", "gate": false}, {"id": "C103", "name": "篠永医院", "lat": 34.79924, "lon": 135.573395, "n": 8, "km": 0.765, "sp": "内科", "gate": false}, {"id": "C102", "name": "医療法人エルア会　静波こころの診療所", "lat": 34.705006, "lon": 135.512466, "n": 8, "km": 11.749, "sp": "精神科", "gate": false}, {"id": "C101", "name": "あおき・まるやまクリニック", "lat": 34.808811, "lon": 135.494156, "n": 8, "km": 6.558, "sp": "内科", "gate": false}, {"id": "C099", "name": "おくだ脳神経外科クリニック", "lat": 34.763123, "lon": 135.496719, "n": 8, "km": 7.574, "sp": "外科", "gate": false}, {"id": "C098", "name": "医療法人見宜堂　大阪梅田形成外科粉瘤クリ", "lat": 34.698498, "lon": 135.50177, "n": 8, "km": 12.824, "sp": "外科", "gate": false}, {"id": "C097", "name": "Met I たじりJOYクリニック", "lat": 34.395466, "lon": 135.293732, "n": 8, "km": 51.524, "sp": "内科", "gate": false}, {"id": "C100", "name": "やまにしクリニック", "lat": 35.292927, "lon": 136.002548, "n": 7, "km": 67.617, "sp": "内科", "gate": false}, {"id": "C109", "name": "かねこクリニック", "lat": 34.710388, "lon": 135.512146, "n": 7, "km": 11.219, "sp": "精神科", "gate": false}, {"id": "C110", "name": "片山メンタルクリニック", "lat": 34.816845, "lon": 135.577164, "n": 7, "km": 2.035, "sp": "精神科", "gate": false}, {"id": "C115", "name": "一般財団法人　住友病院", "lat": 34.688477, "lon": 135.48761, "n": 7, "km": 14.419, "sp": "内科", "gate": false}, {"id": "C116", "name": "大阪国際空港メディカルクリニック", "lat": 34.787849, "lon": 135.444946, "n": 7, "km": 11.1, "sp": "内科", "gate": false}, {"id": "C117", "name": "医療法人増進会　本田眼科クリニック", "lat": 34.815815, "lon": 135.559509, "n": 7, "km": 1.701, "sp": "眼科", "gate": false}, {"id": "C118", "name": "せしも胃腸肛門クリニック", "lat": 34.817013, "lon": 135.572586, "n": 7, "km": 1.866, "sp": "内科", "gate": false}, {"id": "C129", "name": "社会医療法人 行岡医学研究会 行岡病院", "lat": 34.710037, "lon": 135.509125, "n": 6, "km": 11.376, "sp": "整形外科", "gate": false}, {"id": "C127", "name": "とよだ整形外科ﾘﾊﾋﾞﾘﾃｰｼｮﾝｸﾘﾆｯｸ", "lat": 34.816959, "lon": 135.559814, "n": 6, "km": 1.815, "sp": "整形外科", "gate": false}, {"id": "C128", "name": "かとう眼科", "lat": 34.816727, "lon": 135.574097, "n": 6, "km": 1.89, "sp": "眼科", "gate": false}, {"id": "C132", "name": "医療法人伯鳳会　大阪中央病院", "lat": 34.698833, "lon": 135.490952, "n": 6, "km": 13.27, "sp": "内科", "gate": false}, {"id": "C130", "name": "ゆうき耳鼻咽喉科", "lat": 34.814957, "lon": 135.567993, "n": 6, "km": 1.537, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C125", "name": "佐々木耳鼻咽喉科クリニック", "lat": 34.816158, "lon": 135.576309, "n": 6, "km": 1.929, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C126", "name": "千里山ファミリークリニック", "lat": 34.7785, "lon": 135.506042, "n": 6, "km": 5.984, "sp": "内科", "gate": false}, {"id": "C122", "name": "医療法人社団　皮潤会　うるおい皮ふ科クリ", "lat": 35.790844, "lon": 139.937988, "n": 6, "km": 411.762, "sp": "皮膚科", "gate": false}, {"id": "C124", "name": "医療法人社団　昴会　湖東記念病院", "lat": 35.14547, "lon": 136.256531, "n": 6, "km": 73.689, "sp": "内科", "gate": false}, {"id": "C123", "name": "社会医療法人弘道会守口生野記念病院", "lat": 34.760292, "lon": 135.590485, "n": 6, "km": 5.103, "sp": "内科", "gate": false}, {"id": "C121", "name": "喜多診療所", "lat": 34.736629, "lon": 135.576584, "n": 6, "km": 7.263, "sp": "皮膚科", "gate": false}, {"id": "C119", "name": "たつみ内科クリニック", "lat": 34.810669, "lon": 135.563904, "n": 6, "km": 1.051, "sp": "内科", "gate": false}, {"id": "C114", "name": "おおしま糖尿病・甲状腺クリニック", "lat": 34.826897, "lon": 135.583633, "n": 6, "km": 3.297, "sp": "内科", "gate": false}, {"id": "C113", "name": "医療法人恵方会みなかたこどもクリニック", "lat": 34.801861, "lon": 135.55127, "n": 6, "km": 1.292, "sp": "小児科", "gate": false}, {"id": "C141", "name": "滋賀医科大学付属病院", "lat": 34.974438, "lon": 135.946915, "n": 5, "km": 39.769, "sp": "内科", "gate": false}, {"id": "C151", "name": "茨木病院", "lat": 34.828869, "lon": 135.580521, "n": 5, "km": 3.362, "sp": "精神科", "gate": false}, {"id": "C150", "name": "久保井耳鼻咽喉科", "lat": 34.790478, "lon": 135.552597, "n": 5, "km": 1.678, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C149", "name": "医療法人涼悠会梅北眼科", "lat": 34.705833, "lon": 135.494339, "n": 5, "km": 12.443, "sp": "眼科", "gate": false}, {"id": "C146", "name": "医)ボンヌサンテ宇田レディースクリニック", "lat": 34.792252, "lon": 135.495483, "n": 5, "km": 6.463, "sp": "産婦人科", "gate": false}, {"id": "C145", "name": "医療法人厚仁会　なかクリニック", "lat": 34.816353, "lon": 135.558472, "n": 5, "km": 1.79, "sp": "内科", "gate": false}, {"id": "C144", "name": "茨木診療所", "lat": 34.81773, "lon": 135.57077, "n": 5, "km": 1.892, "sp": "内科", "gate": false}, {"id": "C143", "name": "茨木やまもと耳鼻科", "lat": 34.815117, "lon": 135.58075, "n": 5, "km": 2.08, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C142", "name": "ジュンレディースクリニック千里丘", "lat": 34.789795, "lon": 135.546173, "n": 5, "km": 2.172, "sp": "産婦人科", "gate": false}, {"id": "C120", "name": "独立行政法人国立病院機構大阪医療センター", "lat": 34.679611, "lon": 135.52095, "n": 5, "km": 14.128, "sp": "内科", "gate": false}, {"id": "C140", "name": "さなだ内科・消化器内科クリニック", "lat": 34.824718, "lon": 135.500916, "n": 5, "km": 6.437, "sp": "内科", "gate": false}, {"id": "C134", "name": "千里丘やまもと耳鼻咽喉科", "lat": 34.793556, "lon": 135.551697, "n": 5, "km": 1.519, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C131", "name": "吹田くわた内科・ペインクリニック", "lat": 34.798561, "lon": 135.554108, "n": 5, "km": 1.075, "sp": "内科", "gate": false}, {"id": "C133", "name": "医療法人　竹村診療所", "lat": 35.001553, "lon": 135.797302, "n": 5, "km": 30.71, "sp": "精神科", "gate": false}, {"id": "C107", "name": "大津赤十字病院", "lat": 35.007576, "lon": 135.859512, "n": 5, "km": 35.291, "sp": "内科", "gate": false}, {"id": "C136", "name": "医療法人悠仁会　稲田クリニック", "lat": 34.850315, "lon": 135.624908, "n": 5, "km": 7.695, "sp": "精神科", "gate": false}, {"id": "C137", "name": "あゆ皮フ科クリニック", "lat": 34.843769, "lon": 135.58429, "n": 5, "km": 5.027, "sp": "皮膚科", "gate": false}, {"id": "C138", "name": "医療法人秀明会　増田眼科", "lat": 35.037502, "lon": 135.973114, "n": 5, "km": 45.516, "sp": "眼科", "gate": false}, {"id": "C139", "name": "つばくろ診療所", "lat": 34.7061, "lon": 135.500992, "n": 5, "km": 12.111, "sp": "精神科", "gate": false}, {"id": "C204", "name": "正雀耳鼻咽喉科クリニック", "lat": 34.775555, "lon": 135.54924, "n": 4, "km": 3.221, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C178", "name": "医療法人真摯会　茨木ｸﾛｰﾊﾞｰ・矯正歯科", "lat": 34.811398, "lon": 135.557831, "n": 4, "km": 1.319, "sp": "歯科", "gate": false}, {"id": "C166", "name": "アクトタレイア茨木駅前１階", "lat": 34.816101, "lon": 135.558151, "n": 4, "km": 1.774, "sp": "外科", "gate": false}, {"id": "C177", "name": "のせ整形外科クリニック", "lat": 34.812836, "lon": 135.569229, "n": 4, "km": 1.33, "sp": "整形外科", "gate": false}, {"id": "C176", "name": "整形外科なかむらﾘﾊﾋﾞﾘﾃｰｼｮﾝｸﾘﾆｯｸ", "lat": 34.790592, "lon": 135.538254, "n": 4, "km": 2.75, "sp": "整形外科", "gate": false}, {"id": "C175", "name": "ひさとみこどもクリニック", "lat": 34.674568, "lon": 135.529358, "n": 4, "km": 14.472, "sp": "小児科", "gate": false}, {"id": "C174", "name": "大阪公立大学医学部附属病院", "lat": 34.646706, "lon": 135.509384, "n": 4, "km": 17.936, "sp": "内科", "gate": false}, {"id": "C173", "name": "かないレディースクリニック", "lat": 34.753391, "lon": 135.405365, "n": 4, "km": 15.557, "sp": "産婦人科", "gate": false}, {"id": "C172", "name": "宗教法人在日本南ﾌﾟﾚｽﾋﾞﾃﾘｱﾝﾐｯｼｮﾝ淀川ｷﾘｽﾄ", "lat": 34.730728, "lon": 135.512344, "n": 4, "km": 9.223, "sp": "内科", "gate": false}, {"id": "C171", "name": "医療法人のせ皮ふ科", "lat": 34.816422, "lon": 135.576309, "n": 4, "km": 1.954, "sp": "皮膚科", "gate": false}, {"id": "C170", "name": "医療法人健由会整形外科なかむらリハビリテ", "lat": 34.790592, "lon": 135.538254, "n": 4, "km": 2.75, "sp": "整形外科", "gate": false}, {"id": "C169", "name": "みやうち循環器内科・泌尿器科クリニック", "lat": 34.832546, "lon": 135.46991, "n": 4, "km": 9.384, "sp": "内科", "gate": false}, {"id": "C167", "name": "医療法人楠会　天六メンタルクリニック", "lat": 34.711193, "lon": 135.511749, "n": 4, "km": 11.154, "sp": "精神科", "gate": false}, {"id": "C165", "name": "とじまクリニック", "lat": 34.729588, "lon": 135.499893, "n": 4, "km": 9.969, "sp": "精神科", "gate": false}, {"id": "C155", "name": "ふくろうクリニック北大阪院", "lat": 34.741924, "lon": 135.53244, "n": 4, "km": 7.256, "sp": "内科", "gate": false}, {"id": "C135", "name": "医療法人河合敬一皮膚科医院", "lat": 34.99826, "lon": 135.732468, "n": 4, "km": 26.679, "sp": "皮膚科", "gate": false}, {"id": "C163", "name": "医療法人　奏仁会　健美クリニック", "lat": 34.707798, "lon": 135.497375, "n": 4, "km": 12.113, "sp": "内科", "gate": false}, {"id": "C152", "name": "医療法人幸樹会たかはし眼科", "lat": 34.784752, "lon": 135.556732, "n": 4, "km": 2.003, "sp": "眼科", "gate": false}, {"id": "C153", "name": "そのだクリニック", "lat": 34.827229, "lon": 135.58403, "n": 4, "km": 3.347, "sp": "精神科", "gate": false}, {"id": "C154", "name": "医療法人　桃恵会　心斎橋いぬい皮フ科", "lat": 34.675331, "lon": 135.501846, "n": 4, "km": 15.163, "sp": "皮膚科", "gate": false}, {"id": "C148", "name": "医療法人明愛会　きたやま内科クリニック", "lat": 34.795135, "lon": 135.658432, "n": 4, "km": 8.522, "sp": "内科", "gate": false}, {"id": "C157", "name": "社会福祉法人恩賜財団大阪府済生会千里病院", "lat": 34.79488, "lon": 135.510178, "n": 4, "km": 5.093, "sp": "内科", "gate": false}, {"id": "C160", "name": "上田皮膚科医院", "lat": 34.992359, "lon": 135.81575, "n": 4, "km": 31.187, "sp": "皮膚科", "gate": false}, {"id": "C161", "name": "日本赤十字社　高槻赤十字病院", "lat": 34.856239, "lon": 135.577515, "n": 4, "km": 6.208, "sp": "内科", "gate": false}, {"id": "C162", "name": "医療法人一山十会大阪梅田皮フ科スキンクリ", "lat": 34.704918, "lon": 135.491028, "n": 4, "km": 12.69, "sp": "皮膚科", "gate": false}, {"id": "C158", "name": "医療法人　瀬水会　大石眼科クリニック", "lat": 34.809437, "lon": 135.56778, "n": 4, "km": 0.931, "sp": "眼科", "gate": false}, {"id": "C201", "name": "関西電力病院", "lat": 34.69276, "lon": 135.487488, "n": 3, "km": 14.012, "sp": "内科", "gate": false}, {"id": "C195", "name": "じゅん茨木皮フ科・形成外科", "lat": 34.828495, "lon": 135.57959, "n": 3, "km": 3.29, "sp": "皮膚科", "gate": false}, {"id": "C196", "name": "社会福祉法人京都社会事業財団京都桂病院", "lat": 34.982143, "lon": 135.686646, "n": 3, "km": 22.949, "sp": "内科", "gate": false}, {"id": "C197", "name": "浜口クリニック", "lat": 34.704681, "lon": 135.497391, "n": 3, "km": 12.411, "sp": "外科", "gate": false}, {"id": "C200", "name": "かしの木こころのクリニック", "lat": 34.81675, "lon": 135.573669, "n": 3, "km": 1.877, "sp": "精神科", "gate": false}, {"id": "C273", "name": "梅田北オンライン診療クリニック", "lat": 34.71191, "lon": 135.497452, "n": 3, "km": 11.719, "sp": "内科", "gate": false}, {"id": "C202", "name": "山田駅前もりした内科クリニック", "lat": 34.804623, "lon": 135.516815, "n": 3, "km": 4.452, "sp": "内科", "gate": false}, {"id": "C203", "name": "おおかみクリニック梅田院", "lat": 34.698402, "lon": 135.499878, "n": 3, "km": 12.913, "sp": "精神科", "gate": false}, {"id": "C205", "name": "井上・神田クリニック", "lat": 34.816837, "lon": 135.572968, "n": 3, "km": 1.861, "sp": "内科", "gate": false}, {"id": "C206", "name": "医療法人　内海眼科医院", "lat": 34.817017, "lon": 135.572266, "n": 3, "km": 1.857, "sp": "眼科", "gate": false}, {"id": "C207", "name": "医療法人健栄会　三康クリニック", "lat": 34.829578, "lon": 135.585373, "n": 3, "km": 3.635, "sp": "泌尿器科", "gate": false}, {"id": "C194", "name": "澤木内科・糖尿病クリニック", "lat": 34.851681, "lon": 135.618958, "n": 3, "km": 7.435, "sp": "内科", "gate": false}, {"id": "C192", "name": "たかおか耳鼻・甲状腺クリニック", "lat": 34.816261, "lon": 135.558456, "n": 3, "km": 1.781, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C191", "name": "あおき皮フ科", "lat": 35.178333, "lon": 136.149506, "n": 3, "km": 67.742, "sp": "皮膚科", "gate": false}, {"id": "C185", "name": "まるいクリニック", "lat": 34.791286, "lon": 135.487549, "n": 3, "km": 7.196, "sp": "内科", "gate": false}, {"id": "C179", "name": "医療法人道仁会道仁病院", "lat": 34.766132, "lon": 135.599823, "n": 3, "km": 5.017, "sp": "内科", "gate": false}, {"id": "C180", "name": "地方独立行政法人市立吹田市民病院", "lat": 34.77626, "lon": 135.537354, "n": 3, "km": 3.783, "sp": "内科", "gate": false}, {"id": "C181", "name": "医）ｹｲｽﾞ会茶屋町ﾚﾃﾞｨｰｽｸﾘﾆｯｸ", "lat": 34.705994, "lon": 135.498901, "n": 3, "km": 12.215, "sp": "産婦人科", "gate": false}, {"id": "C182", "name": "医療法人しきな鼻クリニック千里", "lat": 34.812054, "lon": 135.496002, "n": 3, "km": 6.448, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C184", "name": "うえの内科・消化器内視鏡クリニック", "lat": 35.355659, "lon": 136.030991, "n": 3, "km": 74.798, "sp": "内科", "gate": false}, {"id": "C183", "name": "滋賀県立総合病院", "lat": 35.062492, "lon": 135.98819, "n": 3, "km": 48.26, "sp": "内科", "gate": false}, {"id": "C186", "name": "医療法人十字会野島病院", "lat": 35.431419, "lon": 133.818497, "n": 3, "km": 173.65, "sp": "内科", "gate": false}, {"id": "C187", "name": "のりこレディースクリニック", "lat": 35.857384, "lon": 139.653381, "n": 3, "km": 388.962, "sp": "産婦人科", "gate": false}, {"id": "C189", "name": "体と心よしだ子供クリニック", "lat": 34.816883, "lon": 135.571762, "n": 3, "km": 1.828, "sp": "小児科", "gate": false}, {"id": "C190", "name": "大阪歯科大学付属病院", "lat": 34.690063, "lon": 135.519241, "n": 3, "km": 13.068, "sp": "歯科", "gate": false}, {"id": "C168", "name": "医療法人岡クリニック", "lat": 34.817768, "lon": 135.575043, "n": 3, "km": 2.032, "sp": "精神科", "gate": false}, {"id": "C260", "name": "医療法人　豊仁会　第二近藤診療所", "lat": 34.801075, "lon": 135.575211, "n": 2, "km": 0.896, "sp": "内科", "gate": false}, {"id": "C254", "name": "きくち皮ふ科クリニック", "lat": 34.790741, "lon": 135.543365, "n": 2, "km": 2.33, "sp": "皮膚科", "gate": false}, {"id": "C261", "name": "田中歯科クリニック", "lat": 34.81699, "lon": 135.56665, "n": 2, "km": 1.749, "sp": "歯科", "gate": false}, {"id": "C259", "name": "富永医院", "lat": 34.80722, "lon": 135.570786, "n": 2, "km": 0.822, "sp": "内科", "gate": false}, {"id": "C258", "name": "社会医療法人彩樹豊中敬仁会病院", "lat": 34.804428, "lon": 135.474152, "n": 2, "km": 8.339, "sp": "内科", "gate": false}, {"id": "C257", "name": "大石クリニック", "lat": 34.818291, "lon": 135.489685, "n": 2, "km": 7.166, "sp": "内科", "gate": false}, {"id": "C256", "name": "医療法人　京医院", "lat": 34.711201, "lon": 135.50676, "n": 2, "km": 11.361, "sp": "内科", "gate": false}, {"id": "C255", "name": "医療法人紀映会ﾚﾃﾞｨｰｽｸﾘﾆｯｸ北浜", "lat": 34.689426, "lon": 135.506683, "n": 2, "km": 13.547, "sp": "産婦人科", "gate": false}, {"id": "C249", "name": "医療法人 NEW WAVES 堤ﾚﾃﾞｨｰｽｸﾘﾆｯｸ", "lat": 34.849678, "lon": 135.623566, "n": 2, "km": 7.558, "sp": "産婦人科", "gate": false}, {"id": "C253", "name": "加藤心療内科", "lat": 34.734383, "lon": 135.306137, "n": 2, "km": 24.823, "sp": "精神科", "gate": false}, {"id": "C252", "name": "医療法人社団昴会東近江市立能登川病院", "lat": 35.17569, "lon": 136.168259, "n": 2, "km": 68.914, "sp": "内科", "gate": false}, {"id": "C251", "name": "医療法人はら小児科クリニック", "lat": 34.81477, "lon": 135.592926, "n": 2, "km": 2.925, "sp": "小児科", "gate": false}, {"id": "C250", "name": "須藤耳鼻咽喉科", "lat": 34.809715, "lon": 135.578247, "n": 2, "km": 1.5, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C263", "name": "医療法人聖誕会　うめだファティリティーク", "lat": 34.709988, "lon": 135.497299, "n": 2, "km": 11.908, "sp": "産婦人科", "gate": false}, {"id": "C248", "name": "公益財団法人 田附興風会 医学研究所 北野", "lat": 34.705494, "lon": 135.506256, "n": 2, "km": 11.945, "sp": "内科", "gate": false}, {"id": "C247", "name": "医療法人慶水会都田泌尿器科医院", "lat": 34.814552, "lon": 135.57692, "n": 2, "km": 1.81, "sp": "泌尿器科", "gate": false}, {"id": "C262", "name": "みずの眼科", "lat": 34.815098, "lon": 135.561371, "n": 2, "km": 1.578, "sp": "眼科", "gate": false}, {"id": "C270", "name": "おおいべっぷ歯科", "lat": 34.803871, "lon": 135.575348, "n": 2, "km": 0.952, "sp": "歯科", "gate": false}, {"id": "C264", "name": "医療法人　ハマダ眼科", "lat": 34.687939, "lon": 135.506424, "n": 2, "km": 13.709, "sp": "眼科", "gate": false}, {"id": "C265", "name": "えみは総合歯科　大阪梅田院", "lat": 34.704762, "lon": 135.49437, "n": 2, "km": 12.544, "sp": "歯科", "gate": false}, {"id": "C281", "name": "杉本憲治内視鏡クリニック", "lat": 34.756588, "lon": 135.52153, "n": 2, "km": 6.385, "sp": "内科", "gate": false}, {"id": "C279", "name": "今泉耳鼻咽喉科クリニック", "lat": 34.739655, "lon": 135.592331, "n": 2, "km": 7.282, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C278", "name": "香梅会　マツイ医院", "lat": 34.773476, "lon": 135.551788, "n": 2, "km": 3.334, "sp": "内科", "gate": false}, {"id": "C277", "name": "渡部眼科ホワイティうめだ眼科クリニック", "lat": 34.706799, "lon": 135.499542, "n": 2, "km": 12.109, "sp": "眼科", "gate": false}, {"id": "C276", "name": "医療法人社団和顔会　眼科山口クリニック", "lat": 34.752235, "lon": 135.443192, "n": 2, "km": 12.424, "sp": "眼科", "gate": false}, {"id": "C275", "name": "医療法人　佐久川クリニック", "lat": 34.814877, "lon": 135.580566, "n": 2, "km": 2.048, "sp": "皮膚科", "gate": false}, {"id": "C274", "name": "守田耳鼻咽喉科大阪駅前耳管クリニック", "lat": 34.704422, "lon": 135.497452, "n": 2, "km": 12.433, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C272", "name": "医療法人　さいとう眼科", "lat": 34.836052, "lon": 135.593201, "n": 2, "km": 4.623, "sp": "眼科", "gate": false}, {"id": "C244", "name": "ふくいしほレディースクリニック", "lat": 34.808006, "lon": 135.491287, "n": 2, "km": 6.808, "sp": "産婦人科", "gate": false}, {"id": "C271", "name": "医療法人和生会ひがしやま瀬田眼科ｸﾘﾆｯｸ", "lat": 34.97554, "lon": 135.91301, "n": 2, "km": 37.156, "sp": "眼科", "gate": false}, {"id": "C280", "name": "ふなこし眼科ペインクリニック", "lat": 35.428268, "lon": 133.333084, "n": 2, "km": 214.675, "sp": "眼科", "gate": false}, {"id": "C269", "name": "医療法人佑諒会　江坂駅前花ふさ皮ふ科", "lat": 34.757469, "lon": 135.496399, "n": 2, "km": 7.967, "sp": "皮膚科", "gate": false}, {"id": "C268", "name": "すぎた子どもクリニック", "lat": 34.819088, "lon": 135.556183, "n": 2, "km": 2.15, "sp": "小児科", "gate": false}, {"id": "C267", "name": "医療法人　中尾眼科医院", "lat": 34.812054, "lon": 135.496002, "n": 2, "km": 6.448, "sp": "眼科", "gate": false}, {"id": "C266", "name": "社会医療法人寿会　富永病院", "lat": 34.667068, "lon": 135.494461, "n": 2, "km": 16.273, "sp": "外科", "gate": false}, {"id": "C245", "name": "健都　よねだスポーツ整形外科", "lat": 34.77626, "lon": 135.537354, "n": 2, "km": 3.783, "sp": "整形外科", "gate": false}, {"id": "C215", "name": "かなづクリニック", "lat": 34.71611, "lon": 135.540024, "n": 2, "km": 9.752, "sp": "内科", "gate": false}, {"id": "C243", "name": "川﨑メンタルクリニック", "lat": 34.778149, "lon": 135.506165, "n": 2, "km": 5.991, "sp": "精神科", "gate": false}, {"id": "C224", "name": "医療法人医聖会南森町眼科クリニック", "lat": 34.695541, "lon": 135.512192, "n": 2, "km": 12.725, "sp": "眼科", "gate": false}, {"id": "C222", "name": "さちこ内科クリニック", "lat": 34.806709, "lon": 135.586426, "n": 2, "km": 2.012, "sp": "内科", "gate": false}, {"id": "C221", "name": "にしかわ、歯科医院みなみせんり本院", "lat": 34.79084, "lon": 135.514343, "n": 2, "km": 4.805, "sp": "歯科", "gate": false}, {"id": "C220", "name": "医療法人　優桜会　千里中央りょうこスキン", "lat": 34.808811, "lon": 135.494156, "n": 2, "km": 6.558, "sp": "皮膚科", "gate": false}, {"id": "C219", "name": "山下レディースクリニック", "lat": 34.691521, "lon": 135.19722, "n": 2, "km": 35.786, "sp": "産婦人科", "gate": false}, {"id": "C218", "name": "医療法人桜誠会ながい内科クリニック", "lat": 34.852955, "lon": 135.621445, "n": 2, "km": 7.692, "sp": "内科", "gate": false}, {"id": "C216", "name": "千里山みどりクリニック", "lat": 34.7785, "lon": 135.506042, "n": 2, "km": 5.984, "sp": "精神科", "gate": false}, {"id": "C214", "name": "第一東和会病院", "lat": 34.854519, "lon": 135.637573, "n": 2, "km": 8.855, "sp": "内科", "gate": false}, {"id": "C213", "name": "医療法人　じんないクリニック", "lat": 34.817848, "lon": 135.58197, "n": 2, "km": 2.382, "sp": "内科", "gate": false}, {"id": "C212", "name": "医療法人社団星集会ｴｰ・ｼﾞｰ・ｲｰ牧田ｸﾘﾆｯｸ", "lat": 35.67128, "lon": 139.763199, "n": 2, "km": 393.296, "sp": "内科", "gate": false}, {"id": "C211", "name": "福知クリニック　大阪梅田", "lat": 34.701317, "lon": 135.502167, "n": 2, "km": 12.529, "sp": "内科", "gate": false}, {"id": "C210", "name": "医療法人　とくいクリニック", "lat": 34.80883, "lon": 135.582245, "n": 2, "km": 1.751, "sp": "内科", "gate": false}, {"id": "C209", "name": "大阪国際がん治療財団大阪重粒子線センター", "lat": 34.684719, "lon": 135.52095, "n": 2, "km": 13.584, "sp": "その他", "gate": false}, {"id": "C208", "name": "堺筋本町しらとり皮ふ科", "lat": 34.682259, "lon": 135.506302, "n": 2, "km": 14.296, "sp": "皮膚科", "gate": false}, {"id": "C193", "name": "ゆりfemina内科クリニック", "lat": 34.853058, "lon": 135.62149, "n": 2, "km": 7.703, "sp": "内科", "gate": false}, {"id": "C188", "name": "医療法人社団ﾅｲｽﾞ　ｷｬｯﾌﾟｽｸﾘﾆｯｸ千里丘", "lat": 34.792046, "lon": 135.549744, "n": 2, "km": 1.761, "sp": "小児科", "gate": false}, {"id": "C223", "name": "医療法人おおたクリニック", "lat": 34.491539, "lon": 135.570282, "n": 2, "km": 34.447, "sp": "内科", "gate": false}, {"id": "C217", "name": "新阿武山病院", "lat": 34.866047, "lon": 135.574692, "n": 2, "km": 7.249, "sp": "内科", "gate": false}, {"id": "C225", "name": "たなべ医院", "lat": 34.832119, "lon": 135.581833, "n": 2, "km": 3.741, "sp": "内科", "gate": false}, {"id": "C233", "name": "医療法人光誠会ゆうメディカルクリニック", "lat": 34.74213, "lon": 135.534515, "n": 2, "km": 7.159, "sp": "内科", "gate": false}, {"id": "C240", "name": "医療法人育生会高島病院", "lat": 35.430035, "lon": 133.327957, "n": 2, "km": 215.178, "sp": "内科", "gate": false}, {"id": "C226", "name": "医療法人　千里丘協立診療所", "lat": 34.790825, "lon": 135.553574, "n": 2, "km": 1.588, "sp": "内科", "gate": false}, {"id": "C239", "name": "よつば会ｸﾘﾆｯｸ守口大日院", "lat": 34.749195, "lon": 135.579391, "n": 2, "km": 5.933, "sp": "外科", "gate": false}, {"id": "C238", "name": "医療法人　四つ葉会　よつば会クリニック難", "lat": 34.662411, "lon": 135.501251, "n": 2, "km": 16.519, "sp": "皮膚科", "gate": false}, {"id": "C237", "name": "社会医療法人真美会大阪旭こども病院", "lat": 34.716625, "lon": 135.55986, "n": 2, "km": 9.429, "sp": "小児科", "gate": false}, {"id": "C235", "name": "医療法人まぶたラボ　ひふみるクリニック", "lat": 34.538063, "lon": 135.514648, "n": 2, "km": 29.636, "sp": "皮膚科", "gate": false}, {"id": "C234", "name": "大阪梅田形成外科リンパ浮腫ＬＳクリニック", "lat": 34.699581, "lon": 135.499298, "n": 2, "km": 12.822, "sp": "外科", "gate": false}, {"id": "C236", "name": "大阪回生病院", "lat": 34.735081, "lon": 135.498947, "n": 2, "km": 9.543, "sp": "内科", "gate": false}, {"id": "C232", "name": "Ｄｏｃｔｏｒ’ｓ　Ｆｉｔｎｅｓｓ診療所", "lat": 34.73468, "lon": 135.503891, "n": 2, "km": 9.297, "sp": "内科", "gate": false}, {"id": "C231", "name": "医療法人晴心会　野上病院", "lat": 34.366459, "lon": 135.27211, "n": 2, "km": 55.307, "sp": "内科", "gate": false}, {"id": "C230", "name": "医療法人三恵会しげなが歯科・矯正歯科", "lat": 34.783916, "lon": 135.556183, "n": 2, "km": 2.108, "sp": "歯科", "gate": false}, {"id": "C229", "name": "医療法人　健盛会　あだちクリニック", "lat": 34.817741, "lon": 135.504944, "n": 2, "km": 5.815, "sp": "内科", "gate": false}, {"id": "C228", "name": "きどレディースクリニック", "lat": 34.814224, "lon": 135.576935, "n": 2, "km": 1.782, "sp": "産婦人科", "gate": false}, {"id": "C227", "name": "医療法人　後藤レディースクリニック", "lat": 34.853001, "lon": 135.619156, "n": 2, "km": 7.558, "sp": "産婦人科", "gate": false}, {"id": "C383", "name": "泌尿器科くろだクリニック", "lat": 34.820385, "lon": 135.509125, "n": 1, "km": 5.559, "sp": "泌尿器科", "gate": false}, {"id": "C390", "name": "医療法人涼葵会ＷＣＬＩＮＩＣ心斎橋本院", "lat": 34.675369, "lon": 135.499191, "n": 1, "km": 15.254, "sp": "皮膚科", "gate": false}, {"id": "C384", "name": "医療法人　はんだクリニック", "lat": 34.800358, "lon": 135.572113, "n": 1, "km": 0.622, "sp": "内科", "gate": false}, {"id": "C385", "name": "医療法人桜寿会たかだｸﾘﾆｯｸ", "lat": 34.836086, "lon": 135.589676, "n": 1, "km": 4.458, "sp": "整形外科", "gate": false}, {"id": "C386", "name": "かすや歯科クリニック", "lat": 34.853127, "lon": 135.616135, "n": 1, "km": 7.393, "sp": "歯科", "gate": false}, {"id": "C387", "name": "よどやばしメディカルクリニック", "lat": 34.691872, "lon": 135.501755, "n": 1, "km": 13.486, "sp": "泌尿器科", "gate": false}, {"id": "C388", "name": "医療法人紫博会なかむかいクリニック", "lat": 34.814796, "lon": 135.567383, "n": 1, "km": 1.512, "sp": "精神科", "gate": false}, {"id": "C389", "name": "医療法人恭青会　いくの眼科", "lat": 34.720306, "lon": 135.482956, "n": 1, "km": 11.74, "sp": "眼科", "gate": false}, {"id": "C396", "name": "かしいクリニック", "lat": 34.705307, "lon": 135.485886, "n": 1, "km": 12.911, "sp": "内科", "gate": false}, {"id": "C391", "name": "医療法人秀明会杉浦こころのクリニック", "lat": 34.812054, "lon": 135.496002, "n": 1, "km": 6.448, "sp": "精神科", "gate": false}, {"id": "C392", "name": "新大阪クリニックさとう", "lat": 34.729927, "lon": 135.499954, "n": 1, "km": 9.936, "sp": "内科", "gate": false}, {"id": "C393", "name": "医療法人社団ハシイ産婦人科ハシイウィメン", "lat": 34.925018, "lon": 135.69606, "n": 1, "km": 18.203, "sp": "産婦人科", "gate": false}, {"id": "C394", "name": "医療法人郁生会　あめみや眼科", "lat": 34.791431, "lon": 135.537415, "n": 1, "km": 2.781, "sp": "眼科", "gate": false}, {"id": "C395", "name": "医療法人正得会　いけだ内科・呼吸器内科", "lat": 34.855194, "lon": 135.620422, "n": 1, "km": 7.819, "sp": "内科", "gate": false}, {"id": "C397", "name": "医療法人おくの眼科", "lat": 34.827263, "lon": 135.582489, "n": 1, "km": 3.282, "sp": "眼科", "gate": false}, {"id": "C381", "name": "かめい内科消化器クリニック", "lat": 34.815098, "lon": 135.561371, "n": 1, "km": 1.578, "sp": "内科", "gate": false}, {"id": "C382", "name": "みやざきちびっこ診療所", "lat": 34.828495, "lon": 135.57959, "n": 1, "km": 3.29, "sp": "小児科", "gate": false}, {"id": "C364", "name": "医療法人　かねもとクリニック", "lat": 34.819557, "lon": 135.556839, "n": 1, "km": 2.176, "sp": "内科", "gate": false}, {"id": "C380", "name": "渡部耳鼻咽喉科医院", "lat": 34.750751, "lon": 135.392105, "n": 1, "km": 16.796, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C379", "name": "橋本こどもクリニック", "lat": 34.846138, "lon": 135.578934, "n": 1, "km": 5.137, "sp": "小児科", "gate": false}, {"id": "C363", "name": "ソコラ塚口駅前皮フ科スキンクリニック", "lat": 34.752022, "lon": 135.415863, "n": 1, "km": 14.716, "sp": "皮膚科", "gate": false}, {"id": "C399", "name": "医療法人　宏和会　堀田眼科", "lat": 34.791794, "lon": 135.549103, "n": 1, "km": 1.825, "sp": "眼科", "gate": false}, {"id": "C365", "name": "医療法人拓柊会　ふなこし呼吸器内科", "lat": 34.804066, "lon": 135.474365, "n": 1, "km": 8.318, "sp": "内科", "gate": false}, {"id": "C366", "name": "医療法人厚匠会うえだ医院", "lat": 34.683262, "lon": 135.500381, "n": 1, "km": 14.407, "sp": "内科", "gate": false}, {"id": "C367", "name": "摂津診療所", "lat": 34.835735, "lon": 135.593887, "n": 1, "km": 4.629, "sp": "内科", "gate": false}, {"id": "C368", "name": "医療法人社団　山内耳鼻いんこう科", "lat": 35.355659, "lon": 136.030991, "n": 1, "km": 74.798, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C369", "name": "おの泌尿器科クリニック", "lat": 34.812054, "lon": 135.496002, "n": 1, "km": 6.448, "sp": "泌尿器科", "gate": false}, {"id": "C370", "name": "かおるレディースクリニック", "lat": 34.682228, "lon": 135.495819, "n": 1, "km": 14.687, "sp": "産婦人科", "gate": false}, {"id": "C371", "name": "皮フ科シュウゾー", "lat": 34.775269, "lon": 135.496857, "n": 1, "km": 6.896, "sp": "皮膚科", "gate": false}, {"id": "C372", "name": "関西医科大学香里病院", "lat": 34.784744, "lon": 135.631714, "n": 1, "km": 6.329, "sp": "内科", "gate": false}, {"id": "C373", "name": "くりはら形成外科・皮フ科・美容皮フ科", "lat": 34.787491, "lon": 135.627151, "n": 1, "km": 5.844, "sp": "外科", "gate": false}, {"id": "C374", "name": "田村ｸﾘﾆｯｸ内科・呼吸器内科・糖尿病内科", "lat": 34.724506, "lon": 135.545517, "n": 1, "km": 8.73, "sp": "内科", "gate": false}, {"id": "C375", "name": "たぬきメンタルクリニック", "lat": 34.689724, "lon": 135.516464, "n": 1, "km": 13.188, "sp": "精神科", "gate": false}, {"id": "C377", "name": "ICMクリニック", "lat": 34.790199, "lon": 135.582993, "n": 1, "km": 2.026, "sp": "内科", "gate": false}, {"id": "C378", "name": "ささき眼科・形成外科クリニック", "lat": 34.82082, "lon": 135.491882, "n": 1, "km": 7.054, "sp": "眼科", "gate": false}, {"id": "C398", "name": "医療法人社団一義会　眼科かじわらアイ・ケ", "lat": 35.697708, "lon": 139.813568, "n": 1, "km": 398.394, "sp": "眼科", "gate": false}, {"id": "C416", "name": "医療法人西尾会　西尾歯科", "lat": 34.838287, "lon": 135.555832, "n": 1, "km": 4.205, "sp": "歯科", "gate": false}, {"id": "C400", "name": "医療法人　林田医院", "lat": 35.327637, "lon": 136.018661, "n": 1, "km": 71.604, "sp": "皮膚科", "gate": false}, {"id": "C401", "name": "医療法人御殿山 福田総合病院", "lat": 34.829323, "lon": 135.65303, "n": 1, "km": 8.585, "sp": "内科", "gate": false}, {"id": "C420", "name": "イ）佑諒会千里中央花ふさ皮ふ科美容皮膚科", "lat": 34.806175, "lon": 135.497925, "n": 1, "km": 6.185, "sp": "皮膚科", "gate": false}, {"id": "C421", "name": "医療法人　いのうえ耳鼻咽喉科", "lat": 34.78577, "lon": 135.632339, "n": 1, "km": 6.352, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C422", "name": "医療法人喜心会　吉岡歯科クリニック", "lat": 34.813026, "lon": 135.57724, "n": 1, "km": 1.694, "sp": "歯科", "gate": false}, {"id": "C423", "name": "医療法人瑞月会かくにしかわ診療所", "lat": 34.674366, "lon": 135.505096, "n": 1, "km": 15.152, "sp": "精神科", "gate": false}, {"id": "C424", "name": "医療法人馬場内科・循環器内科クリニック", "lat": 34.791973, "lon": 135.552704, "n": 1, "km": 1.556, "sp": "内科", "gate": false}, {"id": "C425", "name": "医療法人　いわさか皮フ科クリニック", "lat": 34.785343, "lon": 135.632706, "n": 1, "km": 6.397, "sp": "皮膚科", "gate": false}, {"id": "C426", "name": "医療法人篤眞会　大阪なんば内科・消化器内", "lat": 34.664768, "lon": 135.499435, "n": 1, "km": 16.335, "sp": "内科", "gate": false}, {"id": "C427", "name": "医療法人ひまわり会　西梅田眼科クリニック", "lat": 34.696491, "lon": 135.496918, "n": 1, "km": 13.228, "sp": "眼科", "gate": false}, {"id": "C428", "name": "のざきクリニック", "lat": 34.794025, "lon": 135.550781, "n": 1, "km": 1.561, "sp": "内科", "gate": false}, {"id": "C429", "name": "おごし皮フ科", "lat": 34.801552, "lon": 135.577454, "n": 1, "km": 1.101, "sp": "皮膚科", "gate": false}, {"id": "C430", "name": "医療法人瑞和会ﾗｯﾌﾙｽﾞﾒﾃﾞｨｶﾙ大阪", "lat": 34.698177, "lon": 135.49176, "n": 1, "km": 13.295, "sp": "内科", "gate": false}, {"id": "C431", "name": "天六レディースクリニック", "lat": 34.711193, "lon": 135.511749, "n": 1, "km": 11.154, "sp": "産婦人科", "gate": false}, {"id": "C432", "name": "いだてんクリニック", "lat": 34.704231, "lon": 135.511612, "n": 1, "km": 11.86, "sp": "内科", "gate": false}, {"id": "C433", "name": "いしざき眼科", "lat": 34.733517, "lon": 135.582626, "n": 1, "km": 7.699, "sp": "眼科", "gate": false}, {"id": "C434", "name": "にしけん脳神経外科・くびこしクリニック", "lat": 34.833267, "lon": 135.624161, "n": 1, "km": 6.435, "sp": "外科", "gate": false}, {"id": "C419", "name": "医療法人健清会　こどもとかぞくの整形外科", "lat": 34.629719, "lon": 135.542038, "n": 1, "km": 19.198, "sp": "整形外科", "gate": false}, {"id": "C418", "name": "箕面市立病院", "lat": 34.823154, "lon": 135.483505, "n": 1, "km": 7.862, "sp": "内科", "gate": false}, {"id": "C417", "name": "あらきクリニック", "lat": 34.701061, "lon": 135.511627, "n": 1, "km": 12.181, "sp": "内科", "gate": false}, {"id": "C408", "name": "ふじわら整形外科", "lat": 34.850063, "lon": 135.62265, "n": 1, "km": 7.53, "sp": "整形外科", "gate": false}, {"id": "C402", "name": "一般社団法人日本先進医療学会四条烏丸ここ", "lat": 35.003471, "lon": 135.761887, "n": 1, "km": 28.748, "sp": "精神科", "gate": false}, {"id": "C403", "name": "中津皮フ科クリニック", "lat": 34.711014, "lon": 135.496109, "n": 1, "km": 11.868, "sp": "皮膚科", "gate": false}, {"id": "C404", "name": "医療法人橘井会　江川産婦人科医院", "lat": 34.828644, "lon": 135.585403, "n": 1, "km": 3.547, "sp": "産婦人科", "gate": false}, {"id": "C405", "name": "医療法人医誠会　医誠会国際総合病院", "lat": 34.701706, "lon": 135.50853, "n": 1, "km": 12.233, "sp": "内科", "gate": false}, {"id": "C406", "name": "医療法人社団彦星会　大阪中之島整形外科", "lat": 34.692787, "lon": 135.490158, "n": 1, "km": 13.887, "sp": "整形外科", "gate": false}, {"id": "C407", "name": "梅田駅前婦人科クリニック", "lat": 34.707485, "lon": 135.498947, "n": 1, "km": 12.07, "sp": "産婦人科", "gate": false}, {"id": "C409", "name": "藍野病院", "lat": 34.845047, "lon": 135.579971, "n": 1, "km": 5.043, "sp": "内科", "gate": false}, {"id": "C361", "name": "医療法人泰明堂　福島ｱｲｸﾘﾆｯｸ", "lat": 34.69688, "lon": 135.487244, "n": 1, "km": 13.631, "sp": "眼科", "gate": false}, {"id": "C410", "name": "おくだ内科クリニック", "lat": 34.81686, "lon": 135.578323, "n": 1, "km": 2.094, "sp": "内科", "gate": false}, {"id": "C411", "name": "いなとみ赤ちゃんこどもクリニック", "lat": 34.77626, "lon": 135.537354, "n": 1, "km": 3.783, "sp": "小児科", "gate": false}, {"id": "C412", "name": "高島クリニック", "lat": 34.657665, "lon": 135.526855, "n": 1, "km": 16.355, "sp": "内科", "gate": false}, {"id": "C413", "name": "上野医院", "lat": 34.815102, "lon": 135.573273, "n": 1, "km": 1.695, "sp": "内科", "gate": false}, {"id": "C414", "name": "ミモザ　レディースクリニック", "lat": 34.678646, "lon": 135.518967, "n": 1, "km": 14.283, "sp": "産婦人科", "gate": false}, {"id": "C415", "name": "パナソニック健康保険組合　松下記念病院", "lat": 34.743439, "lon": 135.563538, "n": 1, "km": 6.436, "sp": "内科", "gate": false}, {"id": "C362", "name": "サンズデンタルクリニック", "lat": 34.477711, "lon": 135.400284, "n": 1, "km": 39.024, "sp": "歯科", "gate": false}, {"id": "C342", "name": "しばた歯科医院", "lat": 34.81612, "lon": 135.563889, "n": 1, "km": 1.654, "sp": "歯科", "gate": false}, {"id": "C360", "name": "医療法人　松村医院", "lat": 34.81773, "lon": 135.57312, "n": 1, "km": 1.958, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C319", "name": "城東診療所", "lat": 34.69817, "lon": 135.549057, "n": 1, "km": 11.564, "sp": "内科", "gate": false}, {"id": "C303", "name": "谷村皮フ科", "lat": 34.783752, "lon": 135.629944, "n": 1, "km": 6.208, "sp": "皮膚科", "gate": false}, {"id": "C304", "name": "うめだクリニック", "lat": 34.815285, "lon": 135.575226, "n": 1, "km": 1.795, "sp": "不明", "gate": false}, {"id": "C305", "name": "医）登桜会まつい血管内科静脈瘤クリニック", "lat": 34.852448, "lon": 135.615891, "n": 1, "km": 7.32, "sp": "内科", "gate": false}, {"id": "C306", "name": "ミル訪問クリニック目黒", "lat": 35.635105, "lon": 139.718735, "n": 1, "km": 388.487, "sp": "内科", "gate": false}, {"id": "C307", "name": "内科・循環器内科・心臓ﾘﾊﾋﾞﾘ　さかねｸﾘﾆｯｸ", "lat": 34.855827, "lon": 135.634979, "n": 1, "km": 8.78, "sp": "内科", "gate": false}, {"id": "C308", "name": "河村メディカルクリニック", "lat": 34.816113, "lon": 135.573578, "n": 1, "km": 1.809, "sp": "内科", "gate": false}, {"id": "C309", "name": "みかスキンクリニック", "lat": 35.004391, "lon": 135.749161, "n": 1, "km": 28.121, "sp": "皮膚科", "gate": false}, {"id": "C310", "name": "医療法人実來会大阪骨粗鬆症・フレイル専門", "lat": 34.816608, "lon": 135.565125, "n": 1, "km": 1.703, "sp": "整形外科", "gate": false}, {"id": "C311", "name": "みらいクリニック大阪北浜", "lat": 34.686237, "lon": 135.505615, "n": 1, "km": 13.912, "sp": "内科", "gate": false}, {"id": "C312", "name": "独立行政法人 労働者健康安全機構 関西労災", "lat": 34.73568, "lon": 135.386536, "n": 1, "km": 17.893, "sp": "内科", "gate": false}, {"id": "C313", "name": "さかいメンタルクリニック", "lat": 34.816978, "lon": 135.565247, "n": 1, "km": 1.744, "sp": "精神科", "gate": false}, {"id": "C314", "name": "医療法人なごみ整形外科リウマチクリニック", "lat": 34.828495, "lon": 135.57959, "n": 1, "km": 3.29, "sp": "整形外科", "gate": false}, {"id": "C315", "name": "祐生会　みどりヶ丘病院", "lat": 34.816029, "lon": 135.555344, "n": 1, "km": 1.878, "sp": "内科", "gate": false}, {"id": "C316", "name": "医療法人金沢整形外科クリニック", "lat": 35.022087, "lon": 136.006607, "n": 1, "km": 47.13, "sp": "整形外科", "gate": false}, {"id": "C317", "name": "医療法人jMOG　田辺ﾚﾃﾞｨｰｽｸﾘﾆｯｸ", "lat": 34.853001, "lon": 135.619156, "n": 1, "km": 7.558, "sp": "産婦人科", "gate": false}, {"id": "C302", "name": "医療法人湖稲会　稲葉眼科", "lat": 34.698494, "lon": 135.49704, "n": 1, "km": 13.026, "sp": "眼科", "gate": false}, {"id": "C301", "name": "医療法人真誠会　とみた整形外科クリニック", "lat": 34.853001, "lon": 135.619156, "n": 1, "km": 7.558, "sp": "整形外科", "gate": false}, {"id": "C300", "name": "医療法人　むらのクリニック", "lat": 34.688492, "lon": 135.499054, "n": 1, "km": 13.932, "sp": "内科", "gate": false}, {"id": "C287", "name": "千里丘ヒルズやまだ皮フ科クリニック", "lat": 34.802948, "lon": 135.544022, "n": 1, "km": 1.961, "sp": "皮膚科", "gate": false}, {"id": "C246", "name": "医療法人児星会　むらた小児科", "lat": 34.783916, "lon": 135.556183, "n": 1, "km": 2.108, "sp": "小児科", "gate": false}, {"id": "C199", "name": "西田メンタルクリニック", "lat": 34.851784, "lon": 135.616257, "n": 1, "km": 7.284, "sp": "精神科", "gate": false}, {"id": "C282", "name": "医療法人若葉会　昭和病院", "lat": 34.792912, "lon": 135.561676, "n": 1, "km": 0.993, "sp": "内科", "gate": false}, {"id": "C284", "name": "医療法人桜会ゆたかクリニック", "lat": 34.739212, "lon": 135.399094, "n": 1, "km": 16.686, "sp": "整形外科", "gate": false}, {"id": "C285", "name": "くすもと形成外科クリニック", "lat": 34.688908, "lon": 135.498795, "n": 1, "km": 13.9, "sp": "外科", "gate": false}, {"id": "C286", "name": "さくらデンタルクリニック", "lat": 34.809177, "lon": 135.567657, "n": 1, "km": 0.9, "sp": "歯科", "gate": false}, {"id": "C288", "name": "メディカルアルファクリニック", "lat": 34.675369, "lon": 135.499191, "n": 1, "km": 15.254, "sp": "皮膚科", "gate": false}, {"id": "C299", "name": "医療法人真摯会高槻ｸﾛｰﾊﾞｰ歯科・矯正歯科", "lat": 34.850235, "lon": 135.619354, "n": 1, "km": 7.339, "sp": "歯科", "gate": false}, {"id": "C289", "name": "医）今心会いとう皮膚科クリニック", "lat": 34.701881, "lon": 135.496338, "n": 1, "km": 12.729, "sp": "皮膚科", "gate": false}, {"id": "C291", "name": "医療法人　英樹会　寺脇クリニック", "lat": 34.748486, "lon": 135.533356, "n": 1, "km": 6.561, "sp": "整形外科", "gate": false}, {"id": "C293", "name": "公益財団法人日本生命済生会　日本生命病院", "lat": 34.680908, "lon": 135.483475, "n": 1, "km": 15.338, "sp": "内科", "gate": false}, {"id": "C295", "name": "医療法人友紘会　彩都友紘会病院", "lat": 34.854198, "lon": 135.527206, "n": 1, "km": 6.838, "sp": "内科", "gate": false}, {"id": "C296", "name": "北摂オンラインクリニック", "lat": 34.766113, "lon": 135.523346, "n": 1, "km": 5.483, "sp": "内科", "gate": false}, {"id": "C297", "name": "医療法人GyNet南森町レディースクリニック", "lat": 34.697189, "lon": 135.513199, "n": 1, "km": 12.52, "sp": "産婦人科", "gate": false}, {"id": "C318", "name": "浜口内科", "lat": 34.814793, "lon": 135.578186, "n": 1, "km": 1.901, "sp": "内科", "gate": false}, {"id": "C320", "name": "ともつ耳鼻科・アレルギークリニック", "lat": 34.814533, "lon": 135.380325, "n": 1, "km": 16.961, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C359", "name": "医療法人　だいとう皮フ科クリニック", "lat": 34.832462, "lon": 135.622467, "n": 1, "km": 6.257, "sp": "皮膚科", "gate": false}, {"id": "C321", "name": "彩都西歯科クリニック", "lat": 34.85664, "lon": 135.522827, "n": 1, "km": 7.278, "sp": "歯科", "gate": false}, {"id": "C241", "name": "医療法人もみじの手　箕面レディースクリニ", "lat": 34.826756, "lon": 135.473785, "n": 1, "km": 8.83, "sp": "産婦人科", "gate": false}, {"id": "C343", "name": "医療法人　かわかみ内科", "lat": 34.777504, "lon": 135.537979, "n": 1, "km": 3.643, "sp": "内科", "gate": false}, {"id": "C344", "name": "医療法人社団星野耳鼻咽喉科医院　阪神西宮", "lat": 34.736023, "lon": 135.338242, "n": 1, "km": 21.982, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C345", "name": "医療法人HT　さいか耳鼻咽喉科", "lat": 34.75024, "lon": 135.533508, "n": 1, "km": 6.381, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C347", "name": "もりた内科・消化器内科クリニック", "lat": 35.111919, "lon": 136.205338, "n": 1, "km": 67.78, "sp": "内科", "gate": false}, {"id": "C348", "name": "うらいさみ整形外科", "lat": 34.737503, "lon": 135.483582, "n": 1, "km": 10.304, "sp": "整形外科", "gate": false}, {"id": "C349", "name": "福本医院", "lat": 34.67635, "lon": 135.50145, "n": 1, "km": 15.073, "sp": "内科", "gate": false}, {"id": "C350", "name": "医療法人大桑皮膚科", "lat": 34.850925, "lon": 135.620697, "n": 1, "km": 7.478, "sp": "皮膚科", "gate": false}, {"id": "C351", "name": "グランメドクリニック", "lat": 34.815098, "lon": 135.561371, "n": 1, "km": 1.578, "sp": "皮膚科", "gate": false}, {"id": "C352", "name": "むくの歯科", "lat": 34.81168, "lon": 135.376907, "n": 1, "km": 17.248, "sp": "歯科", "gate": false}, {"id": "C353", "name": "医療法人社団渡部眼科　梅田北阪急ビルアイ", "lat": 34.70586, "lon": 135.497147, "n": 1, "km": 12.309, "sp": "眼科", "gate": false}, {"id": "C355", "name": "和 皮ふ科クリニック", "lat": 34.707073, "lon": 135.511002, "n": 1, "km": 11.596, "sp": "皮膚科", "gate": false}, {"id": "C356", "name": "摂津ひかり病院", "lat": 34.771439, "lon": 135.574478, "n": 1, "km": 3.422, "sp": "内科", "gate": false}, {"id": "C357", "name": "AZUSA SKIN&WELLNESS CLINIC", "lat": 35.005627, "lon": 135.880356, "n": 1, "km": 36.622, "sp": "皮膚科", "gate": false}, {"id": "C358", "name": "つじメディカルクリニック", "lat": 34.845734, "lon": 135.564743, "n": 1, "km": 4.941, "sp": "整形外科", "gate": false}, {"id": "C341", "name": "まさこ女性クリニック", "lat": 34.705822, "lon": 135.511398, "n": 1, "km": 11.707, "sp": "産婦人科", "gate": false}, {"id": "C340", "name": "医療法人　やまもとクリニック", "lat": 34.817768, "lon": 135.575043, "n": 1, "km": 2.032, "sp": "内科", "gate": false}, {"id": "C338", "name": "関西医科大学付属病院", "lat": 34.817467, "lon": 135.64505, "n": 1, "km": 7.491, "sp": "内科", "gate": false}, {"id": "C328", "name": "OWLクリニック", "lat": 34.698494, "lon": 135.49704, "n": 1, "km": 13.026, "sp": "内科", "gate": false}, {"id": "C322", "name": "医療法人オカモト会　天満橋甲状腺クリニッ", "lat": 34.689873, "lon": 135.517899, "n": 1, "km": 13.128, "sp": "内科", "gate": false}, {"id": "C323", "name": "医療法人湖崎会　湖崎眼科梅田分院", "lat": 34.701881, "lon": 135.496338, "n": 1, "km": 12.729, "sp": "眼科", "gate": false}, {"id": "C324", "name": "医療法人桃花会　園田桃代ＡＲＴクリニック", "lat": 34.808746, "lon": 135.49588, "n": 1, "km": 6.401, "sp": "産婦人科", "gate": false}, {"id": "C325", "name": "みなかわ整形外科塚口本町クリニック", "lat": 34.755356, "lon": 135.418747, "n": 1, "km": 14.335, "sp": "整形外科", "gate": false}, {"id": "C326", "name": "ねもとこども歯科", "lat": 34.849678, "lon": 135.623566, "n": 1, "km": 7.558, "sp": "小児科", "gate": false}, {"id": "C327", "name": "松戸市立総合医療センター", "lat": 35.801975, "lon": 139.932526, "n": 1, "km": 411.591, "sp": "内科", "gate": false}, {"id": "C329", "name": "京都大学医学部付属病院", "lat": 35.020184, "lon": 135.777176, "n": 1, "km": 31.069, "sp": "内科", "gate": false}, {"id": "C337", "name": "茂松整形外科", "lat": 34.797009, "lon": 135.580475, "n": 1, "km": 1.457, "sp": "整形外科", "gate": false}, {"id": "C330", "name": "由良クリニック眼科分院", "lat": 34.99818, "lon": 135.912125, "n": 1, "km": 38.459, "sp": "眼科", "gate": false}, {"id": "C331", "name": "MYキッズクリニック", "lat": 34.814587, "lon": 135.563919, "n": 1, "km": 1.484, "sp": "小児科", "gate": false}, {"id": "C332", "name": "医療法人社団世航会ﾃﾞﾝﾀﾙｵﾌｨｽ大阪梅田", "lat": 34.702095, "lon": 135.500168, "n": 1, "km": 12.538, "sp": "歯科", "gate": false}, {"id": "C334", "name": "医療法人光惠会　恵愛クリニック", "lat": 34.853584, "lon": 135.52446, "n": 1, "km": 6.911, "sp": "内科", "gate": false}, {"id": "C335", "name": "医療法人桃浩会　まるやま耳鼻咽喉科", "lat": 34.800236, "lon": 135.548889, "n": 1, "km": 1.512, "sp": "耳鼻咽喉科", "gate": false}, {"id": "C336", "name": "岡本クリニック", "lat": 34.814713, "lon": 135.564499, "n": 1, "km": 1.494, "sp": "内科", "gate": false}, {"id": "C435", "name": "医）中嶋・清川とりかいｸﾘﾆｯｸ", "lat": 34.772476, "lon": 135.576187, "n": 1, "km": 3.353, "sp": "皮膚科", "gate": false}], "meshes": [{"code": "523514124.0", "lat": 34.764583, "lon": 135.534375, "pop": 4490, "uniq": 2, "rate": 0.0004454342984409}, {"code": "523514132.0", "lat": 34.760417, "lon": 135.546875, "pop": 4772, "uniq": 3, "rate": 0.0006286672254819}, {"code": "523514133.0", "lat": 34.764583, "lon": 135.540625, "pop": 2588, "uniq": 1, "rate": 0.0003863987635239}, {"code": "523514134.0", "lat": 34.764583, "lon": 135.546875, "pop": 5255, "uniq": 1, "rate": 0.0001902949571836}, {"code": "523514141.0", "lat": 34.760417, "lon": 135.553125, "pop": 2048, "uniq": 2, "rate": 0.0009765625}, {"code": "523514142.0", "lat": 34.760417, "lon": 135.559375, "pop": 261, "uniq": 1, "rate": 0.003831417624521}, {"code": "523514143.0", "lat": 34.764583, "lon": 135.553125, "pop": 3399, "uniq": 8, "rate": 0.0023536334215945}, {"code": "523514144.0", "lat": 34.764583, "lon": 135.559375, "pop": 479, "uniq": 5, "rate": 0.0104384133611691}, {"code": "523514151.0", "lat": 34.760417, "lon": 135.565625, "pop": 1863, "uniq": 16, "rate": 0.0085882984433709}, {"code": "523514152.0", "lat": 34.760417, "lon": 135.571875, "pop": 747, "uniq": 5, "rate": 0.0066934404283801}, {"code": "523514153.0", "lat": 34.764583, "lon": 135.565625, "pop": 1414, "uniq": 28, "rate": 0.0198019801980198}, {"code": "523514154.0", "lat": 34.764583, "lon": 135.571875, "pop": 1025, "uniq": 25, "rate": 0.024390243902439}, {"code": "523514161.0", "lat": 34.760417, "lon": 135.578125, "pop": 35, "uniq": 0, "rate": 0.0}, {"code": "523514162.0", "lat": 34.760417, "lon": 135.584375, "pop": 1040, "uniq": 0, "rate": 0.0}, {"code": "523514163.0", "lat": 34.764583, "lon": 135.578125, "pop": 900, "uniq": 1, "rate": 0.0011111111111111}, {"code": "523514164.0", "lat": 34.764583, "lon": 135.584375, "pop": 96, "uniq": 0, "rate": 0.0}, {"code": "523514173.0", "lat": 34.764583, "lon": 135.590625, "pop": 2418, "uniq": 1, "rate": 0.0004135649296939}, {"code": "523514174.0", "lat": 34.764583, "lon": 135.596875, "pop": 1614, "uniq": 2, "rate": 0.0012391573729863}, {"code": "523514221.0", "lat": 34.76875, "lon": 135.528125, "pop": 2324, "uniq": 5, "rate": 0.0021514629948364}, {"code": "523514222.0", "lat": 34.76875, "lon": 135.534375, "pop": 711, "uniq": 1, "rate": 0.0014064697609001}, {"code": "523514223.0", "lat": 34.772917, "lon": 135.528125, "pop": 3557, "uniq": 0, "rate": 0.0}, {"code": "523514224.0", "lat": 34.772917, "lon": 135.534375, "pop": 607, "uniq": 1, "rate": 0.0016474464579901}, {"code": "523514231.0", "lat": 34.76875, "lon": 135.540625, "pop": 1119, "uniq": 1, "rate": 0.000893655049151}, {"code": "523514232.0", "lat": 34.76875, "lon": 135.546875, "pop": 1437, "uniq": 1, "rate": 0.0006958942240779}, {"code": "523514233.0", "lat": 34.772917, "lon": 135.540625, "pop": 2056, "uniq": 3, "rate": 0.0014591439688715}, {"code": "523514234.0", "lat": 34.772917, "lon": 135.546875, "pop": 3471, "uniq": 12, "rate": 0.003457216940363}, {"code": "523514241.0", "lat": 34.76875, "lon": 135.553125, "pop": 2437, "uniq": 14, "rate": 0.0057447681575707}, {"code": "523514242.0", "lat": 34.76875, "lon": 135.559375, "pop": 2234, "uniq": 7, "rate": 0.0031333930170098}, {"code": "523514243.0", "lat": 34.772917, "lon": 135.553125, "pop": 2889, "uniq": 22, "rate": 0.0076150917272412}, {"code": "523514244.0", "lat": 34.772917, "lon": 135.559375, "pop": 359, "uniq": 2, "rate": 0.0055710306406685}, {"code": "523514251.0", "lat": 34.76875, "lon": 135.565625, "pop": 1883, "uniq": 21, "rate": 0.0111524163568773}, {"code": "523514252.0", "lat": 34.76875, "lon": 135.571875, "pop": 873, "uniq": 7, "rate": 0.0080183276059564}, {"code": "523514253.0", "lat": 34.772917, "lon": 135.565625, "pop": 384, "uniq": 1, "rate": 0.0026041666666666}, {"code": "523514254.0", "lat": 34.772917, "lon": 135.571875, "pop": 2264, "uniq": 15, "rate": 0.006625441696113}, {"code": "523514261.0", "lat": 34.76875, "lon": 135.578125, "pop": 1866, "uniq": 25, "rate": 0.0133976420150053}, {"code": "523514262.0", "lat": 34.76875, "lon": 135.584375, "pop": 726, "uniq": 2, "rate": 0.0027548209366391}, {"code": "523514263.0", "lat": 34.772917, "lon": 135.578125, "pop": 2954, "uniq": 31, "rate": 0.0104942450914014}, {"code": "523514264.0", "lat": 34.772917, "lon": 135.584375, "pop": 2490, "uniq": 28, "rate": 0.0112449799196787}, {"code": "523514271.0", "lat": 34.76875, "lon": 135.590625, "pop": 689, "uniq": 0, "rate": 0.0}, {"code": "523514272.0", "lat": 34.76875, "lon": 135.596875, "pop": 1078, "uniq": 0, "rate": 0.0}, {"code": "523514273.0", "lat": 34.772917, "lon": 135.590625, "pop": 38, "uniq": 2, "rate": 0.0526315789473684}, {"code": "523514274.0", "lat": 34.772917, "lon": 135.596875, "pop": 511, "uniq": 0, "rate": 0.0}, {"code": "523514281.0", "lat": 34.76875, "lon": 135.603125, "pop": 701, "uniq": 0, "rate": 0.0}, {"code": "523514283.0", "lat": 34.772917, "lon": 135.603125, "pop": 2252, "uniq": 0, "rate": 0.0}, {"code": "523514312.0", "lat": 34.777083, "lon": 135.521875, "pop": 4077, "uniq": 0, "rate": 0.0}, {"code": "523514314.0", "lat": 34.78125, "lon": 135.521875, "pop": 3604, "uniq": 0, "rate": 0.0}, {"code": "523514321.0", "lat": 34.777083, "lon": 135.528125, "pop": 4822, "uniq": 0, "rate": 0.0}, {"code": "523514322.0", "lat": 34.777083, "lon": 135.534375, "pop": 2880, "uniq": 3, "rate": 0.0010416666666666}, {"code": "523514323.0", "lat": 34.78125, "lon": 135.528125, "pop": 2261, "uniq": 4, "rate": 0.0017691287041132}, {"code": "523514324.0", "lat": 34.78125, "lon": 135.534375, "pop": 3038, "uniq": 2, "rate": 0.0006583278472679}, {"code": "523514331.0", "lat": 34.777083, "lon": 135.540625, "pop": 854, "uniq": 1, "rate": 0.0011709601873536}, {"code": "523514332.0", "lat": 34.777083, "lon": 135.546875, "pop": 2726, "uniq": 11, "rate": 0.004035216434336}, {"code": "523514333.0", "lat": 34.78125, "lon": 135.540625, "pop": 1326, "uniq": 1, "rate": 0.0007541478129713}, {"code": "523514334.0", "lat": 34.78125, "lon": 135.546875, "pop": 3462, "uniq": 22, "rate": 0.0063547082611207}, {"code": "523514341.0", "lat": 34.777083, "lon": 135.553125, "pop": 2875, "uniq": 18, "rate": 0.0062608695652173}, {"code": "523514342.0", "lat": 34.777083, "lon": 135.559375, "pop": 1050, "uniq": 7, "rate": 0.0066666666666666}, {"code": "523514343.0", "lat": 34.78125, "lon": 135.553125, "pop": 3548, "uniq": 17, "rate": 0.0047914317925591}, {"code": "523514344.0", "lat": 34.78125, "lon": 135.559375, "pop": 1955, "uniq": 38, "rate": 0.0194373401534526}, {"code": "523514351.0", "lat": 34.777083, "lon": 135.565625, "pop": 748, "uniq": 20, "rate": 0.0267379679144385}, {"code": "523514352.0", "lat": 34.777083, "lon": 135.571875, "pop": 308, "uniq": 1, "rate": 0.0032467532467532}, {"code": "523514353.0", "lat": 34.78125, "lon": 135.565625, "pop": 2069, "uniq": 46, "rate": 0.0222329627839536}, {"code": "523514361.0", "lat": 34.777083, "lon": 135.578125, "pop": 1466, "uniq": 12, "rate": 0.0081855388813096}, {"code": "523514362.0", "lat": 34.777083, "lon": 135.584375, "pop": 1437, "uniq": 12, "rate": 0.0083507306889352}, {"code": "523514363.0", "lat": 34.78125, "lon": 135.578125, "pop": 90, "uniq": 0, "rate": 0.0}, {"code": "523514364.0", "lat": 34.78125, "lon": 135.584375, "pop": 383, "uniq": 1, "rate": 0.0026109660574412}, {"code": "523514371.0", "lat": 34.777083, "lon": 135.590625, "pop": 816, "uniq": 13, "rate": 0.0159313725490196}, {"code": "523514372.0", "lat": 34.777083, "lon": 135.596875, "pop": 49, "uniq": 0, "rate": 0.0}, {"code": "523514373.0", "lat": 34.78125, "lon": 135.590625, "pop": 990, "uniq": 2, "rate": 0.002020202020202}, {"code": "523514374.0", "lat": 34.78125, "lon": 135.596875, "pop": 835, "uniq": 2, "rate": 0.0023952095808383}, {"code": "523514381.0", "lat": 34.777083, "lon": 135.603125, "pop": 1419, "uniq": 0, "rate": 0.0}, {"code": "523514382.0", "lat": 34.777083, "lon": 135.609375, "pop": 1426, "uniq": 1, "rate": 0.0007012622720897}, {"code": "523514383.0", "lat": 34.78125, "lon": 135.603125, "pop": 108, "uniq": 0, "rate": 0.0}, {"code": "523514384.0", "lat": 34.78125, "lon": 135.609375, "pop": 702, "uniq": 1, "rate": 0.0014245014245014}, {"code": "523514411.0", "lat": 34.785417, "lon": 135.515625, "pop": 3813, "uniq": 3, "rate": 0.000786782061369}, {"code": "523514412.0", "lat": 34.785417, "lon": 135.521875, "pop": 4545, "uniq": 0, "rate": 0.0}, {"code": "523514413.0", "lat": 34.789583, "lon": 135.515625, "pop": 2429, "uniq": 1, "rate": 0.0004116920543433}, {"code": "523514414.0", "lat": 34.789583, "lon": 135.521875, "pop": 1551, "uniq": 1, "rate": 0.0006447453255963}, {"code": "523514421.0", "lat": 34.785417, "lon": 135.528125, "pop": 3155, "uniq": 1, "rate": 0.0003169572107765}, {"code": "523514422.0", "lat": 34.785417, "lon": 135.534375, "pop": 2816, "uniq": 4, "rate": 0.0014204545454545}, {"code": "523514423.0", "lat": 34.789583, "lon": 135.528125, "pop": 4859, "uniq": 3, "rate": 0.0006174109899156}, {"code": "523514424.0", "lat": 34.789583, "lon": 135.534375, "pop": 4642, "uniq": 0, "rate": 0.0}, {"code": "523514431.0", "lat": 34.785417, "lon": 135.540625, "pop": 1505, "uniq": 2, "rate": 0.001328903654485}, {"code": "523514432.0", "lat": 34.785417, "lon": 135.546875, "pop": 3394, "uniq": 7, "rate": 0.0020624631703005}, {"code": "523514433.0", "lat": 34.789583, "lon": 135.540625, "pop": 4543, "uniq": 4, "rate": 0.0008804754567466}, {"code": "523514434.0", "lat": 34.789583, "lon": 135.546875, "pop": 3036, "uniq": 5, "rate": 0.0016469038208168}, {"code": "523514441.0", "lat": 34.785417, "lon": 135.553125, "pop": 6528, "uniq": 47, "rate": 0.0071997549019607}, {"code": "523514442.0", "lat": 34.785417, "lon": 135.559375, "pop": 1497, "uniq": 28, "rate": 0.0187040748162992}, {"code": "523514443.0", "lat": 34.789583, "lon": 135.553125, "pop": 2955, "uniq": 13, "rate": 0.004399323181049}, {"code": "523514444.0", "lat": 34.789583, "lon": 135.559375, "pop": 3661, "uniq": 71, "rate": 0.0193936083037421}, {"code": "523514451.0", "lat": 34.785417, "lon": 135.565625, "pop": 164, "uniq": 9, "rate": 0.0548780487804878}, {"code": "523514453.0", "lat": 34.789583, "lon": 135.565625, "pop": 994, "uniq": 153, "rate": 0.1539235412474849}, {"code": "523514454.0", "lat": 34.789583, "lon": 135.571875, "pop": 1088, "uniq": 74, "rate": 0.0680147058823529}, {"code": "523514462.0", "lat": 34.785417, "lon": 135.584375, "pop": 160, "uniq": 6, "rate": 0.0375}, {"code": "523514463.0", "lat": 34.789583, "lon": 135.578125, "pop": 187, "uniq": 9, "rate": 0.0481283422459893}, {"code": "523514464.0", "lat": 34.789583, "lon": 135.584375, "pop": 168, "uniq": 10, "rate": 0.0595238095238095}, {"code": "523514471.0", "lat": 34.785417, "lon": 135.590625, "pop": 1086, "uniq": 9, "rate": 0.0082872928176795}, {"code": "523514472.0", "lat": 34.785417, "lon": 135.596875, "pop": 534, "uniq": 5, "rate": 0.0093632958801498}, {"code": "523514473.0", "lat": 34.789583, "lon": 135.590625, "pop": 1590, "uniq": 36, "rate": 0.0226415094339622}, {"code": "523514474.0", "lat": 34.789583, "lon": 135.596875, "pop": 690, "uniq": 4, "rate": 0.0057971014492753}, {"code": "523514482.0", "lat": 34.785417, "lon": 135.609375, "pop": 77, "uniq": 0, "rate": 0.0}, {"code": "523514483.0", "lat": 34.789583, "lon": 135.603125, "pop": 304, "uniq": 1, "rate": 0.0032894736842105}, {"code": "523514484.0", "lat": 34.789583, "lon": 135.609375, "pop": 6, "uniq": 0, "rate": 0.0}, {"code": "523514491.0", "lat": 34.785417, "lon": 135.615625, "pop": 1491, "uniq": 0, "rate": 0.0}, {"code": "523514493.0", "lat": 34.789583, "lon": 135.615625, "pop": 290, "uniq": 0, "rate": 0.0}, {"code": "523514511.0", "lat": 34.79375, "lon": 135.515625, "pop": 2843, "uniq": 0, "rate": 0.0}, {"code": "523514512.0", "lat": 34.79375, "lon": 135.521875, "pop": 1503, "uniq": 1, "rate": 0.0006653359946773}, {"code": "523514513.0", "lat": 34.797917, "lon": 135.515625, "pop": 1131, "uniq": 0, "rate": 0.0}, {"code": "523514514.0", "lat": 34.797917, "lon": 135.521875, "pop": 3959, "uniq": 1, "rate": 0.0002525890376357}, {"code": "523514521.0", "lat": 34.79375, "lon": 135.528125, "pop": 3211, "uniq": 1, "rate": 0.000311429461227}, {"code": "523514522.0", "lat": 34.79375, "lon": 135.534375, "pop": 2457, "uniq": 0, "rate": 0.0}, {"code": "523514523.0", "lat": 34.797917, "lon": 135.528125, "pop": 3047, "uniq": 0, "rate": 0.0}, {"code": "523514524.0", "lat": 34.797917, "lon": 135.534375, "pop": 3690, "uniq": 3, "rate": 0.0008130081300813}, {"code": "523514531.0", "lat": 34.79375, "lon": 135.540625, "pop": 5022, "uniq": 0, "rate": 0.0}, {"code": "523514532.0", "lat": 34.79375, "lon": 135.546875, "pop": 4335, "uniq": 8, "rate": 0.0018454440599769}, {"code": "523514533.0", "lat": 34.797917, "lon": 135.540625, "pop": 3313, "uniq": 4, "rate": 0.0012073649260488}, {"code": "523514534.0", "lat": 34.797917, "lon": 135.546875, "pop": 4318, "uniq": 6, "rate": 0.001389532190829}, {"code": "523514541.0", "lat": 34.79375, "lon": 135.553125, "pop": 3002, "uniq": 56, "rate": 0.0186542305129913}, {"code": "523514542.0", "lat": 34.79375, "lon": 135.559375, "pop": 2990, "uniq": 320, "rate": 0.1070234113712374}, {"code": "523514543.0", "lat": 34.797917, "lon": 135.553125, "pop": 3910, "uniq": 34, "rate": 0.008695652173913}, {"code": "523514544.0", "lat": 34.797917, "lon": 135.559375, "pop": 2085, "uniq": 343, "rate": 0.1645083932853717}, {"code": "523514551.0", "lat": 34.79375, "lon": 135.565625, "pop": 1758, "uniq": 323, "rate": 0.1837315130830489}, {"code": "523514552.0", "lat": 34.79375, "lon": 135.571875, "pop": 2872, "uniq": 322, "rate": 0.112116991643454}, {"code": "523514553.0", "lat": 34.797917, "lon": 135.565625, "pop": 3969, "uniq": 882, "rate": 0.2222222222222222}, {"code": "523514554.0", "lat": 34.797917, "lon": 135.571875, "pop": 3534, "uniq": 336, "rate": 0.0950764006791171}, {"code": "523514561.0", "lat": 34.79375, "lon": 135.578125, "pop": 1579, "uniq": 104, "rate": 0.0658644711842938}, {"code": "523514562.0", "lat": 34.79375, "lon": 135.584375, "pop": 16, "uniq": 0, "rate": 0.0}, {"code": "523514563.0", "lat": 34.797917, "lon": 135.578125, "pop": 4812, "uniq": 229, "rate": 0.0475893599334995}, {"code": "523514564.0", "lat": 34.797917, "lon": 135.584375, "pop": 1525, "uniq": 45, "rate": 0.0295081967213114}, {"code": "523514571.0", "lat": 34.79375, "lon": 135.590625, "pop": 143, "uniq": 3, "rate": 0.0209790209790209}, {"code": "523514572.0", "lat": 34.79375, "lon": 135.596875, "pop": 1407, "uniq": 8, "rate": 0.005685856432125}, {"code": "523514573.0", "lat": 34.797917, "lon": 135.590625, "pop": 245, "uniq": 2, "rate": 0.0081632653061224}, {"code": "523514574.0", "lat": 34.797917, "lon": 135.596875, "pop": 392, "uniq": 1, "rate": 0.0025510204081632}, {"code": "523514581.0", "lat": 34.79375, "lon": 135.603125, "pop": 1363, "uniq": 4, "rate": 0.0029347028613352}, {"code": "523514582.0", "lat": 34.79375, "lon": 135.609375, "pop": 198, "uniq": 0, "rate": 0.0}, {"code": "523514583.0", "lat": 34.797917, "lon": 135.603125, "pop": 926, "uniq": 0, "rate": 0.0}, {"code": "523514584.0", "lat": 34.797917, "lon": 135.609375, "pop": 496, "uniq": 0, "rate": 0.0}, {"code": "523514591.0", "lat": 34.79375, "lon": 135.615625, "pop": 13, "uniq": 0, "rate": 0.0}, {"code": "523514593.0", "lat": 34.797917, "lon": 135.615625, "pop": 68, "uniq": 1, "rate": 0.0147058823529411}, {"code": "523514611.0", "lat": 34.802083, "lon": 135.515625, "pop": 3230, "uniq": 2, "rate": 0.0006191950464396}, {"code": "523514612.0", "lat": 34.802083, "lon": 135.521875, "pop": 3321, "uniq": 0, "rate": 0.0}, {"code": "523514613.0", "lat": 34.80625, "lon": 135.515625, "pop": 2849, "uniq": 1, "rate": 0.0003510003510003}, {"code": "523514614.0", "lat": 34.80625, "lon": 135.521875, "pop": 3489, "uniq": 3, "rate": 0.0008598452278589}, {"code": "523514621.0", "lat": 34.802083, "lon": 135.528125, "pop": 2447, "uniq": 1, "rate": 0.0004086636697997}, {"code": "523514622.0", "lat": 34.802083, "lon": 135.534375, "pop": 1044, "uniq": 2, "rate": 0.0019157088122605}, {"code": "523514623.0", "lat": 34.80625, "lon": 135.528125, "pop": 90, "uniq": 0, "rate": 0.0}, {"code": "523514631.0", "lat": 34.802083, "lon": 135.540625, "pop": 1238, "uniq": 10, "rate": 0.0080775444264943}, {"code": "523514632.0", "lat": 34.802083, "lon": 135.546875, "pop": 6758, "uniq": 16, "rate": 0.0023675643681562}, {"code": "523514634.0", "lat": 34.80625, "lon": 135.546875, "pop": 1109, "uniq": 9, "rate": 0.0081154192966636}, {"code": "523514641.0", "lat": 34.802083, "lon": 135.553125, "pop": 4151, "uniq": 73, "rate": 0.0175861238255841}, {"code": "523514642.0", "lat": 34.802083, "lon": 135.559375, "pop": 1139, "uniq": 56, "rate": 0.0491659350307287}, {"code": "523514643.0", "lat": 34.80625, "lon": 135.553125, "pop": 2670, "uniq": 118, "rate": 0.0441947565543071}, {"code": "523514644.0", "lat": 34.80625, "lon": 135.559375, "pop": 1306, "uniq": 163, "rate": 0.1248085758039816}, {"code": "523514651.0", "lat": 34.802083, "lon": 135.565625, "pop": 4955, "uniq": 1037, "rate": 0.2092835519677094}, {"code": "523514652.0", "lat": 34.802083, "lon": 135.571875, "pop": 4772, "uniq": 371, "rate": 0.0777451802179379}, {"code": "523514653.0", "lat": 34.80625, "lon": 135.565625, "pop": 2661, "uniq": 326, "rate": 0.122510334460729}, {"code": "523514654.0", "lat": 34.80625, "lon": 135.571875, "pop": 3775, "uniq": 252, "rate": 0.0667549668874172}, {"code": "523514661.0", "lat": 34.802083, "lon": 135.578125, "pop": 4134, "uniq": 125, "rate": 0.0302370585389453}, {"code": "523514662.0", "lat": 34.802083, "lon": 135.584375, "pop": 2630, "uniq": 55, "rate": 0.0209125475285171}, {"code": "523514663.0", "lat": 34.80625, "lon": 135.578125, "pop": 3513, "uniq": 79, "rate": 0.022487902077996}, {"code": "523514664.0", "lat": 34.80625, "lon": 135.584375, "pop": 3479, "uniq": 34, "rate": 0.0097729232538085}, {"code": "523514671.0", "lat": 34.802083, "lon": 135.590625, "pop": 985, "uniq": 28, "rate": 0.0284263959390862}, {"code": "523514673.0", "lat": 34.80625, "lon": 135.590625, "pop": 2828, "uniq": 13, "rate": 0.0045968882602545}, {"code": "523514674.0", "lat": 34.80625, "lon": 135.596875, "pop": 327, "uniq": 1, "rate": 0.0030581039755351}, {"code": "523514681.0", "lat": 34.802083, "lon": 135.603125, "pop": 192, "uniq": 3, "rate": 0.015625}, {"code": "523514682.0", "lat": 34.802083, "lon": 135.609375, "pop": 334, "uniq": 0, "rate": 0.0}, {"code": "523514683.0", "lat": 34.80625, "lon": 135.603125, "pop": 490, "uniq": 0, "rate": 0.0}, {"code": "523514684.0", "lat": 34.80625, "lon": 135.609375, "pop": 8, "uniq": 0, "rate": 0.0}, {"code": "523514691.0", "lat": 34.802083, "lon": 135.615625, "pop": 34, "uniq": 0, "rate": 0.0}, {"code": "523514693.0", "lat": 34.80625, "lon": 135.615625, "pop": 25, "uniq": 0, "rate": 0.0}, {"code": "523514711.0", "lat": 34.810417, "lon": 135.515625, "pop": 2199, "uniq": 0, "rate": 0.0}, {"code": "523514712.0", "lat": 34.810417, "lon": 135.521875, "pop": 165, "uniq": 0, "rate": 0.0}, {"code": "523514713.0", "lat": 34.814583, "lon": 135.515625, "pop": 3737, "uniq": 1, "rate": 0.0002675943270002}, {"code": "523514714.0", "lat": 34.814583, "lon": 135.521875, "pop": 53, "uniq": 0, "rate": 0.0}, {"code": "523514723.0", "lat": 34.814583, "lon": 135.528125, "pop": 84, "uniq": 0, "rate": 0.0}, {"code": "523514724.0", "lat": 34.814583, "lon": 135.534375, "pop": 796, "uniq": 2, "rate": 0.0025125628140703}, {"code": "523514731.0", "lat": 34.810417, "lon": 135.540625, "pop": 4, "uniq": 0, "rate": 0.0}, {"code": "523514732.0", "lat": 34.810417, "lon": 135.546875, "pop": 3671, "uniq": 42, "rate": 0.0114410242440751}, {"code": "523514733.0", "lat": 34.814583, "lon": 135.540625, "pop": 1684, "uniq": 13, "rate": 0.0077197149643705}, {"code": "523514734.0", "lat": 34.814583, "lon": 135.546875, "pop": 2586, "uniq": 27, "rate": 0.0104408352668213}, {"code": "523514741.0", "lat": 34.810417, "lon": 135.553125, "pop": 2607, "uniq": 43, "rate": 0.016494054468738}, {"code": "523514742.0", "lat": 34.810417, "lon": 135.559375, "pop": 1154, "uniq": 9, "rate": 0.0077989601386481}, {"code": "523514743.0", "lat": 34.814583, "lon": 135.553125, "pop": 3937, "uniq": 11, "rate": 0.0027940055880111}, {"code": "523514744.0", "lat": 34.814583, "lon": 135.559375, "pop": 4923, "uniq": 9, "rate": 0.0018281535648994}, {"code": "523514751.0", "lat": 34.810417, "lon": 135.565625, "pop": 5577, "uniq": 161, "rate": 0.0288685673301057}, {"code": "523514752.0", "lat": 34.810417, "lon": 135.571875, "pop": 4527, "uniq": 87, "rate": 0.0192180251822398}, {"code": "523514753.0", "lat": 34.814583, "lon": 135.565625, "pop": 4670, "uniq": 28, "rate": 0.0059957173447537}, {"code": "523514754.0", "lat": 34.814583, "lon": 135.571875, "pop": 3437, "uniq": 24, "rate": 0.0069828338667442}, {"code": "523514761.0", "lat": 34.810417, "lon": 135.578125, "pop": 4449, "uniq": 42, "rate": 0.00944032366824}, {"code": "523514762.0", "lat": 34.810417, "lon": 135.584375, "pop": 3099, "uniq": 22, "rate": 0.0070990642142626}, {"code": "523514763.0", "lat": 34.814583, "lon": 135.578125, "pop": 4003, "uniq": 15, "rate": 0.0037471896077941}, {"code": "523514764.0", "lat": 34.814583, "lon": 135.584375, "pop": 4616, "uniq": 12, "rate": 0.0025996533795493}, {"code": "523514771.0", "lat": 34.810417, "lon": 135.590625, "pop": 2382, "uniq": 9, "rate": 0.0037783375314861}, {"code": "523514772.0", "lat": 34.810417, "lon": 135.596875, "pop": 1889, "uniq": 8, "rate": 0.004235044997353}, {"code": "523514773.0", "lat": 34.814583, "lon": 135.590625, "pop": 2433, "uniq": 7, "rate": 0.0028771064529387}, {"code": "523514774.0", "lat": 34.814583, "lon": 135.596875, "pop": 1020, "uniq": 1, "rate": 0.0009803921568627}, {"code": "523514781.0", "lat": 34.810417, "lon": 135.603125, "pop": 914, "uniq": 0, "rate": 0.0}, {"code": "523514782.0", "lat": 34.810417, "lon": 135.609375, "pop": 1, "uniq": 0, "rate": 0.0}, {"code": "523514783.0", "lat": 34.814583, "lon": 135.603125, "pop": 3252, "uniq": 5, "rate": 0.0015375153751537}, {"code": "523514784.0", "lat": 34.814583, "lon": 135.609375, "pop": 932, "uniq": 0, "rate": 0.0}, {"code": "523514791.0", "lat": 34.810417, "lon": 135.615625, "pop": 234, "uniq": 0, "rate": 0.0}, {"code": "523514793.0", "lat": 34.814583, "lon": 135.615625, "pop": 966, "uniq": 0, "rate": 0.0}, {"code": "523514811.0", "lat": 34.81875, "lon": 135.515625, "pop": 3036, "uniq": 1, "rate": 0.0003293807641633}, {"code": "523514812.0", "lat": 34.81875, "lon": 135.521875, "pop": 67, "uniq": 0, "rate": 0.0}, {"code": "523514821.0", "lat": 34.81875, "lon": 135.528125, "pop": 699, "uniq": 3, "rate": 0.0042918454935622}, {"code": "523514822.0", "lat": 34.81875, "lon": 135.534375, "pop": 2986, "uniq": 15, "rate": 0.0050234427327528}, {"code": "523514823.0", "lat": 34.822917, "lon": 135.528125, "pop": 3033, "uniq": 5, "rate": 0.0016485328058028}, {"code": "523514824.0", "lat": 34.822917, "lon": 135.534375, "pop": 453, "uniq": 1, "rate": 0.0022075055187637}, {"code": "523514831.0", "lat": 34.81875, "lon": 135.540625, "pop": 1904, "uniq": 8, "rate": 0.0042016806722689}, {"code": "523514832.0", "lat": 34.81875, "lon": 135.546875, "pop": 2098, "uniq": 7, "rate": 0.0033365109628217}, {"code": "523514833.0", "lat": 34.822917, "lon": 135.540625, "pop": 315, "uniq": 0, "rate": 0.0}, {"code": "523514834.0", "lat": 34.822917, "lon": 135.546875, "pop": 430, "uniq": 3, "rate": 0.0069767441860465}, {"code": "523514841.0", "lat": 34.81875, "lon": 135.553125, "pop": 1954, "uniq": 4, "rate": 0.0020470829068577}, {"code": "523514842.0", "lat": 34.81875, "lon": 135.559375, "pop": 4465, "uniq": 8, "rate": 0.0017917133258678}, {"code": "523514843.0", "lat": 34.822917, "lon": 135.553125, "pop": 1010, "uniq": 2, "rate": 0.0019801980198019}, {"code": "523514844.0", "lat": 34.822917, "lon": 135.559375, "pop": 3254, "uniq": 5, "rate": 0.0015365703749231}, {"code": "523514851.0", "lat": 34.81875, "lon": 135.565625, "pop": 3599, "uniq": 19, "rate": 0.0052792442345095}, {"code": "523514852.0", "lat": 34.81875, "lon": 135.571875, "pop": 3325, "uniq": 8, "rate": 0.0024060150375939}, {"code": "523514853.0", "lat": 34.822917, "lon": 135.565625, "pop": 4440, "uniq": 10, "rate": 0.0022522522522522}, {"code": "523514854.0", "lat": 34.822917, "lon": 135.571875, "pop": 4123, "uniq": 10, "rate": 0.0024254183846713}, {"code": "523514861.0", "lat": 34.81875, "lon": 135.578125, "pop": 4389, "uniq": 17, "rate": 0.0038733196627933}, {"code": "523514862.0", "lat": 34.81875, "lon": 135.584375, "pop": 3678, "uniq": 8, "rate": 0.0021750951604132}, {"code": "523514863.0", "lat": 34.822917, "lon": 135.578125, "pop": 3040, "uniq": 5, "rate": 0.0016447368421052}, {"code": "523514864.0", "lat": 34.822917, "lon": 135.584375, "pop": 4390, "uniq": 8, "rate": 0.0018223234624145}, {"code": "523514871.0", "lat": 34.81875, "lon": 135.590625, "pop": 4221, "uniq": 1, "rate": 0.0002369106846718}, {"code": "523514872.0", "lat": 34.81875, "lon": 135.596875, "pop": 2071, "uniq": 6, "rate": 0.0028971511347175}, {"code": "523514873.0", "lat": 34.822917, "lon": 135.590625, "pop": 3833, "uniq": 7, "rate": 0.0018262457605009}, {"code": "523514874.0", "lat": 34.822917, "lon": 135.596875, "pop": 3310, "uniq": 0, "rate": 0.0}, {"code": "523514881.0", "lat": 34.81875, "lon": 135.603125, "pop": 4530, "uniq": 0, "rate": 0.0}, {"code": "523514882.0", "lat": 34.81875, "lon": 135.609375, "pop": 1226, "uniq": 0, "rate": 0.0}, {"code": "523514883.0", "lat": 34.822917, "lon": 135.603125, "pop": 3611, "uniq": 2, "rate": 0.0005538631957906}, {"code": "523514884.0", "lat": 34.822917, "lon": 135.609375, "pop": 1833, "uniq": 1, "rate": 0.000545553737043}, {"code": "523514891.0", "lat": 34.81875, "lon": 135.615625, "pop": 56, "uniq": 0, "rate": 0.0}, {"code": "523514912.0", "lat": 34.827083, "lon": 135.521875, "pop": 2256, "uniq": 0, "rate": 0.0}, {"code": "523514921.0", "lat": 34.827083, "lon": 135.528125, "pop": 385, "uniq": 0, "rate": 0.0}, {"code": "523514923.0", "lat": 34.83125, "lon": 135.528125, "pop": 769, "uniq": 3, "rate": 0.0039011703511053}, {"code": "523514924.0", "lat": 34.83125, "lon": 135.534375, "pop": 789, "uniq": 3, "rate": 0.0038022813688212}, {"code": "523514931.0", "lat": 34.827083, "lon": 135.540625, "pop": 394, "uniq": 1, "rate": 0.0025380710659898}, {"code": "523514932.0", "lat": 34.827083, "lon": 135.546875, "pop": 211, "uniq": 0, "rate": 0.0}, {"code": "523514933.0", "lat": 34.83125, "lon": 135.540625, "pop": 1427, "uniq": 6, "rate": 0.0042046250875963}, {"code": "523514934.0", "lat": 34.83125, "lon": 135.546875, "pop": 2412, "uniq": 4, "rate": 0.0016583747927031}, {"code": "523514941.0", "lat": 34.827083, "lon": 135.553125, "pop": 329, "uniq": 0, "rate": 0.0}, {"code": "523514942.0", "lat": 34.827083, "lon": 135.559375, "pop": 2594, "uniq": 6, "rate": 0.0023130300693909}, {"code": "523514943.0", "lat": 34.83125, "lon": 135.553125, "pop": 1701, "uniq": 3, "rate": 0.001763668430335}, {"code": "523514944.0", "lat": 34.83125, "lon": 135.559375, "pop": 719, "uniq": 5, "rate": 0.0069541029207232}, {"code": "523514951.0", "lat": 34.827083, "lon": 135.565625, "pop": 1470, "uniq": 9, "rate": 0.0061224489795918}, {"code": "523514952.0", "lat": 34.827083, "lon": 135.571875, "pop": 2404, "uniq": 3, "rate": 0.0012479201331114}, {"code": "523514953.0", "lat": 34.83125, "lon": 135.565625, "pop": 984, "uniq": 3, "rate": 0.0030487804878048}, {"code": "523514954.0", "lat": 34.83125, "lon": 135.571875, "pop": 429, "uniq": 1, "rate": 0.0023310023310023}, {"code": "523514961.0", "lat": 34.827083, "lon": 135.578125, "pop": 4653, "uniq": 10, "rate": 0.0021491510853212}, {"code": "523514962.0", "lat": 34.827083, "lon": 135.584375, "pop": 3172, "uniq": 4, "rate": 0.0012610340479192}, {"code": "523514963.0", "lat": 34.83125, "lon": 135.578125, "pop": 3862, "uniq": 7, "rate": 0.0018125323666494}, {"code": "523514964.0", "lat": 34.83125, "lon": 135.584375, "pop": 3430, "uniq": 2, "rate": 0.0005830903790087}, {"code": "523514971.0", "lat": 34.827083, "lon": 135.590625, "pop": 3138, "uniq": 5, "rate": 0.0015933715742511}, {"code": "523514972.0", "lat": 34.827083, "lon": 135.596875, "pop": 3812, "uniq": 3, "rate": 0.0007869884575026}, {"code": "523514973.0", "lat": 34.83125, "lon": 135.590625, "pop": 2172, "uniq": 0, "rate": 0.0}, {"code": "523514974.0", "lat": 34.83125, "lon": 135.596875, "pop": 3457, "uniq": 0, "rate": 0.0}, {"code": "523514981.0", "lat": 34.827083, "lon": 135.603125, "pop": 4274, "uniq": 3, "rate": 0.000701918577445}, {"code": "523514982.0", "lat": 34.827083, "lon": 135.609375, "pop": 2910, "uniq": 0, "rate": 0.0}, {"code": "523514983.0", "lat": 34.83125, "lon": 135.603125, "pop": 4623, "uniq": 6, "rate": 0.0012978585334198}, {"code": "523524022.0", "lat": 34.835417, "lon": 135.534375, "pop": 371, "uniq": 1, "rate": 0.0026954177897574}, {"code": "523524031.0", "lat": 34.835417, "lon": 135.540625, "pop": 551, "uniq": 1, "rate": 0.0018148820326678}, {"code": "523524032.0", "lat": 34.835417, "lon": 135.546875, "pop": 1582, "uniq": 2, "rate": 0.0012642225031605}, {"code": "523524033.0", "lat": 34.839583, "lon": 135.540625, "pop": 263, "uniq": 0, "rate": 0.0}, {"code": "523524034.0", "lat": 34.839583, "lon": 135.546875, "pop": 2873, "uniq": 5, "rate": 0.0017403411068569}, {"code": "523524041.0", "lat": 34.835417, "lon": 135.553125, "pop": 1190, "uniq": 3, "rate": 0.0025210084033613}, {"code": "523524042.0", "lat": 34.835417, "lon": 135.559375, "pop": 1967, "uniq": 5, "rate": 0.0025419420437214}, {"code": "523524043.0", "lat": 34.839583, "lon": 135.553125, "pop": 922, "uniq": 4, "rate": 0.0043383947939262}, {"code": "523524044.0", "lat": 34.839583, "lon": 135.559375, "pop": 1886, "uniq": 3, "rate": 0.0015906680805938}, {"code": "523524051.0", "lat": 34.835417, "lon": 135.565625, "pop": 1732, "uniq": 4, "rate": 0.0023094688221709}, {"code": "523524052.0", "lat": 34.835417, "lon": 135.571875, "pop": 746, "uniq": 0, "rate": 0.0}, {"code": "523524053.0", "lat": 34.839583, "lon": 135.565625, "pop": 2362, "uniq": 5, "rate": 0.002116850127011}, {"code": "523524054.0", "lat": 34.839583, "lon": 135.571875, "pop": 1676, "uniq": 3, "rate": 0.0017899761336515}, {"code": "523524061.0", "lat": 34.835417, "lon": 135.578125, "pop": 4365, "uniq": 0, "rate": 0.0}, {"code": "523524062.0", "lat": 34.835417, "lon": 135.584375, "pop": 4052, "uniq": 6, "rate": 0.0014807502467917}, {"code": "523524063.0", "lat": 34.839583, "lon": 135.578125, "pop": 1903, "uniq": 1, "rate": 0.000525486074619}, {"code": "523524064.0", "lat": 34.839583, "lon": 135.584375, "pop": 4129, "uniq": 6, "rate": 0.0014531363526277}, {"code": "523524071.0", "lat": 34.835417, "lon": 135.590625, "pop": 4296, "uniq": 1, "rate": 0.0002327746741154}, {"code": "523524072.0", "lat": 34.835417, "lon": 135.596875, "pop": 2761, "uniq": 6, "rate": 0.0021731256791017}, {"code": "523524073.0", "lat": 34.839583, "lon": 135.590625, "pop": 3628, "uniq": 3, "rate": 0.0008269018743109}, {"code": "523524141.0", "lat": 34.84375, "lon": 135.553125, "pop": 377, "uniq": 1, "rate": 0.0026525198938992}, {"code": "523524142.0", "lat": 34.84375, "lon": 135.559375, "pop": 2874, "uniq": 7, "rate": 0.0024356297842727}, {"code": "523524151.0", "lat": 34.84375, "lon": 135.565625, "pop": 1151, "uniq": 1, "rate": 0.0008688097306689}, {"code": "523524152.0", "lat": 34.84375, "lon": 135.571875, "pop": 582, "uniq": 0, "rate": 0.0}, {"code": "523524161.0", "lat": 34.84375, "lon": 135.578125, "pop": 2234, "uniq": 2, "rate": 0.000895255147717}], "competitors": [{"id": "PH001", "name": "ヤマト薬局", "lat": 34.801178, "lon": 135.56575, "km": 0.034}, {"id": "PH002", "name": "ドレミ薬局", "lat": 34.800426, "lon": 135.565521, "km": 0.098}, {"id": "PH003", "name": "なの花薬局南茨木駅前店", "lat": 34.801895, "lon": 135.564453, "km": 0.109}, {"id": "PH004", "name": "アピス薬局南茨木店", "lat": 34.802322, "lon": 135.564743, "km": 0.129}, {"id": "PH005", "name": "スギ薬局南茨木店", "lat": 34.802155, "lon": 135.567169, "km": 0.187}, {"id": "PH006", "name": "さつき薬局", "lat": 34.802177, "lon": 135.567902, "km": 0.248}, {"id": "PH007", "name": "まる薬局南茨木店", "lat": 34.801151, "lon": 135.562393, "km": 0.275}, {"id": "PH008", "name": "ヤマト薬局南店", "lat": 34.799152, "lon": 135.56308, "km": 0.319}, {"id": "PH009", "name": "ウエルシア薬局茨木沢良宜東町店", "lat": 34.800003, "lon": 135.572632, "km": 0.676}, {"id": "PH010", "name": "ひだまり薬局", "lat": 34.800198, "lon": 135.573105, "km": 0.714}, {"id": "PH011", "name": "キリン堂薬局沢良宜店", "lat": 34.795948, "lon": 135.57048, "km": 0.754}, {"id": "PH012", "name": "かもめ薬局南茨木店", "lat": 34.79924, "lon": 135.573395, "km": 0.765}, {"id": "PH013", "name": "わかほ薬局", "lat": 34.808117, "lon": 135.567139, "km": 0.775}, {"id": "PH014", "name": "いばらき薬局", "lat": 34.809437, "lon": 135.56778, "km": 0.931}, {"id": "PH015", "name": "ニチモ前ピタリ薬局", "lat": 34.803829, "lon": 135.575241, "km": 0.941}, {"id": "PH016", "name": "セレブ薬局", "lat": 34.800026, "lon": 135.576477, "km": 1.021}, {"id": "PH017", "name": "ココカラファイン薬局ビエラ茨木新中条店", "lat": 34.810669, "lon": 135.563904, "km": 1.051}, {"id": "PH018", "name": "茨木ライフ薬局", "lat": 34.801247, "lon": 135.577255, "km": 1.082}, {"id": "PH019", "name": "ココカラファイン薬局千里丘店", "lat": 34.797874, "lon": 135.55394, "km": 1.114}, {"id": "PH020", "name": "コスモファーマ薬局千里丘上店", "lat": 34.797874, "lon": 135.55394, "km": 1.114}, {"id": "PH021", "name": "つばくろ薬局", "lat": 34.804531, "lon": 135.57724, "km": 1.139}, {"id": "PH022", "name": "ピーチ薬局", "lat": 34.804638, "lon": 135.57724, "km": 1.143}, {"id": "PH023", "name": "ウエルシア薬局茨木若園店", "lat": 34.801239, "lon": 135.578323, "km": 1.18}, {"id": "PH024", "name": "完誠堂薬局中条店", "lat": 34.812683, "lon": 135.566208, "km": 1.268}, {"id": "PH025", "name": "撫子茨木薬局東中条店", "lat": 34.812283, "lon": 135.569244, "km": 1.271}, {"id": "PH026", "name": "そうごう薬局茨木さくら店", "lat": 34.811947, "lon": 135.571625, "km": 1.313}, {"id": "PH027", "name": "イオン薬局茨木店", "lat": 34.811398, "lon": 135.557831, "km": 1.319}, {"id": "PH028", "name": "スギ薬局茨木水尾店", "lat": 34.809891, "lon": 135.576462, "km": 1.39}, {"id": "PH029", "name": "つばさ薬局下穂積店", "lat": 34.808781, "lon": 135.552994, "km": 1.406}, {"id": "PH030", "name": "ハセベ薬局", "lat": 34.809837, "lon": 135.576889, "km": 1.415}, {"id": "PH031", "name": "スバル薬局", "lat": 34.814194, "lon": 135.56752, "km": 1.447}, {"id": "PH032", "name": "OGP薬局茨木店", "lat": 34.797009, "lon": 135.580475, "km": 1.457}, {"id": "PH033", "name": "薬局日本メディカルシステム茨木店", "lat": 34.814587, "lon": 135.563919, "km": 1.484}, {"id": "PH034", "name": "メティス下穂積薬局", "lat": 34.812965, "lon": 135.557495, "km": 1.485}, {"id": "PH035", "name": "せんり薬局", "lat": 34.801159, "lon": 135.549042, "km": 1.494}, {"id": "PH036", "name": "エンゼル薬局", "lat": 34.814713, "lon": 135.564499, "km": 1.494}, {"id": "PH037", "name": "くるみ薬局", "lat": 34.814796, "lon": 135.567383, "km": 1.512}, {"id": "PH038", "name": "なないろ薬局茨木店", "lat": 34.814957, "lon": 135.567993, "km": 1.537}, {"id": "PH039", "name": "スズラン薬局", "lat": 34.815891, "lon": 135.563934, "km": 1.628}, {"id": "PH040", "name": "スギ薬局茨木西店", "lat": 34.815384, "lon": 135.560242, "km": 1.636}, {"id": "PH041", "name": "メープル調剤薬局", "lat": 34.79998, "lon": 135.583359, "km": 1.646}, {"id": "PH042", "name": "三愛薬局舟木店", "lat": 34.814503, "lon": 135.574203, "km": 1.674}, {"id": "PH043", "name": "アピス薬局茨木中央店", "lat": 34.81583, "lon": 135.558853, "km": 1.723}, {"id": "PH044", "name": "光薬局", "lat": 34.816856, "lon": 135.56752, "km": 1.741}, {"id": "PH045", "name": "アピス薬局茨木店", "lat": 34.817078, "lon": 135.56311, "km": 1.767}, {"id": "PH046", "name": "オリーブ薬局", "lat": 34.814285, "lon": 135.57666, "km": 1.772}, {"id": "PH047", "name": "アカカベ薬局茨木春日店", "lat": 34.816982, "lon": 135.561539, "km": 1.779}, {"id": "PH048", "name": "アピス薬局中穂積店", "lat": 34.816261, "lon": 135.558456, "km": 1.781}, {"id": "PH049", "name": "高橋薬局", "lat": 34.816986, "lon": 135.56131, "km": 1.784}, {"id": "PH050", "name": "なの花薬局茨木駅前店", "lat": 34.815159, "lon": 135.575378, "km": 1.79}, {"id": "PH051", "name": "ウエルシア薬局阪急茨木市駅東口店", "lat": 34.815285, "lon": 135.575226, "km": 1.795}, {"id": "PH052", "name": "完誠堂薬局", "lat": 34.816147, "lon": 135.573349, "km": 1.803}, {"id": "PH053", "name": "くるみ薬局デュオ", "lat": 34.816566, "lon": 135.572266, "km": 1.81}, {"id": "PH054", "name": "つばさ薬局", "lat": 34.816959, "lon": 135.559814, "km": 1.815}, {"id": "PH055", "name": "日本調剤茨木薬局", "lat": 34.81596, "lon": 135.574432, "km": 1.827}, {"id": "PH056", "name": "中村クギシン薬局", "lat": 34.817017, "lon": 135.571472, "km": 1.834}, {"id": "PH057", "name": "きららみらい薬局", "lat": 34.81599, "lon": 135.556107, "km": 1.841}, {"id": "PH058", "name": "いぐち薬局", "lat": 34.817017, "lon": 135.572266, "km": 1.857}, {"id": "PH059", "name": "サン薬局阪急茨木店", "lat": 34.81673, "lon": 135.573883, "km": 1.883}, {"id": "PH060", "name": "アピス薬局春日店", "lat": 34.817375, "lon": 135.558899, "km": 1.884}, {"id": "PH061", "name": "フィグ薬局双葉町店", "lat": 34.816158, "lon": 135.576309, "km": 1.929}, {"id": "PH062", "name": "藤田屋薬局", "lat": 34.817741, "lon": 135.572418, "km": 1.937}, {"id": "PH063", "name": "順心堂茨木薬局", "lat": 34.816429, "lon": 135.576218, "km": 1.951}, {"id": "PH064", "name": "ひまわり薬局茨木駅前店", "lat": 34.816422, "lon": 135.576309, "km": 1.954}, {"id": "PH065", "name": "こころ薬局茨木店", "lat": 34.81773, "lon": 135.57312, "km": 1.958}, {"id": "PH066", "name": "シティー薬局", "lat": 34.816406, "lon": 135.577087, "km": 1.99}], "density": {"points": [[34.80104166666666, 135.5640625, 6.056784013228625], [34.803125, 135.5640625, 5.768320995793772], [34.796875, 135.5640625, 5.717027701406222], [34.79895833333333, 135.5640625, 5.641907070938114], [34.79895833333333, 135.56718750000002, 5.313205979041787], [34.79270833333333, 135.5703125, 5.10594547390058], [34.796875, 135.5609375, 5.0238805208462765], [34.80104166666666, 135.56718750000002, 5.0238805208462765], [34.80520833333333, 135.5609375, 4.976733742420574], [34.803125, 135.56718750000002, 4.955827057601261], [34.79270833333333, 135.5640625, 4.836281906951478], [34.79479166666667, 135.5609375, 4.804021044733257], [34.79895833333333, 135.5703125, 4.787491742782046], [34.79479166666667, 135.5640625, 4.762173934797756], [34.80104166666666, 135.5703125, 4.736198448394496], [34.803125, 135.5703125, 4.605170185988092], [34.80520833333333, 135.56718750000002, 4.574710978503383], [34.796875, 135.56718750000002, 4.574710978503383], [34.796875, 135.5578125, 4.543294782270004], [34.79479166666667, 135.5578125, 4.543294782270004], [34.796875, 135.5703125, 4.532599493153256], [34.80104166666666, 135.5734375, 4.5217885770490405], [34.790625, 135.5640625, 4.477336814478207], [34.807291666666664, 135.5703125, 4.442651256490317], [34.796875, 135.5734375, 4.430816798843313], [34.807291666666664, 135.5640625, 4.418840607796598], [34.79895833333333, 135.5609375, 4.418840607796598], [34.80520833333333, 135.5703125, 4.356708826689592], [34.807291666666664, 135.56718750000002, 4.330733340286331], [34.80520833333333, 135.5640625, 4.30406509320417], [34.79270833333333, 135.5578125, 4.290459441148391], [34.803125, 135.5734375, 4.23410650459726], [34.79895833333333, 135.5796875, 4.189654742026425], [34.80520833333333, 135.5546875, 4.174387269895637], [34.79895833333333, 135.5765625, 4.127134385045092], [34.809375, 135.56718750000002, 4.07753744390572], [34.809375, 135.5640625, 4.07753744390572], [34.79479166666667, 135.5734375, 4.060443010546419], [34.79479166666667, 135.5703125, 4.04305126783455], [34.796875, 135.5765625, 4.04305126783455], [34.803125, 135.5765625, 3.9512437185814275], [34.79479166666667, 135.56718750000002, 3.8918202981106265], [34.80520833333333, 135.5734375, 3.8918202981106265], [34.796875, 135.5796875, 3.871201010907891], [34.80104166666666, 135.5765625, 3.8501476017100584], [34.79270833333333, 135.5734375, 3.828641396489095], [34.79270833333333, 135.5765625, 3.784189633918261], [34.807291666666664, 135.5734375, 3.784189633918261], [34.79895833333333, 135.5734375, 3.7612001156935624], [34.79479166666667, 135.5546875, 3.7376696182833684], [34.803125, 135.58281250000002, 3.6109179126442243], [34.79270833333333, 135.56718750000002, 3.5553480614894135], [34.79270833333333, 135.5609375, 3.5553480614894135], [34.809375, 135.5734375, 3.5553480614894135], [34.80520833333333, 135.5765625, 3.5553480614894135], [34.811458333333334, 135.56718750000002, 3.5263605246161616], [34.803125, 135.5609375, 3.4965075614664802], [34.790625, 135.56718750000002, 3.4965075614664802], [34.782291666666666, 135.56718750000002, 3.4657359027997265], [34.790625, 135.5703125, 3.4339872044851463], [34.79479166666667, 135.5796875, 3.4011973816621555], [34.803125, 135.5546875, 3.367295829986474], [34.78854166666667, 135.5703125, 3.367295829986474], [34.809375, 135.5703125, 3.367295829986474], [34.80520833333333, 135.55156250000002, 3.332204510175204], [34.78854166666667, 135.5609375, 3.332204510175204], [34.786458333333336, 135.5546875, 3.295836866004329], [34.78854166666667, 135.5640625, 3.258096538021482], [34.80104166666666, 135.5546875, 3.258096538021482], [34.803125, 135.5796875, 3.2188758248682006], [34.809375, 135.5484375, 3.2188758248682006], [34.79479166666667, 135.5765625, 3.2188758248682006], [34.807291666666664, 135.5765625, 3.1354942159291497], [34.809375, 135.55156250000002, 3.1354942159291497], [34.79895833333333, 135.58281250000002, 3.091042453358316], [34.80520833333333, 135.58281250000002, 3.091042453358316], [34.796875, 135.5546875, 3.091042453358316], [34.807291666666664, 135.55156250000002, 3.044522437723423], [34.790625, 135.5609375, 2.995732273553991], [34.765625, 135.56718750000002, 2.995732273553991], [34.80520833333333, 135.5578125, 2.995732273553991], [34.778125, 135.5640625, 2.995732273553991], [34.80104166666666, 135.5609375, 2.9444389791664403], [34.765625, 135.5703125, 2.8903717578961645], [34.803125, 135.5890625, 2.8903717578961645], [34.809375, 135.5765625, 2.8903717578961645], [34.80104166666666, 135.58281250000002, 2.8903717578961645], [34.796875, 135.58281250000002, 2.8903717578961645], [34.79895833333333, 135.5578125, 2.8903717578961645], [34.780208333333334, 135.5484375, 2.833213344056216], [34.78854166666667, 135.5890625, 2.772588722239781], [34.771875, 135.5796875, 2.772588722239781], [34.811458333333334, 135.5703125, 2.772588722239781], [34.790625, 135.5921875, 2.70805020110221], [34.790625, 135.5734375, 2.70805020110221], [34.76770833333333, 135.56718750000002, 2.70805020110221], [34.780208333333334, 135.5609375, 2.70805020110221], [34.809375, 135.5796875, 2.6390573296152584], [34.784375, 135.5609375, 2.6390573296152584], [34.80104166666666, 135.5484375, 2.6390573296152584], [34.807291666666664, 135.5796875, 2.6390573296152584], [34.780208333333334, 135.5578125, 2.6390573296152584], [34.813541666666666, 135.5640625, 2.6390573296152584], [34.803125, 135.55156250000002, 2.5649493574615367], [34.811458333333334, 135.5640625, 2.5649493574615367], [34.813541666666666, 135.5703125, 2.5649493574615367], [34.811458333333334, 135.5484375, 2.5649493574615367], [34.78854166666667, 135.56718750000002, 2.5649493574615367], [34.78854166666667, 135.5578125, 2.4849066497880004], [34.76979166666666, 135.5546875, 2.4849066497880004], [34.790625, 135.5578125, 2.4849066497880004], [34.813541666666666, 135.5484375, 2.4849066497880004], [34.786458333333336, 135.5578125, 2.4849066497880004], [34.76145833333333, 135.56718750000002, 2.4849066497880004], [34.784375, 135.5546875, 2.4849066497880004], [34.80104166666666, 135.5890625, 2.4849066497880004], [34.79270833333333, 135.5546875, 2.4849066497880004], [34.76770833333333, 135.5796875, 2.3978952727983707], [34.77395833333333, 135.5765625, 2.3978952727983707], [34.77395833333333, 135.5859375, 2.3978952727983707], [34.811458333333334, 135.5734375, 2.3978952727983707], [34.771875, 135.58281250000002, 2.3978952727983707], [34.80520833333333, 135.5796875, 2.3978952727983707], [34.76979166666666, 135.5796875, 2.3978952727983707], [34.782291666666666, 135.5609375, 2.3978952727983707], [34.813541666666666, 135.56718750000002, 2.302585092994046], [34.778125, 135.5546875, 2.302585092994046], [34.780208333333334, 135.5640625, 2.302585092994046], [34.815625, 135.5453125, 2.302585092994046], [34.790625, 135.5765625, 2.302585092994046], [34.817708333333336, 135.5796875, 2.302585092994046], [34.809375, 135.5859375, 2.302585092994046], [34.809375, 135.5546875, 2.302585092994046], [34.811458333333334, 135.5546875, 2.302585092994046], [34.815625, 135.5390625, 2.1972245773362196], [34.80104166666666, 135.55156250000002, 2.1972245773362196], [34.77395833333333, 135.58281250000002, 2.1972245773362196], [34.85520833333333, 135.52031250000002, 2.1972245773362196], [34.807291666666664, 135.5890625, 2.1972245773362196], [34.79270833333333, 135.5796875, 2.1972245773362196], [34.771875, 135.5546875, 2.1972245773362196], [34.776041666666664, 135.5765625, 2.1972245773362196], [34.78854166666667, 135.5859375, 2.1972245773362196], [34.786458333333336, 135.5890625, 2.1972245773362196], [34.809375, 135.5890625, 2.0794415416798357], [34.853125, 135.5234375, 2.0794415416798357], [34.76979166666666, 135.56718750000002, 2.0794415416798357], [34.807291666666664, 135.5546875, 2.0794415416798357], [34.790625, 135.5546875, 2.0794415416798357], [34.817708333333336, 135.5328125, 2.0794415416798357], [34.81979166666667, 135.56718750000002, 2.0794415416798357], [34.80520833333333, 135.5453125, 1.9459101490553132], [34.780208333333334, 135.55156250000002, 1.9459101490553132], [34.813541666666666, 135.55156250000002, 1.9459101490553132], [34.778125, 135.5921875, 1.9459101490553132], [34.803125, 135.5578125, 1.9459101490553132], [34.76354166666667, 135.56718750000002, 1.9459101490553132], [34.77395833333333, 135.55156250000002, 1.9459101490553132], [34.776041666666664, 135.58281250000002, 1.9459101490553132], [34.828125, 135.5640625, 1.9459101490553132], [34.782291666666666, 135.5640625, 1.9459101490553132], [34.821875, 135.56718750000002, 1.9459101490553132], [34.786458333333336, 135.55156250000002, 1.9459101490553132], [34.815625, 135.5796875, 1.9459101490553132], [34.815625, 135.5734375, 1.9459101490553132], [34.809375, 135.5953125, 1.9459101490553132], [34.811458333333334, 135.5578125, 1.9459101490553132], [34.811458333333334, 135.5765625, 1.9459101490553132], [34.811458333333334, 135.5796875, 1.9459101490553132], [34.77395833333333, 135.5703125, 1.9459101490553132], [34.811458333333334, 135.58281250000002, 1.9459101490553132], [34.77395833333333, 135.5546875, 1.9459101490553132], [34.765625, 135.5578125, 1.791759469228055], [34.771875, 135.5484375, 1.791759469228055], [34.77395833333333, 135.5484375, 1.791759469228055], [34.80104166666666, 135.5421875, 1.791759469228055], [34.77395833333333, 135.5734375, 1.791759469228055], [34.776041666666664, 135.5484375, 1.791759469228055], [34.803125, 135.5421875, 1.791759469228055], [34.79895833333333, 135.55156250000002, 1.791759469228055], [34.807291666666664, 135.5859375, 1.791759469228055], [34.821875, 135.5890625, 1.791759469228055], [34.79479166666667, 135.5484375, 1.791759469228055], [34.828125, 135.5796875, 1.791759469228055], [34.79270833333333, 135.59843750000002, 1.791759469228055], [34.83020833333333, 135.5421875, 1.791759469228055], [34.813541666666666, 135.58281250000002, 1.791759469228055], [34.815625, 135.5484375, 1.791759469228055], [34.782291666666666, 135.5546875, 1.791759469228055], [34.81979166666667, 135.5640625, 1.791759469228055], [34.81979166666667, 135.5609375, 1.791759469228055], [34.776041666666664, 135.5890625, 1.791759469228055], [34.776041666666664, 135.5859375, 1.791759469228055], [34.76145833333333, 135.5703125, 1.791759469228055], [34.81979166666667, 135.5328125, 1.791759469228055], [34.834375, 135.5609375, 1.6094379124341003], [34.813541666666666, 135.5765625, 1.6094379124341003], [34.876041666666666, 135.6671875, 1.6094379124341003], [34.76979166666666, 135.5609375, 1.6094379124341003], [34.796875, 135.5421875, 1.6094379124341003], [34.796875, 135.55156250000002, 1.6094379124341003], [34.82604166666667, 135.5609375, 1.6094379124341003], [34.79895833333333, 135.5546875, 1.6094379124341003], [34.79895833333333, 135.5859375, 1.6094379124341003], [34.80104166666666, 135.5796875, 1.6094379124341003], [34.82395833333333, 135.5859375, 1.6094379124341003], [34.80520833333333, 135.5859375, 1.6094379124341003], [34.807291666666664, 135.58281250000002, 1.6094379124341003], [34.811458333333334, 135.5453125, 1.6094379124341003], [34.811458333333334, 135.5859375, 1.6094379124341003], [34.821875, 135.5578125, 1.6094379124341003], [34.821875, 135.5296875, 1.6094379124341003], [34.790625, 135.5421875, 1.6094379124341003], [34.78854166666667, 135.5921875, 1.6094379124341003], [34.83020833333333, 135.6078125, 1.6094379124341003], [34.776041666666664, 135.5546875, 1.6094379124341003], [34.76979166666666, 135.5765625, 1.6094379124341003], [34.85104166666667, 135.52031250000002, 1.6094379124341003], [34.840625, 135.58281250000002, 1.6094379124341003], [34.77395833333333, 135.5796875, 1.6094379124341003], [34.776041666666664, 135.5453125, 1.6094379124341003], [34.765625, 135.5734375, 1.6094379124341003], [34.782291666666666, 135.5453125, 1.6094379124341003], [34.78854166666667, 135.5546875, 1.6094379124341003], [34.85729166666667, 135.5234375, 1.6094379124341003], [34.782291666666666, 135.55156250000002, 1.6094379124341003], [34.784375, 135.55156250000002, 1.6094379124341003], [34.859375, 135.5234375, 1.6094379124341003], [34.786458333333336, 135.5640625, 1.6094379124341003], [34.78854166666667, 135.5484375, 1.6094379124341003], [34.813541666666666, 135.5578125, 1.6094379124341003], [34.76979166666666, 135.5703125, 1.6094379124341003], [34.81979166666667, 135.5765625, 1.6094379124341003], [34.817708333333336, 135.58281250000002, 1.6094379124341003], [34.817708333333336, 135.5640625, 1.6094379124341003], [34.81979166666667, 135.5734375, 1.6094379124341003], [34.815625, 135.5859375, 1.6094379124341003], [34.76354166666667, 135.5140625, 1.3862943611198906], [34.828125, 135.5921875, 1.3862943611198906], [34.815625, 135.5890625, 1.3862943611198906], [34.79270833333333, 135.6015625, 1.3862943611198906], [34.780208333333334, 135.5296875, 1.3862943611198906], [34.79479166666667, 135.55156250000002, 1.3862943611198906], [34.79479166666667, 135.59843750000002, 1.3862943611198906], [34.81979166666667, 135.5796875, 1.3862943611198906], [34.813541666666666, 135.5796875, 1.3862943611198906], [34.83020833333333, 135.5453125, 1.3862943611198906], [35.603125, 139.7140625, 1.3862943611198906], [34.796875, 135.5859375, 1.3862943611198906], [34.778125, 135.5796875, 1.3862943611198906], [34.82604166666667, 135.5765625, 1.3862943611198906], [34.778125, 135.5578125, 1.3862943611198906], [34.815625, 135.5703125, 1.3862943611198906], [34.853125, 135.5296875, 1.3862943611198906], [34.815625, 135.56718750000002, 1.3862943611198906], [34.778125, 135.55156250000002, 1.3862943611198906], [34.76354166666667, 135.5546875, 1.3862943611198906], [34.74270833333333, 137.7609375, 1.3862943611198906], [35.73645833333333, 139.5484375, 1.3862943611198906], [34.85520833333333, 135.5703125, 1.3862943611198906], [34.784375, 135.5578125, 1.3862943611198906], [34.817708333333336, 135.56718750000002, 1.3862943611198906], [34.85729166666667, 135.52031250000002, 1.3862943611198906], [34.85729166666667, 135.5171875, 1.3862943611198906], [34.786458333333336, 135.56718750000002, 1.3862943611198906], [34.786458333333336, 135.5859375, 1.3862943611198906], [34.83229166666666, 135.5328125, 1.3862943611198906], [34.83229166666666, 135.5296875, 1.3862943611198906], [34.748958333333334, 135.53593750000002, 1.3862943611198906], [34.83020833333333, 135.5578125, 1.3862943611198906], [35.31979166666667, 136.0171875, 1.3862943611198906], [34.76145833333333, 135.5484375, 1.3862943611198906], [34.838541666666664, 135.5453125, 1.3862943611198906], [34.83020833333333, 135.5765625, 1.3862943611198906], [35.21145833333333, 136.11406250000002, 1.3862943611198906], [34.838541666666664, 135.55156250000002, 1.3862943611198906], [34.790625, 135.5890625, 1.3862943611198906], [34.83020833333333, 135.5640625, 1.3862943611198906], [34.938541666666666, 135.7046875, 1.3862943611198906], [35.203125, 136.89531250000002, 1.3862943611198906], [34.848958333333336, 135.59843750000002, 1.3862943611198906], [34.821875, 135.5703125, 1.3862943611198906], [34.85104166666667, 135.5765625, 1.3862943611198906], [34.807291666666664, 135.5484375, 1.3862943611198906], [34.81979166666667, 135.5390625, 1.3862943611198906], [34.81979166666667, 135.5421875, 1.3862943611198906], [34.771875, 135.5734375, 1.3862943611198906], [34.815625, 135.5640625, 1.3862943611198906], [34.809375, 135.58281250000002, 1.3862943611198906], [34.76770833333333, 135.5546875, 1.3862943611198906], [34.821875, 135.5765625, 1.3862943611198906], [34.811458333333334, 135.55156250000002, 1.3862943611198906], [34.817708333333336, 135.5953125, 1.3862943611198906], [36.85520833333333, 139.9953125, 1.3862943611198906], [34.844791666666666, 135.52031250000002, 1.3862943611198906], [34.76770833333333, 135.5703125, 1.3862943611198906], [34.844791666666666, 135.5296875, 1.3862943611198906], [34.821875, 135.5453125, 1.3862943611198906], [34.844791666666666, 135.5578125, 1.3862943611198906], [34.813541666666666, 135.5421875, 1.3862943611198906], [34.813541666666666, 135.5890625, 1.3862943611198906], [34.813541666666666, 135.5734375, 1.3862943611198906], [34.80520833333333, 135.5921875, 1.3862943611198906], [34.834375, 135.5640625, 1.3862943611198906], [34.815625, 135.55156250000002, 1.3862943611198906], [34.803125, 135.6046875, 1.3862943611198906], [34.815625, 135.5578125, 1.3862943611198906], [34.82395833333333, 135.5734375, 1.3862943611198906], [34.734375, 135.52031250000002, 1.3862943611198906], [34.81979166666667, 135.5453125, 1.3862943611198906], [34.803125, 135.5484375, 1.3862943611198906], [34.82395833333333, 135.5703125, 1.3862943611198906], [34.817708333333336, 135.5859375, 1.3862943611198906]], "max": 6.056784013228625, "cells": 313, "suppressed_cells": 1102, "n_patients": 8734, "max_count": 426}, "maxN": 14644, "ticks": [10, 50, 200, 1000, 5000, 14644], "meshHalf": {"lat": 0.0020833333333333333, "lon": 0.003125}, "minCellCount": 3, "meshCuts": [0.00124266247703634, 0.0022433029055545007, 0.004350580471350759, 0.01418258621776681], "meshBands": [{"lo": 0.0, "hi": 0.00124266247703634, "color": "#d9f0d3"}, {"lo": 0.00124266247703634, "hi": 0.0022433029055545007, "color": "#a6dba0"}, {"lo": 0.0022433029055545007, "hi": 0.004350580471350759, "color": "#5aae61"}, {"lo": 0.004350580471350759, "hi": 0.01418258621776681, "color": "#2b8cbe"}, {"lo": 0.01418258621776681, "hi": 0.2222222222222222, "color": "#084081"}]}</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById("map-data").textContent);
+
+  var gsi = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+    maxZoom: 18, attribution: "地理院タイル（淡色地図）"
+  });
+  var gsiStd = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", {
+    maxZoom: 18, attribution: "地理院タイル（標準地図）"
+  });
+  var osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
+  });
+
+  var map = L.map("map", {
+    center: [D.pharmacy.lat, D.pharmacy.lon], zoom: 13, layers: [gsi], scrollWheelZoom: false
+  });
+  map.on("focus", function () { map.scrollWheelZoom.enable(); });
+  map.on("blur", function () { map.scrollWheelZoom.disable(); });
+
+  /* --- 自店 --- */
+  var storeLayer = L.layerGroup([
+    L.circleMarker([D.pharmacy.lat, D.pharmacy.lon], {
+      radius: 9, color: "#0f6a6a", fillColor: "#0f6a6a", fillOpacity: .95, weight: 2
+    }).bindPopup("<b>" + D.pharmacy.name + "</b><br>自店")
+  ]).addTo(map);
+
+  /* --- クリニック: 半径は log1p(件数) --- */
+  var maxLog = Math.log1p(D.maxN);
+  function radiusFor(n) { return 4 + 22 * (Math.log1p(n) / maxLog); }
+  var clinicLayer = L.layerGroup();
+  D.clinics.forEach(function (c) {
+    L.circleMarker([c.lat, c.lon], {
+      radius: radiusFor(c.n),
+      color: c.gate ? "#c45c26" : "#2f6f9f",
+      fillColor: c.gate ? "#c45c26" : "#2f6f9f",
+      fillOpacity: .42, weight: 1.2
+    }).bindPopup(
+      "<b>" + c.name + "</b><br>処方箋 " + c.n.toLocaleString() + " 件<br>" +
+      (c.sp || "-") + " / " + (c.gate ? "門前型" : "非門前型") +
+      (c.km !== null ? "<br>薬局まで直線 " + c.km.toFixed(3) + " km" : "")
+    ).addTo(clinicLayer);
+  });
+  clinicLayer.addTo(map);
+
+  /* --- メッシュ来局率（対数スケールのコロプレス） --- */
+  function meshColor(rate) {
+    if (!rate) { return "#eeeae0"; }
+    for (var i = 0; i < D.meshCuts.length; i++) {
+      if (rate <= D.meshCuts[i]) { return D.meshBands[i].color; }
+    }
+    return D.meshBands[D.meshBands.length - 1].color;
+  }
+  var meshLayer = L.layerGroup();
+  D.meshes.forEach(function (m) {
+    L.rectangle([
+      [m.lat - D.meshHalf.lat, m.lon - D.meshHalf.lon],
+      [m.lat + D.meshHalf.lat, m.lon + D.meshHalf.lon]
+    ], {
+      color: "#8d8577", weight: .4, fillColor: meshColor(m.rate),
+      fillOpacity: m.rate ? .6 : .18
+    }).bindPopup(
+      "メッシュ " + m.code + "<br>人口 " + m.pop.toLocaleString() +
+      "<br>来局ユニーク " + m.uniq.toLocaleString() +
+      "<br>来局率 " + (m.rate * 100).toFixed(2) + "%"
+    ).addTo(meshLayer);
+  });
+
+  /* --- 競合薬局 --- */
+  var compLayer = L.layerGroup();
+  D.competitors.forEach(function (p) {
+    L.circleMarker([p.lat, p.lon], {
+      radius: 4.5, color: "#2f6f9f", fillColor: "#fff", fillOpacity: .9, weight: 2
+    }).bindPopup("<b>" + p.name + "</b><br>競合薬局" +
+      (p.km !== null ? "<br>自店から直線 " + p.km.toFixed(3) + " km" : "")).addTo(compLayer);
+  });
+
+  /* --- 患者密度（集約済みグリッドの KDE ヒート） --- */
+  var heatLayer = null;
+  if (window.L && L.heatLayer && D.density.points.length) {
+    heatLayer = L.heatLayer(D.density.points, {
+      radius: 26, blur: 20, max: D.density.max, minOpacity: .30,
+      gradient: { 0.3: "#ffeda0", 0.55: "#feb24c", 0.78: "#fc4e2a", 1.0: "#bd0026" }
+    });
+  }
+
+  var overlays = {
+    "自店": storeLayer,
+    "クリニック（円=件数の対数）": clinicLayer,
+    "メッシュ来局率": meshLayer
+  };
+  overlays["競合薬局（" + D.competitors.length + "件）"] = compLayer;
+  if (heatLayer) { overlays["患者密度（集約KDE）"] = heatLayer; }
+  L.control.layers(
+    { "地理院 淡色": gsi, "地理院 標準": gsiStd, "OpenStreetMap": osm },
+    overlays, { collapsed: false }
+  ).addTo(map);
+
+  /* --- 地図上の凡例 --- */
+  var legend = L.control({ position: "bottomright" });
+  legend.onAdd = function () {
+    var div = L.DomUtil.create("div", "map-legend");
+    var rows = D.ticks.map(function (n) {
+      var r = radiusFor(n);
+      return '<div style="display:flex;align-items:center;gap:6px;margin:2px 0">' +
+        '<span style="display:inline-block;width:' + (2 * r) + 'px;height:' + (2 * r) +
+        'px;border-radius:50%;background:rgba(196,92,38,.45);border:1px solid #c45c26"></span>' +
+        '<span>' + n.toLocaleString() + ' 件</span></div>';
+    }).join("");
+    div.innerHTML = "<b>クリニック件数</b>（半径は対数）" + rows;
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  };
+  legend.addTo(map);
+
+  /* --- ページ内の凡例（実数表示） --- */
+  var bl = document.getElementById("bubble-legend");
+  if (bl) {
+    bl.innerHTML = D.ticks.map(function (n) {
+      var r = radiusFor(n);
+      return '<div class="legend-row"><span class="bubble" style="width:' + (2 * r) +
+        'px;height:' + (2 * r) + 'px"></span><span class="num">' + n.toLocaleString() +
+        '</span> 件</div>';
+    }).join("");
+  }
+  var ml = document.getElementById("mesh-legend");
+  if (ml) {
+    ml.innerHTML =
+      '<div class="legend-row"><span class="swatch" style="background:#eeeae0"></span>' +
+      '<span class="num">0%</span>（来局なし）</div>' +
+      D.meshBands.map(function (b) {
+        return '<div class="legend-row"><span class="swatch" style="background:' + b.color +
+          '"></span><span class="num">' + (b.lo * 100).toFixed(2) + '〜' +
+          (b.hi * 100).toFixed(2) + '%</span></div>';
+      }).join("");
+  }
+}());
+</script>
+<script data-shell="sidebar">
+/* サイドバー: モバイルドロワー + ページ内目次スクロールスパイ */
+(function () {
+  "use strict";
+
+  var body = document.body;
+  var toggle = document.querySelector(".nav-toggle");
+  var overlay = document.querySelector(".nav-overlay");
+  var sidebar = document.getElementById("sidebar");
+
+  function setOpen(open) {
+    body.classList.toggle("nav-open", open);
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "ナビゲーションを閉じる" : "ナビゲーションを開く");
+    }
+    if (overlay) { overlay.hidden = !open; }
+    if (open && sidebar) {
+      var first = sidebar.querySelector("a");
+      if (first) { first.focus(); }
+    }
+  }
+
+  if (toggle) {
+    toggle.addEventListener("click", function () {
+      setOpen(!body.classList.contains("nav-open"));
+    });
+  }
+  if (overlay) {
+    overlay.addEventListener("click", function () { setOpen(false); });
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && body.classList.contains("nav-open")) {
+      setOpen(false);
+      if (toggle) { toggle.focus(); }
+    }
+  });
+  // ドロワー内のリンクを踏んだら閉じる
+  if (sidebar) {
+    sidebar.addEventListener("click", function (e) {
+      var a = e.target.closest ? e.target.closest("a") : null;
+      if (a && body.classList.contains("nav-open")) { setOpen(false); }
+    });
+  }
+  // 900px 以上へ戻ったら状態をリセット
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(min-width: 900px)");
+    var onChange = function (ev) { if (ev.matches) { setOpen(false); } };
+    if (mq.addEventListener) { mq.addEventListener("change", onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  /* --- スクロールスパイ --- */
+  var tocLinks = Array.prototype.slice.call(
+    document.querySelectorAll(".sb-toc a[href^='#']")
+  );
+  if (!tocLinks.length || !("IntersectionObserver" in window)) { return; }
+
+  var byId = {};
+  var targets = [];
+  tocLinks.forEach(function (link) {
+    var id = decodeURIComponent(link.getAttribute("href").slice(1));
+    var el = document.getElementById(id);
+    if (el) { byId[id] = link; targets.push(el); }
+  });
+  if (!targets.length) { return; }
+
+  var visible = new Set();
+
+  function highlight(id) {
+    tocLinks.forEach(function (l) { l.classList.remove("is-current"); });
+    var link = byId[id];
+    if (link) {
+      link.classList.add("is-current");
+      // サイドバー内で見切れていたらスクロールして見せる
+      var box = link.getBoundingClientRect();
+      var host = sidebar ? sidebar.getBoundingClientRect() : null;
+      if (host && (box.top < host.top || box.bottom > host.bottom)) {
+        link.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }
+
+  function pickTop() {
+    var best = null;
+    targets.forEach(function (el) {
+      if (!visible.has(el.id)) { return; }
+      if (!best || el.getBoundingClientRect().top < best.getBoundingClientRect().top) {
+        best = el;
+      }
+    });
+    return best;
+  }
+
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) { visible.add(entry.target.id); }
+      else { visible.delete(entry.target.id); }
+    });
+    var top = pickTop();
+    if (top) { highlight(top.id); }
+  }, { rootMargin: "-20% 0px -70% 0px", threshold: 0 });
+
+  targets.forEach(function (el) { observer.observe(el); });
+
+  // どのセクションも帯に入っていない位置（最上部・最下部）向けのフォールバック
+  function fallback() {
+    if (visible.size) { return; }
+    var current = targets[0];
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i].getBoundingClientRect().top - window.innerHeight * 0.25 <= 0) {
+        current = targets[i];
+      }
+    }
+    if (current) { highlight(current.id); }
+  }
+  window.addEventListener("scroll", fallback, { passive: true });
+  fallback();
+}());
+
+</script>
+</body>
+</html>

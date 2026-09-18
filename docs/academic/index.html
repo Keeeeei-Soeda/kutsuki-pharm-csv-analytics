@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>くつき薬局南茨木店 | DataBank Analytics</title>
+<style>
+  :root {
+    --bg: #f3f1eb;
+    --ink: #1c2430;
+    --muted: #5c6675;
+    --accent: #0f6a6a;
+    --accent-2: #c45c26;
+    --line: #d9d2c5;
+    --surface: #fffcf7;
+    --shadow: 0 14px 40px rgba(28,36,48,.10);
+    --sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(1000px 500px at 0% -10%, #e7f2f1, transparent 55%),
+      radial-gradient(800px 400px at 100% 0%, #f8e8dc, transparent 45%),
+      var(--bg);
+    line-height: 1.65;
+  }
+  .phase-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(10px);
+    background: rgba(255, 252, 247, 0.92);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 4px 18px rgba(28, 36, 48, 0.06);
+  }
+  .phase-nav-inner {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 10px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+  }
+  .phase-nav-brand {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+  .phase-nav-links { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .phase-nav a.phase-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    white-space: nowrap;
+  }
+  .phase-nav a.phase-link:hover { border-color: var(--accent); color: var(--accent); }
+  .phase-nav a.phase-link.blocked {
+    color: var(--muted);
+    background: #f5f2ec;
+    border-style: dashed;
+  }
+  .phase-nav .phase-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    opacity: 0.85;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 20px 80px; }
+  .hero {
+    background: linear-gradient(135deg, #103a3a 0%, #0f6a6a 55%, #2f6f9f 100%);
+    color: #f7fffe;
+    border-radius: 28px;
+    padding: 40px 36px;
+    box-shadow: var(--shadow);
+  }
+  .eyebrow { letter-spacing: .14em; text-transform: uppercase; font-size: 12px; opacity: .8; }
+  h1 { margin: 10px 0 12px; font-size: clamp(28px, 5vw, 40px); line-height: 1.2; }
+  .hero p { margin: 0; max-width: 40rem; opacity: .92; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .chip {
+    background: rgba(255,255,255,.14);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .card {
+    grid-column: span 6;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 800px) { .card { grid-column: span 12; } }
+  .card h2 { margin: 0 0 8px; font-size: 20px; }
+  .card p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #fff8ec;
+    color: #a15c12;
+    border: 1px solid #e6d0a8;
+    margin-bottom: 8px;
+  }
+  .btn {
+    display: inline-block;
+    text-decoration: none;
+    background: var(--accent);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .btn.secondary { background: var(--accent-2); }
+  .btn.ghost {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .btn.muted {
+    background: #efeae1;
+    color: var(--muted);
+  }
+  .note {
+    margin-top: 28px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    background: #fff8ec;
+    border: 1px solid #e6d0a8;
+    color: #5c4a2a;
+    font-size: 13px;
+  }
+  footer { margin-top: 36px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="version-switch" style="background:#103a3a;color:#f7fffe;padding:10px 16px;font-size:13px;font-family:'Hiragino Sans',sans-serif;text-align:center">
+<strong>学術用（旧UI）版</strong>です。サイドバー・来院経路・商圏マップを含む薬局向けの最新版は
+<a href="../index.html" style="color:#9fe3dd">こちら</a>。
+</div>
+<nav class="phase-nav" aria-label="Phase navigation">
+  <div class="phase-nav-inner">
+    <a class="phase-nav-brand" href="index.html">Kutsuki DataBank</a>
+    <div class="phase-nav-links">
+      <a class="phase-link" href="phase1_flow.html"><span class="phase-num">P1</span>Flow</a>
+      <a class="phase-link" href="phase2_catchment.html"><span class="phase-num">P2</span>Catchment</a>
+      <a class="phase-link" href="phase3_model.html"><span class="phase-num">P3</span>Choice</a>
+      <a class="phase-link" href="phase4_retention.html"><span class="phase-num">P4</span>Retention</a>
+      <a class="phase-link blocked" href="phase5_causal.html" title="データ不足"><span class="phase-num">P5</span>Causal</a>
+      <a class="phase-link" href="phase6_integrated.html"><span class="phase-num">P6</span>Integrated</a>
+    </div>
+  </div>
+</nav>
+  <div class="wrap">
+    <header class="hero">
+      <div class="eyebrow">Kutsuki DataBank Analytics</div>
+      <h1>くつき薬局南茨木店<br/>患者獲得モデル分析</h1>
+      <p>門前／非門前の二軸で、処方箋フロー・商圏・来局率を可視化したレポートです。生の患者CSVは公開していません。</p>
+      <div class="meta">
+        <span class="chip">受診 2024-09-02 〜 2026-07-31</span>
+        <span class="chip">患者 8,885 / 受診 31,924</span>
+        <span class="chip">GitHub Pages</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <article class="card">
+        <h2>Phase 1 · Prescription Flow</h2>
+        <p>門前型 89.3% / 非門前 9.6%。ABC分析・時系列・外生要因・ポートフォリオ・Sankey。</p>
+        <a class="btn" href="phase1_flow.html">レポートを開く</a>
+        <a class="btn ghost" href="figures/phase1_sankey.html">Sankey</a>
+      </article>
+
+      <article class="card">
+        <h2>Phase 2 · Clinic Catchment</h2>
+        <p>クリニック商圏・地区×クリニック・メッシュ来局率・競合圧力・ネットワーク。</p>
+        <a class="btn secondary" href="phase2_catchment.html">レポートを開く</a>
+        <a class="btn ghost" href="figures/phase2_map.html">地図</a>
+      </article>
+
+      <article class="card">
+        <h2>Phase 3 · Choice &amp; Growth</h2>
+        <p>集計来局率GLM・クリニック選択・Huff・成長シナリオ（月1,388→3,000の感度）。</p>
+        <a class="btn" href="phase3_model.html">レポートを開く</a>
+      </article>
+
+      <article class="card">
+        <h2>Phase 4 · Retention &amp; LTV</h2>
+        <p>コホート残存・90日定着・来局間隔・LTV・クリニック階層・クラスタ。</p>
+        <a class="btn secondary" href="phase4_retention.html">レポートを開く</a>
+      </article>
+
+      <article class="card">
+        <span class="badge">データ不足</span>
+        <h2>Phase 5 · Causal Impact</h2>
+        <p>イベント年表・介入日が未整備のため因果分析は保留。揃い次第 ITS / CausalImpact を実施予定。</p>
+        <a class="btn muted" href="phase5_causal.html">状況を見る</a>
+      </article>
+
+      <article class="card">
+        <h2>Phase 6 · Integrated Model</h2>
+        <p>統合式・予測検証・シナリオ分布・学術ポジショニング。</p>
+        <a class="btn" href="phase6_integrated.html">レポートを開く</a>
+      </article>
+
+    </div>
+
+    <div class="note">
+      <strong>注意:</strong> 本サイトの数値は自店受診データに基づく記述・相関分析です。市場全体の選択率や因果効果としては解釈しないでください。
+      個人が特定できる生データ（住所テキスト・受診明細CSV等）はリポジトリに含めていません。
+    </div>
+
+    <footer>
+      Generated from kutsuki_pharm_csv-analytics · GitHub Pages
+    </footer>
+  </div>
+</body>
+</html>

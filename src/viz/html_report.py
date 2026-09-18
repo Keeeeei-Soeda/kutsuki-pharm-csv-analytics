@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Union
 
+from src.viz.sidebar import PERIOD_LABEL, key_for_phase, render_sidebar, sidebar_css, sidebar_js
+
 PathLike = Union[str, Path]
 
 
@@ -218,116 +220,11 @@ iframe.map {
   .phase-nav { display: none !important; }
 }
 
-/* Phase navigation */
-.phase-nav {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  backdrop-filter: blur(10px);
-  background: rgba(255, 252, 247, 0.92);
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 4px 18px rgba(28, 36, 48, 0.06);
-}
-.phase-nav-inner {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 10px 20px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-}
-.phase-nav-brand {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--accent);
-  text-decoration: none;
-  letter-spacing: 0.04em;
-  margin-right: 6px;
-  white-space: nowrap;
-}
-.phase-nav-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  flex: 1;
-}
-.phase-nav a.phase-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  text-decoration: none;
-  color: var(--ink);
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: #fff;
-  white-space: nowrap;
-}
-.phase-nav a.phase-link:hover { border-color: var(--accent); color: var(--accent); }
-.phase-nav a.phase-link.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 700;
-}
-.phase-nav a.phase-link.blocked {
-  color: var(--muted);
-  background: #f5f2ec;
-  border-style: dashed;
-}
-.phase-nav a.phase-link.blocked.active {
-  background: #a15c12;
-  border-color: #a15c12;
-  border-style: solid;
-  color: #fff;
-}
-.phase-nav .phase-num {
-  font-family: var(--mono);
-  font-size: 11px;
-  opacity: 0.85;
-}
-@media (max-width: 720px) {
-  .phase-nav-brand { width: 100%; margin-bottom: 2px; }
-  .phase-nav a.phase-link { padding: 5px 8px; font-size: 11px; }
-}
 """
-
-PHASE_PAGES = [
-    {"n": 1, "href": "phase1_flow.html", "label": "Flow", "blocked": False},
-    {"n": 2, "href": "phase2_catchment.html", "label": "Catchment", "blocked": False},
-    {"n": 3, "href": "phase3_model.html", "label": "Choice", "blocked": False},
-    {"n": 4, "href": "phase4_retention.html", "label": "Retention", "blocked": False},
-    {"n": 5, "href": "phase5_causal.html", "label": "Causal", "blocked": True},
-    {"n": 6, "href": "phase6_integrated.html", "label": "Integrated", "blocked": False},
-]
 
 
 def _esc(text: object) -> str:
     return html.escape("" if text is None else str(text))
-
-
-def phase_nav_html(active_phase: Optional[int] = None, home_href: str = "index.html") -> str:
-    links = []
-    for p in PHASE_PAGES:
-        classes = ["phase-link"]
-        if p["blocked"]:
-            classes.append("blocked")
-        if active_phase == p["n"]:
-            classes.append("active")
-        title = "データ不足" if p["blocked"] else p["label"]
-        links.append(
-            f'<a class="{" ".join(classes)}" href="{_esc(p["href"])}" title="{_esc(title)}">'
-            f'<span class="phase-num">P{p["n"]}</span>{_esc(p["label"])}</a>'
-        )
-    return (
-        '<nav class="phase-nav" aria-label="Phase navigation">'
-        '<div class="phase-nav-inner">'
-        f'<a class="phase-nav-brand" href="{_esc(home_href)}">Kutsuki DataBank</a>'
-        f'<div class="phase-nav-links">{"".join(links)}</div>'
-        "</div></nav>"
-    )
 
 
 def img_to_data_uri(path: PathLike) -> str:
@@ -350,6 +247,7 @@ class HtmlReport:
         period: str = "",
         eyebrow: str = "DataBank Analytics",
         active_phase: Optional[int] = None,
+        nav_key: Optional[str] = None,
     ):
         self.title = title
         self.subtitle = subtitle
@@ -357,6 +255,7 @@ class HtmlReport:
         self.period = period
         self.eyebrow = eyebrow
         self.active_phase = active_phase
+        self.nav_key = nav_key
         self.kpis: List[dict] = []
         self.toc: List[tuple] = []
         self.blocks: List[str] = []
@@ -425,17 +324,20 @@ class HtmlReport:
                 tds.append(f"<td{cls}>{_esc(cell)}</td>")
             body.append("<tr>" + "".join(tds) + "</tr>")
         self.blocks.append(
-            f'<div class="card span-12" style="padding:0;overflow:auto"><table><thead><tr>{thead}</tr></thead>'
+            f'<div class="card span-12 table-scroll" style="padding:0"><table><thead><tr>{thead}</tr></thead>'
             f"<tbody>{''.join(body)}</tbody></table></div>"
         )
 
-    def folium_iframe(self, folium_html_path: PathLike, caption: str = "") -> None:
+    def folium_iframe(
+        self, folium_html_path: PathLike, caption: str = "", rel_dir: str = "figures"
+    ) -> None:
         p = Path(folium_html_path)
         if not p.exists():
             self.blocks.append(f'<p class="caption">（地図なし: {_esc(p.name)}）</p>')
             return
-        # embed as iframe srcdoc for single-file portability is huge; link relative instead
-        rel = p.name
+        # 単一ファイル化すると巨大になるので相対リンクで開く。
+        # HTML は reports/ に出るため figures/ を前置する。
+        rel = f"{rel_dir}/{p.name}" if rel_dir else p.name
         cap = f'<p class="caption">{_esc(caption)} <a href="{_esc(rel)}" target="_blank">別窓で開く</a></p>'
         self.blocks.append(
             f'<iframe class="map" src="{_esc(rel)}" title="{_esc(caption or "map")}"></iframe>{cap}'
@@ -455,10 +357,7 @@ class HtmlReport:
                 )
             kpi_html = f'<div class="grid">{"".join(cards)}</div>'
 
-        toc_html = ""
-        if self.toc:
-            links = "".join(f'<a href="#{_esc(a)}">{_esc(lab)}</a>' for a, lab in self.toc)
-            toc_html = f'<div class="card span-12 toc" style="margin-top:18px">{links}</div>'
+        # ページ内目次はサイドバーに集約したので本文側には出さない
 
         chips = []
         if self.pharmacy:
@@ -467,18 +366,24 @@ class HtmlReport:
             chips.append(f'<span class="chip">{_esc(self.period)}</span>')
         chips.append(f'<span class="chip">生成 {datetime.now().strftime("%Y-%m-%d %H:%M")}</span>')
 
-        nav = phase_nav_html(self.active_phase)
+        sidebar = render_sidebar(
+            self.nav_key or key_for_phase(self.active_phase),
+            self.toc,
+            breadcrumb=self.eyebrow,
+            period=self.period or PERIOD_LABEL,
+        )
         return f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>{_esc(self.title)}</title>
-<style>{CSS}</style>
+<style>{CSS}
+{sidebar_css()}</style>
 </head>
 <body>
-{nav}
-<div class="wrap">
+{sidebar}
+<main class="wrap" id="main">
   <header class="hero">
     <div class="eyebrow">{_esc(self.eyebrow)}</div>
     <h1>{_esc(self.title)}</h1>
@@ -486,13 +391,15 @@ class HtmlReport:
     <div class="meta">{''.join(chips)}</div>
   </header>
   {kpi_html}
-  {toc_html}
   {''.join(self.blocks)}
-  <footer class="footer">
+  <footer class="footer" id="notes">
     自店受診データに基づく記述分析です。市場全体の選択率・因果効果としては解釈しないでください。
     花粉欠損は0埋めしていません。新患フラグは使用していません。
   </footer>
-</div>
+</main>
+<script data-shell="sidebar">
+{sidebar_js()}
+</script>
 </body>
 </html>
 """
@@ -502,34 +409,6 @@ class HtmlReport:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(self.render(), encoding="utf-8")
         return out
-
-
-def inject_phase_nav(html_path: PathLike, active_phase: int) -> Path:
-    """既存 HTML に Phase ナビを差し込む（再分析せずに更新する用）。"""
-    import re
-
-    path = Path(html_path)
-    text = path.read_text(encoding="utf-8")
-    if 'class="phase-nav"' in text:
-        text = re.sub(
-            r'<nav class="phase-nav"[^>]*>.*?</nav>\s*',
-            "",
-            text,
-            count=1,
-            flags=re.DOTALL,
-        )
-    if ".phase-nav {" not in text:
-        marker = "/* Phase navigation */"
-        nav_css = CSS[CSS.index(marker) :] if marker in CSS else ""
-        if "</style>" in text and nav_css:
-            text = text.replace("</style>", nav_css + "\n</style>", 1)
-    nav = phase_nav_html(active_phase)
-    if "<body>" in text:
-        text = text.replace("<body>", f"<body>\n{nav}", 1)
-    else:
-        text = nav + text
-    path.write_text(text, encoding="utf-8")
-    return path
 
 
 FIG_EXPLAIN_CSS = """

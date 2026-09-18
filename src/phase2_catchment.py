@@ -690,17 +690,16 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     )
 
     rep.section("map", "6. インタラクティブ地図")
+    rep.add_html(
+        '<div class="callout ok" style="margin-bottom:12px">'
+        '<strong>拡張版の地図ページ</strong>'
+        '<p style="margin:6px 0 0">レイヤ切替（自店／クリニック／メッシュ来局率／競合薬局／患者密度）と'
+        '対数スケールの円に対応した <a href="map.html">商圏マップ</a> を別ページで用意しています。</p>'
+        "</div>"
+    )
     rep.folium_iframe(map_path, "薬局・患者重心・メッシュ来局・競合")
 
     html_path = REPORTS / "phase2_catchment.html"
-    # save map next to html for iframe relative path
-    # map is in figures/; html in reports/ so fix iframe to figures/phase2_map.html
-    rep.blocks = [
-        b.replace(f'src="{map_path.name}"', 'src="figures/phase2_map.html"')
-        if "iframe" in b and map_path.name in b
-        else b
-        for b in rep.blocks
-    ]
     rep.save(html_path)
     return {"md": md_path, "html": html_path}
 

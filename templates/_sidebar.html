@@ -1,0 +1,52 @@
+<!-- 共通サイドバー部分テンプレート。全ページで同一のものを埋め込む。
+     置換は src/viz/sidebar.py の render_sidebar() が行う。
+     トークン一覧は同モジュール内 values の辞書を参照。 -->
+<a class="skip-link" href="#main">本文へスキップ</a>
+
+<div class="topbar">
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="ナビゲーションを開く">
+    <span class="nav-toggle-bars" aria-hidden="true"></span>
+  </button>
+  <span class="topbar-crumb">{{BREADCRUMB}}</span>
+</div>
+
+<div class="nav-overlay" hidden></div>
+
+<aside class="sidebar" id="sidebar">
+  <a class="sb-brand" href="{{HOME_HREF}}">
+    <span class="sb-brand-name">くつき薬局南茨木店</span>
+    <span class="sb-brand-sub">DataBank Analytics</span>
+  </a>
+
+  <p class="sb-period" title="全ページ共通のデータ期間">{{PERIOD}}</p>
+
+  <nav class="sb-nav" aria-label="Phase ナビゲーション">
+    <p class="sb-heading" id="sb-h-phase">Phase</p>
+    <ul aria-labelledby="sb-h-phase">
+      {{PHASE_ITEMS}}
+    </ul>
+    <p class="sb-heading" id="sb-h-extra">追加分析</p>
+    <ul aria-labelledby="sb-h-extra">
+      {{EXTRA_ITEMS}}
+    </ul>
+  </nav>
+
+  <nav class="sb-toc" aria-label="ページ内目次">
+    <p class="sb-heading" id="sb-h-toc">このページの内容</p>
+    <ul aria-labelledby="sb-h-toc">
+      {{PAGE_TOC}}
+    </ul>
+  </nav>
+
+  <!-- フィルタ領域: 枠のみ確保。機能は未実装。 -->
+  <div class="sb-filters" aria-label="フィルタ（準備中）">
+    <p class="sb-heading">フィルタ</p>
+    <div class="sb-filter-slot" data-filter-slot="period">期間フィルタ<span>準備中</span></div>
+    <div class="sb-filter-slot" data-filter-slot="segment">区分フィルタ<span>準備中</span></div>
+  </div>
+
+  <div class="sb-footer">
+    <p class="sb-generated">生成 {{GENERATED}}</p>
+    <a class="sb-notes-link" href="#notes">注意事項</a>
+  </div>
+</aside>

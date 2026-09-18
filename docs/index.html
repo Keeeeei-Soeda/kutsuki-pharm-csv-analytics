@@ -158,23 +158,299 @@
     font-size: 13px;
   }
   footer { margin-top: 36px; color: var(--muted); font-size: 12px; }
+/* === サイドバーシェル BEGIN === (templates/_sidebar.html と対) */
+:root {
+  --sb-w: 240px;
+  --sb-bg: #f7f4ed;
+  --sb-ink: #1c2430;
+  --sb-muted: #5c6675;
+  --sb-line: #ddd6c8;
+  --sb-accent: #0f6a6a;
+  --sb-active-bg: #e4efee;
+}
+
+/* 旧・上部横並びナビは廃止 */
+.phase-nav { display: none !important; }
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  padding: 10px 16px;
+  background: var(--sb-accent);
+  color: #fff;
+  border-radius: 0 0 10px 0;
+  text-decoration: none;
+  font-size: 13px;
+}
+.skip-link:focus { left: 0; }
+
+body { display: grid; grid-template-columns: var(--sb-w) minmax(0, 1fr); align-items: start; }
+body > .skip-link, body > .topbar, body > .nav-overlay { grid-column: 1 / -1; }
+
+.sidebar {
+  grid-column: 1;
+  align-self: start;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--sb-bg);
+  border-right: 1px solid var(--sb-line);
+  padding: 18px 0 24px;
+  font-size: 13px;
+}
+.wrap { grid-column: 2; max-width: 960px; margin: 0 auto; width: 100%; min-width: 0; }
+
+.sb-brand { display: block; padding: 0 16px 12px; text-decoration: none; color: var(--sb-ink); }
+.sb-brand-name { display: block; font-weight: 700; font-size: 14px; line-height: 1.35; }
+.sb-brand-sub {
+  display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--sb-accent); margin-top: 2px;
+}
+.sb-brand:hover .sb-brand-name { color: var(--sb-accent); }
+
+.sb-period {
+  margin: 0 16px 16px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--sb-line);
+  color: var(--sb-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.sb-heading {
+  margin: 14px 16px 6px;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--sb-muted);
+  font-weight: 700;
+}
+.sidebar ul { list-style: none; margin: 0; padding: 0; }
+
+.sb-nav a {
+  display: block;
+  padding: 7px 14px 7px 16px;
+  border-left: 4px solid transparent;
+  text-decoration: none;
+  color: var(--sb-ink);
+  line-height: 1.35;
+}
+.sb-nav a:hover { background: #efeade; }
+.sb-nav .sb-item-title { display: block; font-size: 12.5px; font-weight: 600; }
+.sb-nav .sb-item-desc { display: block; font-size: 11px; color: var(--sb-muted); margin-top: 1px; }
+.sb-nav a[aria-current="page"] {
+  background: var(--sb-active-bg);
+  border-left-color: var(--sb-accent);
+}
+.sb-nav a[aria-current="page"] .sb-item-title { color: #0b4f4f; }
+.sb-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px dashed #9a8f7c;
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  color: #6b6152;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.sb-nav a.is-blocked .sb-item-title { color: var(--sb-muted); font-weight: 500; }
+
+.sb-toc a {
+  display: block;
+  padding: 5px 14px 5px 16px;
+  border-left: 4px solid transparent;
+  text-decoration: none;
+  color: var(--sb-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.sb-toc a:hover { color: var(--sb-ink); background: #efeade; }
+.sb-toc a.is-current {
+  color: #0b4f4f;
+  font-weight: 700;
+  border-left-color: var(--sb-accent);
+  background: var(--sb-active-bg);
+}
+.sb-toc:empty, .sb-toc ul:empty { display: none; }
+
+.sb-filters { margin-top: 16px; padding-top: 4px; border-top: 1px solid var(--sb-line); }
+.sb-filter-slot {
+  margin: 0 16px 6px;
+  padding: 8px 10px;
+  border: 1px dashed var(--sb-line);
+  border-radius: 8px;
+  color: var(--sb-muted);
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.sb-filter-slot span { font-size: 10px; opacity: .8; }
+
+.sb-footer { margin: 18px 16px 0; padding-top: 12px; border-top: 1px solid var(--sb-line); }
+.sb-generated { margin: 0 0 6px; color: var(--sb-muted); font-size: 11px; }
+.sb-notes-link { font-size: 11px; color: var(--sb-accent); }
+
+/* モバイル用トップバー（>=900px では非表示） */
+.topbar { display: none; }
+.nav-toggle {
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid var(--sb-line); border-radius: 10px;
+  cursor: pointer; padding: 0;
+}
+.nav-toggle-bars, .nav-toggle-bars::before, .nav-toggle-bars::after {
+  display: block; width: 18px; height: 2px; background: var(--sb-ink); border-radius: 2px;
+}
+.nav-toggle-bars { position: relative; }
+.nav-toggle-bars::before, .nav-toggle-bars::after { content: ""; position: absolute; left: 0; }
+.nav-toggle-bars::before { top: -6px; }
+.nav-toggle-bars::after { top: 6px; }
+.topbar-crumb { font-size: 12px; font-weight: 700; color: var(--sb-accent); letter-spacing: .04em; }
+
+/* フォーカスリングは消さない */
+a:focus-visible, button:focus-visible {
+  outline: 3px solid #0f6a6a;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (max-width: 1279px) and (min-width: 900px) {
+  :root { --sb-w: 200px; }
+  .sb-nav .sb-item-desc { font-size: 10.5px; }
+}
+
+@media (max-width: 899px) {
+  body { display: block; }
+  .topbar {
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 60;
+    padding: 8px 12px;
+    background: rgba(255, 252, 247, .95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--sb-line);
+  }
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: min(290px, 86vw);
+    height: 100dvh;
+    z-index: 90;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    box-shadow: 0 0 40px rgba(28, 36, 48, .18);
+  }
+  body.nav-open .sidebar { transform: translateX(0); }
+  .nav-overlay {
+    position: fixed; inset: 0; z-index: 80;
+    background: rgba(18, 24, 32, .45);
+  }
+  body.nav-open { overflow: hidden; }
+  .wrap { max-width: 100%; padding-left: 14px; padding-right: 14px; }
+  .hero { padding: 24px 18px 20px; border-radius: 20px; }
+  .card { padding: 14px; }
+  h2 { font-size: 19px; }
+}
+
+/* 長いクリニック名などが KPI カードを突き破らないように */
+.kpi .value { overflow-wrap: anywhere; line-height: 1.3; }
+.kpi .value:not(:has(*)) { font-size: clamp(20px, 2.1vw, 28px); }
+
+/* モバイルでの横あふれ対策 */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.figure img, iframe, img { max-width: 100%; }
+@media (max-width: 899px) {
+  .meta { gap: 6px; }
+  .chip { font-size: 11px; padding: 5px 10px; }
+  .kpi .value { font-size: 24px; }
+  iframe.map { height: 400px; }
+}
+
+@media print {
+  .sidebar, .topbar, .nav-overlay, .skip-link { display: none !important; }
+  body { display: block; background: #fff; }
+  .wrap { max-width: 100%; }
+}
+/* === サイドバーシェル END === */
+
+
+.version-switch {
+  background: #eef5f4;
+  border: 1px solid #bcd9d5;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #17423f;
+  margin: 0 0 16px;
+}
+.version-switch a { color: #0f6a6a; font-weight: 600; }
+@media print { .version-switch { display: none; } }
+
 </style>
 </head>
 <body>
-<nav class="phase-nav" aria-label="Phase navigation">
-  <div class="phase-nav-inner">
-    <a class="phase-nav-brand" href="index.html">Kutsuki DataBank</a>
-    <div class="phase-nav-links">
-      <a class="phase-link" href="phase1_flow.html"><span class="phase-num">P1</span>Flow</a>
-      <a class="phase-link" href="phase2_catchment.html"><span class="phase-num">P2</span>Catchment</a>
-      <a class="phase-link" href="phase3_model.html"><span class="phase-num">P3</span>Choice</a>
-      <a class="phase-link" href="phase4_retention.html"><span class="phase-num">P4</span>Retention</a>
-      <a class="phase-link blocked" href="phase5_causal.html" title="データ不足"><span class="phase-num">P5</span>Causal</a>
-      <a class="phase-link" href="phase6_integrated.html"><span class="phase-num">P6</span>Integrated</a>
-    </div>
+<a class="skip-link" href="#main">本文へスキップ</a>
+
+<div class="topbar">
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="ナビゲーションを開く">
+    <span class="nav-toggle-bars" aria-hidden="true"></span>
+  </button>
+  <span class="topbar-crumb">Kutsuki DataBank Analytics</span>
+</div>
+
+<div class="nav-overlay" hidden></div>
+
+<aside class="sidebar" id="sidebar">
+  <a class="sb-brand" href="index.html">
+    <span class="sb-brand-name">くつき薬局南茨木店</span>
+    <span class="sb-brand-sub">DataBank Analytics</span>
+  </a>
+
+  <p class="sb-period" title="全ページ共通のデータ期間">受診 2024-09-02 〜 2026-07-31</p>
+
+  <nav class="sb-nav" aria-label="Phase ナビゲーション">
+    <p class="sb-heading" id="sb-h-phase">Phase</p>
+    <ul aria-labelledby="sb-h-phase">
+      <li><a href="phase1_flow.html"><span class="sb-item-title">Phase 1 Prescription Flow</span><span class="sb-item-desc">門前と非門前のフロー</span></a></li>
+      <li><a href="phase2_catchment.html"><span class="sb-item-title">Phase 2 Clinic Catchment</span><span class="sb-item-desc">商圏とクリニック分布</span></a></li>
+      <li><a href="phase3_model.html"><span class="sb-item-title">Phase 3 Choice &amp; Growth</span><span class="sb-item-desc">選択モデルと成長試算</span></a></li>
+      <li><a href="phase4_retention.html"><span class="sb-item-title">Phase 4 Retention &amp; LTV</span><span class="sb-item-desc">残存・定着・LTV</span></a></li>
+      <li><a href="phase5_causal.html" class="is-blocked"><span class="sb-item-title">Phase 5 Causal Impact<span class="sb-badge">データ不足</span></span><span class="sb-item-desc">介入効果の推定</span></a></li>
+      <li><a href="phase6_integrated.html"><span class="sb-item-title">Phase 6 Integrated Model</span><span class="sb-item-desc">統合モデルと予測</span></a></li>
+    </ul>
+    <p class="sb-heading" id="sb-h-extra">追加分析</p>
+    <ul aria-labelledby="sb-h-extra">
+      <li><a href="pathways.html"><span class="sb-item-title">来院経路</span><span class="sb-item-desc">1→2→3回目の診療科遷移</span></a></li>
+      <li><a href="map.html"><span class="sb-item-title">地図</span><span class="sb-item-desc">商圏・競合・来局率マップ</span></a></li>
+    </ul>
+  </nav>
+
+  <!-- フィルタ領域: 枠のみ確保。機能は未実装。 -->
+  <div class="sb-filters" aria-label="フィルタ（準備中）">
+    <p class="sb-heading">フィルタ</p>
+    <div class="sb-filter-slot" data-filter-slot="period">期間フィルタ<span>準備中</span></div>
+    <div class="sb-filter-slot" data-filter-slot="segment">区分フィルタ<span>準備中</span></div>
   </div>
-</nav>
-  <div class="wrap">
+
+  <div class="sb-footer">
+    <p class="sb-generated">生成 2026-09-18 19:24</p>
+    <a class="sb-notes-link" href="#notes">注意事項</a>
+  </div>
+</aside>
+
+<main class="wrap" id="main">
+  <div id="version-switch" class="version-switch">
+<strong>薬局向け最新版</strong>を表示しています。サイドバー導入前の学術用（旧UI）版は
+<a href="academic/index.html">こちら</a>で凍結保存しています。
+</div>
     <header class="hero">
       <div class="eyebrow">Kutsuki DataBank Analytics</div>
       <h1>くつき薬局南茨木店<br/>患者獲得モデル分析</h1>
@@ -226,9 +502,22 @@
         <a class="btn" href="phase6_integrated.html">レポートを開く</a>
       </article>
 
+
+      <article class="card">
+        <h2>来院経路の時系列追跡</h2>
+        <p>初回から2〜4回目までの診療科遷移。サンキー・遷移行列・同一科リピート率・実経路上位20。</p>
+        <a class="btn" href="pathways.html">レポートを開く</a>
+        <a class="btn ghost" href="figures/pathways_sankey.html">Sankey</a>
+      </article>
+
+      <article class="card">
+        <h2>商圏マップ</h2>
+        <p>自店・クリニック（円=件数の対数）・メッシュ来局率・競合薬局・患者密度をレイヤ切替で。</p>
+        <a class="btn secondary" href="map.html">地図を開く</a>
+      </article>
     </div>
 
-    <div class="note">
+    <div class="note" id="notes">
       <strong>注意:</strong> 本サイトの数値は自店受診データに基づく記述・相関分析です。市場全体の選択率や因果効果としては解釈しないでください。
       個人が特定できる生データ（住所テキスト・受診明細CSV等）はリポジトリに含めていません。
     </div>
@@ -236,6 +525,127 @@
     <footer>
       Generated from kutsuki_pharm_csv-analytics · GitHub Pages
     </footer>
-  </div>
+  </main>
+<script data-shell="sidebar">
+/* サイドバー: モバイルドロワー + ページ内目次スクロールスパイ */
+(function () {
+  "use strict";
+
+  var body = document.body;
+  var toggle = document.querySelector(".nav-toggle");
+  var overlay = document.querySelector(".nav-overlay");
+  var sidebar = document.getElementById("sidebar");
+
+  function setOpen(open) {
+    body.classList.toggle("nav-open", open);
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "ナビゲーションを閉じる" : "ナビゲーションを開く");
+    }
+    if (overlay) { overlay.hidden = !open; }
+    if (open && sidebar) {
+      var first = sidebar.querySelector("a");
+      if (first) { first.focus(); }
+    }
+  }
+
+  if (toggle) {
+    toggle.addEventListener("click", function () {
+      setOpen(!body.classList.contains("nav-open"));
+    });
+  }
+  if (overlay) {
+    overlay.addEventListener("click", function () { setOpen(false); });
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && body.classList.contains("nav-open")) {
+      setOpen(false);
+      if (toggle) { toggle.focus(); }
+    }
+  });
+  // ドロワー内のリンクを踏んだら閉じる
+  if (sidebar) {
+    sidebar.addEventListener("click", function (e) {
+      var a = e.target.closest ? e.target.closest("a") : null;
+      if (a && body.classList.contains("nav-open")) { setOpen(false); }
+    });
+  }
+  // 900px 以上へ戻ったら状態をリセット
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(min-width: 900px)");
+    var onChange = function (ev) { if (ev.matches) { setOpen(false); } };
+    if (mq.addEventListener) { mq.addEventListener("change", onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  /* --- スクロールスパイ --- */
+  var tocLinks = Array.prototype.slice.call(
+    document.querySelectorAll(".sb-toc a[href^='#']")
+  );
+  if (!tocLinks.length || !("IntersectionObserver" in window)) { return; }
+
+  var byId = {};
+  var targets = [];
+  tocLinks.forEach(function (link) {
+    var id = decodeURIComponent(link.getAttribute("href").slice(1));
+    var el = document.getElementById(id);
+    if (el) { byId[id] = link; targets.push(el); }
+  });
+  if (!targets.length) { return; }
+
+  var visible = new Set();
+
+  function highlight(id) {
+    tocLinks.forEach(function (l) { l.classList.remove("is-current"); });
+    var link = byId[id];
+    if (link) {
+      link.classList.add("is-current");
+      // サイドバー内で見切れていたらスクロールして見せる
+      var box = link.getBoundingClientRect();
+      var host = sidebar ? sidebar.getBoundingClientRect() : null;
+      if (host && (box.top < host.top || box.bottom > host.bottom)) {
+        link.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }
+
+  function pickTop() {
+    var best = null;
+    targets.forEach(function (el) {
+      if (!visible.has(el.id)) { return; }
+      if (!best || el.getBoundingClientRect().top < best.getBoundingClientRect().top) {
+        best = el;
+      }
+    });
+    return best;
+  }
+
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) { visible.add(entry.target.id); }
+      else { visible.delete(entry.target.id); }
+    });
+    var top = pickTop();
+    if (top) { highlight(top.id); }
+  }, { rootMargin: "-20% 0px -70% 0px", threshold: 0 });
+
+  targets.forEach(function (el) { observer.observe(el); });
+
+  // どのセクションも帯に入っていない位置（最上部・最下部）向けのフォールバック
+  function fallback() {
+    if (visible.size) { return; }
+    var current = targets[0];
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i].getBoundingClientRect().top - window.innerHeight * 0.25 <= 0) {
+        current = targets[i];
+      }
+    }
+    if (current) { highlight(current.id); }
+  }
+  window.addEventListener("scroll", fallback, { passive: true });
+  fallback();
+}());
+
+</script>
 </body>
 </html>

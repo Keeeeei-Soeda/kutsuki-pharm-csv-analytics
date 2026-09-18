@@ -57,8 +57,17 @@ def _normalize_age_class(series: pd.Series) -> pd.Series:
     return series.replace(AGE_CLASS_EXCEL_FIX)
 
 
-def read_csv(logical_name: str, *, apply_age_fix: bool = True) -> pd.DataFrame:
-    """data/raw から論理名で読み込む。raw 自体は上書きしない。"""
+def read_csv(
+    logical_name: str,
+    *,
+    apply_age_fix: bool = True,
+    corrections: bool = True,
+) -> pd.DataFrame:
+    """data/raw から論理名で読み込む。raw 自体は上書きしない。
+
+    ``config/corrections.yaml`` の有効な補正は読み込み直後に適用される
+    （生データ + 補正定義 = 分析用データ）。
+    """
     spec = FILE_SPECS.get(logical_name, {})
     parse_dates = spec.get("parse_dates")
     df = pd.read_csv(
@@ -69,6 +78,10 @@ def read_csv(logical_name: str, *, apply_age_fix: bool = True) -> pd.DataFrame:
     )
     if apply_age_fix and "年齢階級" in df.columns:
         df["年齢階級"] = _normalize_age_class(df["年齢階級"].astype(str))
+    if corrections:
+        from src.corrections import apply_corrections
+
+        df = apply_corrections(df, logical_name)
     return df
 
 
