@@ -8,7 +8,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Union
 
-from src.viz.sidebar import PERIOD_LABEL, key_for_phase, render_sidebar, sidebar_css, sidebar_js
+from src.viz.sidebar import (
+    FONTS_LINK,
+    PERIOD_LABEL,
+    key_for_phase,
+    render_sidebar,
+    sidebar_css,
+    sidebar_js,
+)
 
 PathLike = Union[str, Path]
 
@@ -380,6 +387,7 @@ class HtmlReport:
 <title>{_esc(self.title)}</title>
 <style>{CSS}
 {sidebar_css()}</style>
+{FONTS_LINK}
 </head>
 <body>
 {sidebar}

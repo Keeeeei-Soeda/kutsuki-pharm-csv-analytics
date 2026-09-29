@@ -1,0 +1,97 @@
+/* A案（クリニカル・スタンダード）テーマ。_sidebar.css の後ろに結合され、ベース CSS を上書きする。
+   門前 --gate / 非門前 --nongate は分析上の意味を持つため上書きしない。 */
+:root {
+  /* ベース */
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --ink: #1b2430;
+  --muted: #5b6776;
+  --line: #e1e6eb;
+  --line-soft: #eef1f4;
+  --accent: #0f7c74;
+  --accent-strong: #0a5a54;
+  --accent-soft: #e3f2f0;
+  --warn: #b4540a;
+  --warn-soft: #fdf0e3;
+  --bad: #b42318;
+  --bad-soft: #fdecea;
+  --ok: #0f7c74;
+  --shadow: none;
+  --radius: 12px;
+  --sans: "BIZ UDPGothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+  --display: "Zen Kaku Gothic New", var(--sans);
+
+  /* サイドバー（ダークネイビー） */
+  --sb-w: 248px;
+  --sb-bg: #16263a;
+  --sb-ink: #dbe4ee;
+  --sb-muted: #9fb0c2;
+  --sb-line: #25384f;
+  --sb-accent: #7fd1c8;
+  --sb-active-bg: #23415f;
+  --sb-hover-bg: #1e3249;
+}
+
+body { background: var(--bg); font-family: var(--sans); }
+.wrap { max-width: 1200px; padding: 28px 32px 80px; }
+
+/* ヒーロー → 白いヘッダーバー */
+.hero {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: none;
+  padding: 20px 24px;
+}
+.hero::after { display: none; }
+.hero .eyebrow { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--muted); opacity: 1; margin-bottom: 4px; }
+.hero h1 { font-family: var(--display); font-size: clamp(22px, 2.4vw, 28px); font-weight: 700; margin: 0 0 6px; }
+.hero p { color: var(--muted); opacity: 1; font-size: 14px; }
+.chip { background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+
+/* カード */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none; padding: 20px 24px; }
+.grid { gap: 16px; margin-top: 20px; }
+
+/* KPIカード */
+.kpi .label { font-size: 13px; color: var(--muted); letter-spacing: 0; }
+.kpi .value { font-family: var(--display); font-size: 32px; font-weight: 700; margin-top: 8px; }
+.kpi .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* 見出し：左ボーダーを廃止 */
+h2 { border-left: none; padding-left: 0; font-family: var(--display); font-size: 18px; font-weight: 700; margin: 40px 0 12px; }
+h3 { font-size: 15px; }
+.section-note { color: var(--muted); font-size: 13px; }
+
+/* 図と解説 */
+.figure { border: 1px solid var(--line); border-radius: var(--radius); }
+.fig-explain { border: 1px solid var(--line); border-left: 1px solid var(--line); background: #f7f9fa; border-radius: 10px; }
+.fig-explain strong { color: var(--accent-strong); }
+
+/* テーブル */
+table { border-radius: var(--radius); }
+th { background: #f7f9fa; color: var(--muted); font-size: 12px; font-weight: 700; }
+th, td { border-bottom-color: var(--line-soft); }
+
+/* コールアウト */
+.callout { border-radius: 10px; border-color: var(--line); }
+.callout.ok { background: var(--accent-soft); border-color: #bfdcd8; }
+.callout.warn { background: var(--warn-soft); border-color: #f0cfa8; }
+
+/* 地図ページ */
+#map, iframe.map { border-radius: var(--radius); box-shadow: none; border: 1px solid var(--line); }
+
+.footer { border-top-color: var(--line); }
+
+/* 上の本文ルールは _sidebar.css のモバイル／印刷ルールより後ろにあるため、ここで改めて指定する */
+@media (max-width: 899px) {
+  .wrap { padding: 20px 14px 64px; }
+  .hero { padding: 18px 16px; }
+  .card { padding: 16px; }
+}
+
+@media print {
+  body { background: #fff; }
+  .wrap { max-width: 100%; padding: 0; }
+}

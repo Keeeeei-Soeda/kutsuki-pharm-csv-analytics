@@ -20,24 +20,40 @@ TEMPLATES = ROOT / "templates"
 
 PERIOD_LABEL = "受診 2024-09-02 〜 2026-07-31"
 
-# key, href, 表示名, 1行要約, blocked
+FONTS_LINK = (
+    '<link rel="stylesheet" data-shell="fonts" href="https://fonts.googleapis.com/css2?'
+    'family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">'
+)
+
+# icon は viewBox 0 0 24 24 の線画パス
 NAV_PAGES: List[dict] = [
     {"key": "p1", "href": "phase1_flow.html", "title": "Phase 1 Prescription Flow",
-     "desc": "門前と非門前のフロー", "group": "phase", "blocked": False},
+     "desc": "門前と非門前のフロー", "group": "phase", "blocked": False,
+     "icon": '<path d="M4 7h10M4 12h16M4 17h7"/>'},
     {"key": "p2", "href": "phase2_catchment.html", "title": "Phase 2 Clinic Catchment",
-     "desc": "商圏とクリニック分布", "group": "phase", "blocked": False},
+     "desc": "商圏とクリニック分布", "group": "phase", "blocked": False,
+     "icon": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'},
     {"key": "p3", "href": "phase3_model.html", "title": "Phase 3 Choice & Growth",
-     "desc": "選択モデルと成長試算", "group": "phase", "blocked": False},
+     "desc": "選択モデルと成長試算", "group": "phase", "blocked": False,
+     "icon": '<path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/>'},
     {"key": "p4", "href": "phase4_retention.html", "title": "Phase 4 Retention & LTV",
-     "desc": "残存・定着・LTV", "group": "phase", "blocked": False},
+     "desc": "残存・定着・LTV", "group": "phase", "blocked": False,
+     "icon": '<path d="M4 17l5-5 4 4 7-8"/>'},
     {"key": "p5", "href": "phase5_causal.html", "title": "Phase 5 Causal Impact",
-     "desc": "介入効果の推定", "group": "phase", "blocked": True},
+     "desc": "介入効果の推定", "group": "phase", "blocked": True,
+     "icon": '<path d="M6 12h12M13 7l5 5-5 5"/>'},
     {"key": "p6", "href": "phase6_integrated.html", "title": "Phase 6 Integrated Model",
-     "desc": "統合モデルと予測", "group": "phase", "blocked": False},
+     "desc": "統合モデルと予測", "group": "phase", "blocked": False,
+     "icon": '<rect x="3" y="3" width="7" height="7" rx="1.5"/>'
+             '<rect x="14" y="3" width="7" height="7" rx="1.5"/>'
+             '<rect x="3" y="14" width="7" height="7" rx="1.5"/>'
+             '<rect x="14" y="14" width="7" height="7" rx="1.5"/>'},
     {"key": "pathways", "href": "pathways.html", "title": "来院経路",
-     "desc": "1→2→3回目の診療科遷移", "group": "extra", "blocked": False},
+     "desc": "1→2→3回目の診療科遷移", "group": "extra", "blocked": False,
+     "icon": '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 8l8 8"/>'},
     {"key": "map", "href": "map.html", "title": "地図",
-     "desc": "商圏・競合・来局率マップ", "group": "extra", "blocked": False},
+     "desc": "商圏・競合・来局率マップ", "group": "extra", "blocked": False,
+     "icon": '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>'},
 ]
 
 _PHASE_TO_KEY = {1: "p1", 2: "p2", 3: "p3", 4: "p4", 5: "p5", 6: "p6"}
@@ -51,8 +67,16 @@ def _read(name: str) -> str:
     return (TEMPLATES / name).read_text(encoding="utf-8")
 
 
+_BEGIN = "/* === サイドバーシェル BEGIN === (templates/_sidebar.html と対) */"
+_END = "/* === サイドバーシェル END === */"
+
+
 def sidebar_css() -> str:
-    return _read("_sidebar.css")
+    body = "\n".join(
+        _read(n).replace(_BEGIN, "").replace(_END, "").strip()
+        for n in ("_sidebar.css", "_theme.css")
+    )
+    return f"{_BEGIN}\n{body}\n{_END}"
 
 
 def sidebar_js() -> str:
@@ -72,11 +96,19 @@ def _nav_items(group: str, active_key: Optional[str]) -> str:
         current = ' aria-current="page"' if page["key"] == active_key else ""
         badge = '<span class="sb-badge">データ不足</span>' if page["blocked"] else ""
         cls = f' class="{" ".join(classes)}"' if classes else ""
+        icon = (
+            '<svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" '
+            'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+            f'stroke-linejoin="round" aria-hidden="true">{page["icon"]}</svg>'
+            if page.get("icon") else ""
+        )
         out.append(
             f'<li><a href="{_esc(page["href"])}"{cls}{current}>'
+            f"{icon}"
+            f'<span class="sb-item-text">'
             f'<span class="sb-item-title">{_esc(page["title"])}{badge}</span>'
             f'<span class="sb-item-desc">{_esc(page["desc"])}</span>'
-            f"</a></li>"
+            f"</span></a></li>"
         )
     return "\n      ".join(out)
 

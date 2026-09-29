@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Dict, List
 
-from src.viz.sidebar import apply_shell
+from src.viz.sidebar import FONTS_LINK, apply_shell
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORTS = ROOT / "reports"
@@ -30,6 +31,16 @@ PAGE_KEYS: Dict[str, str] = {
 }
 
 
+_FONTS_RE = re.compile(r'<link[^>]*data-shell="fonts"[^>]*>\s*')
+
+
+def inject_fonts(path: Path) -> None:
+    """テーマ用 Web フォントの <link> を </head> 直前へ1本だけ入れる（冪等）。"""
+    text = _FONTS_RE.sub("", path.read_text(encoding="utf-8"))
+    text = text.replace("</head>", f"{FONTS_LINK}\n</head>", 1)
+    path.write_text(text, encoding="utf-8")
+
+
 def apply_all() -> List[Path]:
     touched: List[Path] = []
     for directory in (REPORTS, DOCS):
@@ -39,6 +50,7 @@ def apply_all() -> List[Path]:
             path = directory / name
             if path.exists():
                 apply_shell(path, key or None)
+                inject_fonts(path)
                 touched.append(path)
     return touched
 

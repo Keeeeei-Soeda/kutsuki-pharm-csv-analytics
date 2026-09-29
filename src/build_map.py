@@ -23,7 +23,7 @@ import pandas as pd
 
 from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, ROOT, ensure_dirs, read_csv
 from src.specialty_taxonomy import build_specialty_map
-from src.viz.sidebar import PERIOD_LABEL, render_sidebar, sidebar_css, sidebar_js
+from src.viz.sidebar import FONTS_LINK, PERIOD_LABEL, render_sidebar, sidebar_css, sidebar_js
 
 REPORTS = ROOT / "reports"
 DOCS = ROOT / "docs"
@@ -243,6 +243,7 @@ h2 {{ margin:32px 0 12px; font-size:22px; border-left:4px solid var(--accent); p
 ul {{ padding-left: 1.2rem; }}
 {sidebar_css()}
 </style>
+{FONTS_LINK}
 </head>
 <body>
 {sidebar}
