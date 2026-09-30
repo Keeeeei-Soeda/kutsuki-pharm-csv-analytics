@@ -28,6 +28,7 @@ from src.specialty_taxonomy import (
     STANDARD_LABELS,
     build_specialty_map,
 )
+from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
 
 FIGURES = ROOT / "reports" / "figures"
@@ -188,13 +189,13 @@ def fig_transition_heatmap(pairs: pd.DataFrame, labels: List[str]) -> Path:
                     j, i, f"{v:.0%}", ha="center", va="center", fontsize=7.5,
                     color="#fff" if v > 0.55 else "#1c2430",
                 )
-    ax.set_xlabel("n+1回目の診療科")
-    ax.set_ylabel("n回目の診療科")
+    ax.set_xlabel("次の来局の診療科")
+    ax.set_ylabel("ある来局の診療科")
     ax.set_title(
-        f"診療科の遷移行列（行=n回目、列=n+1回目・行内構成比）\n"
-        f"{PHARMACY_NAME} / n=1〜3 をプール N={len(pairs):,}"
+        f"ある来局から次の来局への診療科の移り変わり（行ごとに合計100%）\n"
+        f"{PHARMACY_NAME} / 1〜4回目までの移り変わり {len(pairs):,}件"
     )
-    fig.colorbar(im, ax=ax, fraction=0.035, label="行内構成比")
+    fig.colorbar(im, ax=ax, fraction=0.035, label="行の中での割合")
     fig.tight_layout()
     out = FIGURES / "pathways_transition_heatmap.png"
     fig.savefig(out, dpi=150)
@@ -215,22 +216,22 @@ def fig_repeat_rate(pairs: pd.DataFrame, labels: List[str]) -> Tuple[Path, pd.Da
 
     fig, ax = plt.subplots(figsize=(9.5, 5.2))
     y = np.arange(len(tbl))
-    ax.barh(y, tbl["同一科リピート率"], color="#0f6a6a", label="同一科リピート")
+    ax.barh(y, tbl["同一科リピート率"], color="#0f6a6a", label="次も同じ科")
     ax.barh(
-        y, tbl["診療科変更率"], left=tbl["同一科リピート率"], color="#c45c26", label="診療科変更"
+        y, tbl["診療科変更率"], left=tbl["同一科リピート率"], color="#c45c26", label="次は別の科"
     )
     ax.set_yticks(y)
-    ax.set_yticklabels([f"{r.診療科} (N={r.N:,})" for r in tbl.itertuples()], fontsize=9)
+    ax.set_yticklabels([f"{r.診療科}（{r.N:,}件）" for r in tbl.itertuples()], fontsize=9)
     ax.invert_yaxis()
     ax.set_xlim(0, 1)
-    ax.set_xlabel("次回受診の構成比")
+    ax.set_xlabel("次の来局の内訳")
     ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1))
     for i, r in enumerate(tbl.itertuples()):
         ax.text(r.同一科リピート率 / 2, i, f"{r.同一科リピート率:.0%}", ha="center", va="center",
                 color="#fff", fontsize=9)
     ax.set_title(
-        f"同一診療科リピート率 vs 診療科変更率（n回目→n+1回目）\n"
-        f"{PHARMACY_NAME} / N={len(pairs):,}・N<20の科は非表示"
+        f"次の来局も同じ科か、別の科か（ある来局から次の来局への移り変わり）\n"
+        f"{PHARMACY_NAME} / {len(pairs):,}件・20件未満の科は非表示"
     )
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=2, frameon=False, fontsize=9)
     fig.tight_layout()
@@ -247,7 +248,7 @@ def fig_acute_to_chronic(wide: pd.DataFrame, spread: Dict[str, object]) -> Path:
     y = np.arange(len(tbl))
     ax.barh(y, tbl["内科到達率"], color=["#c45c26" if a else "#2f6f9f" for a in tbl["急性期"]])
     ax.set_yticks(y)
-    ax.set_yticklabels([f"{r.初回診療科} (N={r.N:,})" for r in tbl.itertuples()], fontsize=9)
+    ax.set_yticklabels([f"{r.初回診療科}（{r.N:,}人）" for r in tbl.itertuples()], fontsize=9)
     ax.invert_yaxis()
     ax.axvline(spread["overall_rate"], color="#1c2430", ls="--", lw=1.2)
     ax.annotate(
@@ -417,42 +418,115 @@ def top_paths(wide: pd.DataFrame, n: int = 20) -> pd.DataFrame:
 def write_report(ctx: Dict[str, object]) -> Path:
     stats = ctx["stats"]
     spread = ctx["spread"]
-    repeat = ctx["repeat_tbl"]
-    paths_sp = ctx["top_paths_specialty"]
-    paths_cl = ctx["top_paths_clinic"]
+    weak = ctx["spread_weak"]
+    reached2 = stats["reached_2"] / stats["n_patients"]
+    same = ctx["overall_same_rate"]
 
     rep = HtmlReport(
         title="来院経路の時系列追跡",
-        subtitle="患者IDで初回から2〜4回目までを辿り、診療科間の流れを見る。急性期（耳鼻咽喉科・皮膚科）が内科系へ広がっているかが継続率の鍵。",
+        subtitle="耳鼻咽喉科・皮膚科で来た患者が、その後に内科など他の科へ広がっているかを見ます。",
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / 来院経路",
         nav_key="pathways",
     )
-    rep.add_kpi("単発患者", f"{stats['single_visit_share']:.1%}",
-                f"{stats['single_visit_n']:,} / {stats['n_patients']:,}人")
-    rep.add_kpi("2回目到達", f"{stats['reached_2'] / stats['n_patients']:.1%}",
-                f"3回目 {stats['reached_3'] / stats['n_patients']:.1%} / 4回目 {stats['reached_4'] / stats['n_patients']:.1%}")
-    rep.add_kpi("内科系への到達", f"{spread['acute_rate']:.1%}",
-                f"急性期初回 {spread['n_acute']:,}人が母数")
-    rep.add_kpi("同一科リピート",
-                f"{ctx['overall_same_rate']:.1%}",
-                f"n→n+1 の全遷移 N={ctx['n_transitions']:,}")
+    rep.add_kpi("1回だけの患者", f"{stats['single_visit_share']:.0%}",
+                f"{stats['single_visit_n']:,}人 / 全{stats['n_patients']:,}人",
+                compare=f"2回目まで来た人は {reached2:.0%}", tone="bad")
+    rep.add_kpi("耳鼻科・皮膚科から内科系へ", f"{spread['acute_rate']:.0%}",
+                f"初回が耳鼻咽喉科・皮膚科の {spread['n_acute']:,}人のうち",
+                compare=(
+                    f"2回目で内科系へ移る割合は{spread['acute_second_chronic_rate']:.1%}。"
+                    f"初回が内科以外の患者全体（{spread['second_chronic_rate']:.1%}）"
+                    + ("とほぼ同じ" if weak else f"の{spread['second_lift']:.1f}倍")
+                ),
+                tone="bad" if weak else "good")
+    rep.add_kpi("次の来局も同じ科", f"{same:.0%}",
+                f"ある来局から次の来局への移り変わり {ctx['n_transitions']:,}件のうち",
+                compare=f"別の科へ移ったのは {1 - same:.0%}", tone="neutral")
+
+    if weak:
+        rep.takeaway(
+            finding=f"耳鼻科・皮膚科で来た患者のうち、その後内科系へ移ったのは{spread['acute_rate']:.0%}です。",
+            judgment=(
+                f"初回が内科以外の患者全体（{spread['second_chronic_rate']:.1%}）とほぼ同じで、"
+                "内科へ自然には広がっていません。"
+            ),
+            action="内科系クリニックとの接点づくり（処方箋の直接獲得）を最優先にします。",
+        )
+    else:
+        rep.takeaway(
+            finding=f"耳鼻科・皮膚科で来た患者のうち、その後内科系へ移ったのは{spread['acute_rate']:.0%}です。",
+            judgment=f"初回が内科以外の患者全体の{spread['second_lift']:.1f}倍で、内科への広がりが見られます。",
+            action="耳鼻科・皮膚科の初回接点を維持しつつ、2回目以降の継続を強化します。",
+        )
+
+    rep.section("spread", "耳鼻科・皮膚科の患者は内科系へ広がっているか")
+    rep.figure(FIGURES / "pathways_acute_to_chronic.png",
+               point=(
+                   f"耳鼻科・皮膚科（橙）から内科系へ移った割合{spread['acute_rate']:.1%}は、"
+                   f"全体の平均（点線, {spread['overall_rate']:.1%}）"
+                   + _compare_word(spread["acute_rate"], spread["overall_rate"]) + "。"
+               ),
+               explain="初回に各科を受診し、2回目以降も来た患者のうち、"
+                       "2〜4回目のどこかで内科系に移った割合です。点線は全体の平均です。")
+
+    rep.section("repeat", "次の来局も同じ科か")
+    rep.figure(FIGURES / "pathways_repeat_rate.png",
+               point=f"次の来局も同じ科という人が{same:.0%}で、来局の大半は同じ科の再受診です。",
+               explain="緑が「次も同じ科」、橙が「次は別の科」。"
+                       "緑が長い科は単科で完結しており、他の科へ広げる余地が小さい。"
+                       "橙が長い科は他科への入口になっている。")
+
+    with rep.expert_details("専門家向けの詳細（到達状況・遷移行列・経路・限界）"):
+        _write_pathways_expert(rep, ctx)
+
+    out = REPORTS / "pathways.html"
+    rep.save(out)
+
+    save_page_summary("pw", {
+        "acute_rate": spread["acute_rate"],
+        "acute_second_rate": spread["acute_second_chronic_rate"],
+        "second_rate": spread["second_chronic_rate"],
+        "spread_weak": bool(weak),
+        "same_rate": same,
+        "conclusion": (
+            "耳鼻科・皮膚科で来た患者は、内科など他の科へほとんど広がっていません。"
+            if weak else "耳鼻科・皮膚科で来た患者が、内科など他の科へ広がっています。"
+        ),
+    })
+    return out
+
+
+def _compare_word(value: float, reference: float, tolerance: float = 0.05) -> str:
+    if value < reference * (1 - tolerance):
+        return "より低い水準です"
+    if value > reference * (1 + tolerance):
+        return "を上回っています"
+    return "とほぼ同じです"
+
+
+def _write_pathways_expert(rep: HtmlReport, ctx: Dict[str, object]) -> None:
+    stats = ctx["stats"]
+    spread = ctx["spread"]
+    repeat = ctx["repeat_tbl"]
+    paths_sp = ctx["top_paths_specialty"]
+    paths_cl = ctx["top_paths_clinic"]
 
     rep.callout(
-        "結論",
+        "結論（詳細）",
         [
             ctx["headline"],
-            f"母数注記: 2回目以降が存在しない単発患者が {stats['single_visit_share']:.1%}"
+            f"もとになった人数: 2回目以降が存在しない単発患者が {stats['single_visit_share']:.1%}"
             f"（{stats['single_visit_n']:,}人）。以降の遷移率はすべて 2回目以降が存在する "
-            f"{spread['n_with_second']:,}人 が母数。",
+            f"{spread['n_with_second']:,}人 がもとになった人数。",
             f"同一診療科リピートが {ctx['overall_same_rate']:.1%} を占め、"
-            f"診療科変更は {1 - ctx['overall_same_rate']:.1%}。来局の大半は同じ科の再受診。",
+            f"診療科変更は {1 - ctx['overall_same_rate']:.1%}（n→n+1 の全遷移 N={ctx['n_transitions']:,}）。",
         ],
         kind="ok",
     )
 
-    rep.section("base", "1. 母数と到達状況",
+    rep.section("base", "1. もとになった人数と到達状況",
                 "遷移率を読む前に、そもそも何人が2回目以降に到達しているかを示す。")
     rep.table(
         ["区分", "人数", "全患者に対する割合"],
@@ -490,11 +564,7 @@ def write_report(ctx: Dict[str, object]) -> Path:
                        "対角線が濃いほど同じ科に留まっている。対角線から右下・左上に外れたセルが"
                        "診療科をまたいだ移動で、ここが面展開の接点にあたる。")
 
-    rep.section("repeat", "4. 同一診療科リピート率 vs 診療科変更率")
-    rep.figure(FIGURES / "pathways_repeat_rate.png", "初回科別の内訳",
-               explain="緑が「次も同じ科」、橙が「次は別の科」。"
-                       "緑が長い科は単科で完結しており面展開の余地が小さい。"
-                       "橙が長い科は他科への入口になっている。")
+    rep.section("repeat_tbl", "4. 同一診療科リピート率 vs 診療科変更率")
     rep.table(
         ["診療科", "同一科リピート率", "診療科変更率", "N（遷移数）"],
         [[r["診療科"], f"{r['同一科リピート率']:.1%}", f"{r['診療科変更率']:.1%}", f"{r['N']:,}"]
@@ -502,12 +572,7 @@ def write_report(ctx: Dict[str, object]) -> Path:
         numeric_cols=[1, 2, 3],
     )
 
-    rep.section("spread", "5. 急性期は内科系へ広がっているか")
-    rep.figure(FIGURES / "pathways_acute_to_chronic.png", "初回診療科別・内科系への到達率",
-               explain="初回に各科を受診し、かつ2回目以降が存在する患者のうち、"
-                       "2〜4回目のどこかで内科系に到達した割合。破線は全体平均。"
-                       "橙（耳鼻咽喉科・皮膚科）が破線より左にあるほど、"
-                       "急性期患者が慢性疾患側へ広がっていないことを意味する。")
+    rep.section("spread_tbl", "5. 急性期は内科系へ広がっているか")
     rep.table(
         ["初回診療科", "N", "内科系到達率", "区分"],
         [[r["初回診療科"], f"{r['N']:,}", f"{r['内科到達率']:.1%}", r["区分"]]
@@ -554,10 +619,6 @@ def write_report(ctx: Dict[str, object]) -> Path:
         ],
         kind="warn",
     )
-
-    out = REPORTS / "pathways.html"
-    rep.save(out)
-    return out
 
 
 def publish_docs(html_path: Path) -> None:
@@ -614,21 +675,20 @@ def run() -> Dict[str, object]:
             f"急性期（耳鼻咽喉科・皮膚科）を初回に受診した患者 {spread['n_acute']:,}人のうち、"
             f"2〜4回目までに内科系へ到達したのは {spread['acute_rate']:.1%}。"
             f"2回目の遷移で見ると内科系へ移る割合は {spread['acute_second_chronic_rate']:.1%} で、"
-            f"初回が内科系でない患者全体の {spread['second_chronic_rate']:.1%} と差がない"
-            f"（リフト {spread['second_lift']:.2f}倍）。"
+            f"初回が内科以外の患者全体（{spread['second_chronic_rate']:.1%}）とほぼ同じ。"
             f"急性期患者が慢性疾患側へ広がっている形跡はない。"
         )
         action = (
-            "したがって面展開の焦点は、急性期患者が自然に内科系へ流れるのを待つことではなく、"
-            "内科系クリニックとの接点づくり（処方箋の直接獲得）に置くべき。"
+            "内科系クリニックとの接点づくり（処方箋の直接獲得）を最優先にする。"
+            "急性期患者が自然に内科系へ流れるのを待っても広がらない。"
         )
     else:
         headline = (
             f"急性期（耳鼻咽喉科・皮膚科）を初回に受診した患者 {spread['n_acute']:,}人のうち、"
             f"2〜4回目までに内科系へ到達したのは {spread['acute_rate']:.1%}。"
             f"2回目の遷移で内科系へ移る割合は {spread['acute_second_chronic_rate']:.1%} で、"
-            f"初回が内科系でない患者全体の {spread['second_chronic_rate']:.1%} を上回る"
-            f"（リフト {spread['second_lift']:.2f}倍）。"
+            f"初回が内科以外の患者全体（{spread['second_chronic_rate']:.1%}）の"
+            f"{spread['second_lift']:.1f}倍。"
             f"急性期から慢性疾患側への広がりが確認できる。"
         )
         action = (

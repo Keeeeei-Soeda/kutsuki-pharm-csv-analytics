@@ -157,17 +157,7 @@
     color: #5c4a2a;
     font-size: 13px;
   }
-  footer { margin-top: 36px; color: var(--muted); font-size: 12px; }.version-switch {
-  background: #eef5f4;
-  border: 1px solid #bcd9d5;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: #17423f;
-  margin: 0 0 16px;
-}
-.version-switch a { color: #0f6a6a; font-weight: 600; }
-@media print { .version-switch { display: none; } }
+  footer { margin-top: 36px; color: var(--muted); font-size: 12px; }
 /* === サイドバーシェル BEGIN === (templates/_sidebar.html と対) */
 /* 旧・上部横並びナビは廃止 */
 .phase-nav { display: none !important; }
@@ -473,6 +463,70 @@ body { background: var(--bg); font-family: var(--sans); }
 .kpi .label { font-size: 13px; color: var(--muted); letter-spacing: 0; }
 .kpi .value { font-family: var(--display); font-size: 32px; font-weight: 700; margin-top: 8px; }
 .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+/* 比較つきKPI：色は補助。良し悪しは compare の文章でも読めるようにする */
+.kpi { border-top: 4px solid var(--line); }
+.kpi.tone-good { border-top-color: #2f8f5b; }
+.kpi.tone-bad { border-top-color: var(--warn); }
+.kpi .compare { font-size: 12.5px; color: var(--ink); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.kpi.tone-good .compare { color: #22683f; }
+.kpi.tone-bad .compare { color: #8a3f06; }
+
+/* 結論ボックス（わかったこと／良い？悪い？／次にやること） */
+.takeaway {
+  margin: 20px 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 6px 24px;
+}
+.takeaway dl { margin: 0; }
+.takeaway .tk-row { display: grid; grid-template-columns: 8.5em 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.takeaway .tk-row:last-child { border-bottom: none; }
+.takeaway dt { font-weight: 700; font-size: 13px; color: var(--accent-strong); padding-top: 2px; }
+.takeaway dd { margin: 0; font-size: 15px; line-height: 1.7; }
+@media (max-width: 599px) {
+  .takeaway .tk-row { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* 図の上の「この図で言いたいこと」 */
+.fig-point { margin: 18px 0 8px; font-weight: 700; font-size: 15px; }
+
+/* 専門家向けの詳細（初期状態は閉じる） */
+details.expert {
+  margin: 12px 0 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+details.expert > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+details.expert > summary::-webkit-details-marker { display: none; }
+details.expert > summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 11px;
+  color: var(--accent-strong);
+  transition: transform .15s ease;
+}
+details.expert[open] > summary::before { transform: rotate(90deg); }
+details.expert > .expert-body { padding: 0 18px 18px; border-top: 1px solid var(--line-soft); }
+details.expert h3 { margin-top: 24px; }
+
+/* 地図ページへの大きな導線 */
+.map-cta { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+.map-cta p { margin: 0; }
+.btn-cta { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; padding: 12px 20px; border-radius: 10px; }
+
+/* サイドバー下部の学術版リンク */
+.sb-academic-link { display: block; margin-top: 8px; font-size: 11px; color: var(--sb-muted); }
 
 /* 見出し：左ボーダーを廃止 */
 h2 { border-left: none; padding-left: 0; font-family: var(--display); font-size: 18px; font-weight: 700; margin: 40px 0 12px; }
@@ -504,6 +558,17 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
 .card-kicker { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--accent-strong); letter-spacing: .02em; }
 .card-kicker + h2 { margin-top: 0; }
 
+/* トップページの経営サマリー */
+.exec-summary { margin-top: 20px; }
+.exec-summary h2 { margin: 0 0 12px; }
+.exec-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.exec-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; }
+.exec-block h3 { margin: 0 0 8px; font-size: 14px; color: var(--accent-strong); }
+.exec-block ul, .exec-block ol { margin: 0; padding-left: 1.3em; font-size: 14px; line-height: 1.7; }
+.exec-block li + li { margin-top: 6px; }
+.exec-action { border-top: 3px solid var(--warn); }
+@media (max-width: 1099px) { .exec-grid { grid-template-columns: 1fr; } }
+
 /* 地図ページ */
 #map, iframe.map { border-radius: var(--radius); box-shadow: none; border: 1px solid var(--line); }
 
@@ -519,6 +584,8 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
 @media print {
   body { background: #fff; }
   .wrap { max-width: 100%; padding: 0; }
+  details.expert > * { display: block; }
+  details.expert > summary::before { content: none; }
 }
 /* === サイドバーシェル END === */
 </style>
@@ -552,17 +619,24 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
   <nav class="sb-nav" aria-label="Phase ナビゲーション">
     <p class="sb-heading" id="sb-h-phase">Phase</p>
     <ul aria-labelledby="sb-h-phase">
-      <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">処方箋の流れ</span><span class="sb-item-desc">Phase 1 · 門前と非門前</span></span></a></li>
+      <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">処方箋の流れ</span><span class="sb-item-desc">Phase 1 · 門前と門前以外</span></span></a></li>
       <li><a href="phase2_catchment.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span class="sb-item-text"><span class="sb-item-title">商圏とクリニック</span><span class="sb-item-desc">Phase 2 · 患者の住所と通院先</span></span></a></li>
-      <li><a href="phase3_model.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="sb-item-text"><span class="sb-item-title">来局率と成長余地</span><span class="sb-item-desc">Phase 3 · 選択モデルと成長試算</span></span></a></li>
-      <li><a href="phase4_retention.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8"/></svg><span class="sb-item-text"><span class="sb-item-title">定着とLTV</span><span class="sb-item-desc">Phase 4 · 残存・来局間隔・LTV</span></span></a></li>
+      <li><a href="phase3_model.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="sb-item-text"><span class="sb-item-title">来局率と成長余地</span><span class="sb-item-desc">Phase 3 · 来局の決め手と目標試算</span></span></a></li>
+      <li><a href="phase4_retention.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8"/></svg><span class="sb-item-text"><span class="sb-item-title">患者の定着</span><span class="sb-item-desc">Phase 4 · 再来・来局間隔・患者タイプ</span></span></a></li>
       <li><a href="phase5_causal.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h12M13 7l5 5-5 5"/></svg><span class="sb-item-text"><span class="sb-item-title">施策の効果</span><span class="sb-item-desc">Phase 5 · チラシと継続施策</span></span></a></li>
-      <li><a href="phase6_integrated.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="sb-item-text"><span class="sb-item-title">統合モデルと予測</span><span class="sb-item-desc">Phase 6 · 月次予測とシナリオ</span></span></a></li>
+      <li><a href="phase6_integrated.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="sb-item-text"><span class="sb-item-title">今後の見込み</span><span class="sb-item-desc">Phase 6 · 来月の見込みと目標</span></span></a></li>
     </ul>
     <p class="sb-heading" id="sb-h-extra">追加分析</p>
     <ul aria-labelledby="sb-h-extra">
-      <li><a href="pathways.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 8l8 8"/></svg><span class="sb-item-text"><span class="sb-item-title">来院経路</span><span class="sb-item-desc">1→2→3回目の診療科遷移</span></span></a></li>
-      <li><a href="map.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span class="sb-item-text"><span class="sb-item-title">商圏マップ</span><span class="sb-item-desc">商圏・競合・来局率マップ</span></span></a></li>
+      <li><a href="pathways.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 8l8 8"/></svg><span class="sb-item-text"><span class="sb-item-title">来院経路</span><span class="sb-item-desc">耳鼻科・皮膚科から他の科へ広がるか</span></span></a></li>
+      <li><a href="map.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span class="sb-item-text"><span class="sb-item-title">商圏マップ</span><span class="sb-item-desc">患者の住まい・クリニック・競合薬局</span></span></a></li>
+    </ul>
+  </nav>
+
+  <nav class="sb-toc" aria-label="ページ内目次">
+    <p class="sb-heading" id="sb-h-toc">このページの内容</p>
+    <ul aria-labelledby="sb-h-toc">
+      <li><a href="#summary">経営サマリー</a></li>
     </ul>
   </nav>
 
@@ -574,32 +648,39 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
   </div>
 
   <div class="sb-footer">
-    <p class="sb-generated" title="サイドバー・デザインを適用した日時。分析の生成日時は各ページ上部に表示">UI更新 2026-09-30 11:29</p>
+    <p class="sb-generated" title="サイドバー・デザインを適用した日時。分析の生成日時は各ページ上部に表示">UI更新 2026-09-30</p>
     <a class="sb-notes-link" href="#notes">注意事項</a>
+    <a class="sb-academic-link" href="academic/index.html">学術用の旧版はこちら</a>
   </div>
 </aside>
 
 <main class="wrap" id="main">
-  <div id="version-switch" class="version-switch">
-<strong>薬局向け最新版</strong>を表示しています。サイドバー導入前の学術用（旧UI）版は
-<a href="academic/index.html">こちら</a>で凍結保存しています。
-</div>
     <header class="hero">
       <div class="eyebrow">Kutsuki DataBank Analytics</div>
       <h1>くつき薬局南茨木店<br/>患者獲得モデル分析</h1>
-      <p>門前／非門前の二軸で、処方箋フロー・商圏・来局率を可視化したレポートです。生の患者CSVは公開していません。</p>
+      <p>自店の処方箋データから、処方箋の出どころ・患者の住まい・定着・施策の効果を見るレポートです。生の患者CSVは公開していません。</p>
       <div class="meta">
         <span class="chip">受診 2024-09-02 〜 2026-07-31</span>
         <span class="chip">患者 8,885 / 受診 31,924</span>
-        <span class="chip">GitHub Pages</span>
       </div>
     </header>
+
+    <!-- exec-summary:begin -->
+    <section class="exec-summary" aria-labelledby="summary">
+      <h2 id="summary">経営サマリー</h2>
+      <div class="exec-grid">
+        <div class="exec-block"><h3>いまの状況</h3><ul><li>処方箋 <strong>1,768枚/月</strong>（2026年5〜7月の平均）｜目標 3,000枚/月まで あと<strong>1,232枚</strong></li><li>処方箋の<strong>89%</strong>が門前（上位2院に73%が集中）</li><li>初めて来た人のうち、90日以内にまた来るのは<strong>41%</strong></li></ul></div>
+        <div class="exec-block"><h3>わかったこと</h3><ol><li>門前2院への依存度が高い（上位2院で処方箋の73%）</li><li>患者の多くは徒歩圏に住み、少し離れると来なくなる（薬局から1km以内に52%）</li><li>耳鼻科・皮膚科の患者が、内科など他の科へ広がっていない（内科系へ移ったのは11%）</li></ol></div>
+        <div class="exec-block exec-action"><h3>次にやること</h3><ol><li>門前以外のクリニック（特に内科）との関係づくり</li><li>初回来局時の再来の働きかけ（声かけ・LINE登録など）</li><li>次の施策から「効果を測れる形」で実施する（配布記録・QRコード）</li></ol></div>
+      </div>
+    </section>
+    <!-- exec-summary:end -->
 
     <div class="grid">
       <article class="card">
         <p class="card-kicker">Phase 1 · 処方箋の流れ</p>
         <h2>処方箋はどこから来ているか</h2>
-        <p>門前型 89.3% / 非門前 9.6%。ABC分析・時系列・外生要因・ポートフォリオ・Sankey。</p>
+        <p>処方箋の89%が門前。上位2院だけで73%を占めています。</p>
         <a class="btn" href="phase1_flow.html">レポートを開く</a>
         <a class="btn ghost" href="figures/phase1_sankey.html">Sankey</a>
       </article>
@@ -607,7 +688,7 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
       <article class="card">
         <p class="card-kicker">Phase 2 · 商圏とクリニック</p>
         <h2>患者はどこに住み、どの医院に通っているか</h2>
-        <p>クリニック商圏・地区×クリニック・メッシュ来局率・競合圧力・ネットワーク。</p>
+        <p>患者の52%が半径1km以内。1kmを超えると急に来なくなります。</p>
         <a class="btn secondary" href="phase2_catchment.html">レポートを開く</a>
         <a class="btn ghost" href="figures/phase2_map.html">地図</a>
       </article>
@@ -615,28 +696,28 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
       <article class="card">
         <p class="card-kicker">Phase 3 · 来局率と成長余地</p>
         <h2>何が来局率を左右し、どこまで伸ばせるか</h2>
-        <p>集計来局率GLM・クリニック選択・Huff・成長シナリオ（月1,388→3,000の感度）。</p>
+        <p>今の施策の延長では3,000枚に届きません（最大でも約2,312枚）。新しい処方元が必要です。</p>
         <a class="btn" href="phase3_model.html">レポートを開く</a>
       </article>
 
       <article class="card">
-        <p class="card-kicker">Phase 4 · 定着とLTV</p>
+        <p class="card-kicker">Phase 4 · 患者の定着</p>
         <h2>患者は定着しているか</h2>
-        <p>コホート残存・90日定着・来局間隔・LTV・クリニック階層・クラスタ。</p>
+        <p>90日以内にもう一度来た人は41%。クリニックによって最大26ポイントの差があります。</p>
         <a class="btn secondary" href="phase4_retention.html">レポートを開く</a>
       </article>
 
       <article class="card">
         <p class="card-kicker">Phase 5 · 施策の効果</p>
         <h2>チラシや施策は効いたか</h2>
-        <p>施策年表（先方Excel）をもとに、チラシは近距離×遠距離の差の差、継続施策は門前×非門前の比較ITS。プラセボ検定・感度分析つき。</p>
+        <p>評価した施策5件のうち、効果を確認できたのは0件。次の施策は効果を測れる形で行う必要があります。</p>
         <a class="btn" href="phase5_causal.html">レポートを開く</a>
       </article>
 
       <article class="card">
-        <p class="card-kicker">Phase 6 · 統合モデルと予測</p>
-        <h2>この先の受診件数はどうなるか</h2>
-        <p>統合式・予測検証・シナリオ分布・学術ポジショニング。</p>
+        <p class="card-kicker">Phase 6 · 今後の見込み</p>
+        <h2>この先の処方箋枚数はどうなるか</h2>
+        <p>このままなら月1,768枚前後の見込み。3,000枚まであと1,232枚です。</p>
         <a class="btn" href="phase6_integrated.html">レポートを開く</a>
       </article>
 
@@ -644,26 +725,26 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
       <article class="card">
         <p class="card-kicker">追加分析 · 来院経路</p>
         <h2>来院経路の時系列追跡</h2>
-        <p>初回から2〜4回目までの診療科遷移。サンキー・遷移行列・同一科リピート率・実経路上位20。</p>
+        <p>耳鼻科・皮膚科で来た患者は、内科など他の科へほとんど広がっていません。</p>
         <a class="btn" href="pathways.html">レポートを開く</a>
         <a class="btn ghost" href="figures/pathways_sankey.html">Sankey</a>
       </article>
 
       <article class="card">
-        <p class="card-kicker">追加分析 · 地図</p>
+        <p class="card-kicker">追加分析 · 商圏マップ</p>
         <h2>商圏マップ</h2>
-        <p>自店・クリニック（円=件数の対数）・メッシュ来局率・競合薬局・患者密度をレイヤ切替で。</p>
+        <p>患者の住まい・クリニック・競合薬局を地図に重ねて見られます。</p>
         <a class="btn secondary" href="map.html">地図を開く</a>
       </article>
     </div>
 
     <div class="note" id="notes">
-      <strong>注意:</strong> 本サイトの数値は自店受診データに基づく記述・相関分析です。市場全体の選択率や因果効果としては解釈しないでください。
+      <strong>注意:</strong> 自店のデータにもとづく分析です。地域全体の数字ではありません。
       個人が特定できる生データ（住所テキスト・受診明細CSV等）はリポジトリに含めていません。
     </div>
 
     <footer>
-      Generated from kutsuki_pharm_csv-analytics · GitHub Pages
+      自店のデータにもとづく分析です。地域全体の数字ではありません。
     </footer>
   </main>
 <script data-shell="sidebar">
@@ -675,6 +756,19 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
   var toggle = document.querySelector(".nav-toggle");
   var overlay = document.querySelector(".nav-overlay");
   var sidebar = document.getElementById("sidebar");
+
+  /* 印刷時は専門家向けの折りたたみを開いて出し、終わったら元に戻す */
+  var openedForPrint = [];
+  window.addEventListener("beforeprint", function () {
+    openedForPrint = Array.prototype.filter.call(
+      document.querySelectorAll("details.expert:not([open])"),
+      function (d) { d.open = true; return true; }
+    );
+  });
+  window.addEventListener("afterprint", function () {
+    openedForPrint.forEach(function (d) { d.open = false; });
+    openedForPrint = [];
+  });
 
   function setOpen(open) {
     body.classList.toggle("nav-open", open);

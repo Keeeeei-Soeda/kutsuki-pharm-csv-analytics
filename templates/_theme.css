@@ -58,6 +58,70 @@ body { background: var(--bg); font-family: var(--sans); }
 .kpi .label { font-size: 13px; color: var(--muted); letter-spacing: 0; }
 .kpi .value { font-family: var(--display); font-size: 32px; font-weight: 700; margin-top: 8px; }
 .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+/* 比較つきKPI：色は補助。良し悪しは compare の文章でも読めるようにする */
+.kpi { border-top: 4px solid var(--line); }
+.kpi.tone-good { border-top-color: #2f8f5b; }
+.kpi.tone-bad { border-top-color: var(--warn); }
+.kpi .compare { font-size: 12.5px; color: var(--ink); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.kpi.tone-good .compare { color: #22683f; }
+.kpi.tone-bad .compare { color: #8a3f06; }
+
+/* 結論ボックス（わかったこと／良い？悪い？／次にやること） */
+.takeaway {
+  margin: 20px 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 6px 24px;
+}
+.takeaway dl { margin: 0; }
+.takeaway .tk-row { display: grid; grid-template-columns: 8.5em 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.takeaway .tk-row:last-child { border-bottom: none; }
+.takeaway dt { font-weight: 700; font-size: 13px; color: var(--accent-strong); padding-top: 2px; }
+.takeaway dd { margin: 0; font-size: 15px; line-height: 1.7; }
+@media (max-width: 599px) {
+  .takeaway .tk-row { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* 図の上の「この図で言いたいこと」 */
+.fig-point { margin: 18px 0 8px; font-weight: 700; font-size: 15px; }
+
+/* 専門家向けの詳細（初期状態は閉じる） */
+details.expert {
+  margin: 12px 0 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+details.expert > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+details.expert > summary::-webkit-details-marker { display: none; }
+details.expert > summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 11px;
+  color: var(--accent-strong);
+  transition: transform .15s ease;
+}
+details.expert[open] > summary::before { transform: rotate(90deg); }
+details.expert > .expert-body { padding: 0 18px 18px; border-top: 1px solid var(--line-soft); }
+details.expert h3 { margin-top: 24px; }
+
+/* 地図ページへの大きな導線 */
+.map-cta { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+.map-cta p { margin: 0; }
+.btn-cta { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; padding: 12px 20px; border-radius: 10px; }
+
+/* サイドバー下部の学術版リンク */
+.sb-academic-link { display: block; margin-top: 8px; font-size: 11px; color: var(--sb-muted); }
 
 /* 見出し：左ボーダーを廃止 */
 h2 { border-left: none; padding-left: 0; font-family: var(--display); font-size: 18px; font-weight: 700; margin: 40px 0 12px; }
@@ -89,6 +153,17 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
 .card-kicker { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--accent-strong); letter-spacing: .02em; }
 .card-kicker + h2 { margin-top: 0; }
 
+/* トップページの経営サマリー */
+.exec-summary { margin-top: 20px; }
+.exec-summary h2 { margin: 0 0 12px; }
+.exec-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.exec-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; }
+.exec-block h3 { margin: 0 0 8px; font-size: 14px; color: var(--accent-strong); }
+.exec-block ul, .exec-block ol { margin: 0; padding-left: 1.3em; font-size: 14px; line-height: 1.7; }
+.exec-block li + li { margin-top: 6px; }
+.exec-action { border-top: 3px solid var(--warn); }
+@media (max-width: 1099px) { .exec-grid { grid-template-columns: 1fr; } }
+
 /* 地図ページ */
 #map, iframe.map { border-radius: var(--radius); box-shadow: none; border: 1px solid var(--line); }
 
@@ -104,4 +179,6 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
 @media print {
   body { background: #fff; }
   .wrap { max-width: 100%; padding: 0; }
+  details.expert > * { display: block; }
+  details.expert > summary::before { content: none; }
 }

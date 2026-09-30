@@ -7,6 +7,19 @@
   var overlay = document.querySelector(".nav-overlay");
   var sidebar = document.getElementById("sidebar");
 
+  /* 印刷時は専門家向けの折りたたみを開いて出し、終わったら元に戻す */
+  var openedForPrint = [];
+  window.addEventListener("beforeprint", function () {
+    openedForPrint = Array.prototype.filter.call(
+      document.querySelectorAll("details.expert:not([open])"),
+      function (d) { d.open = true; return true; }
+    );
+  });
+  window.addEventListener("afterprint", function () {
+    openedForPrint.forEach(function (d) { d.open = false; });
+    openedForPrint = [];
+  });
+
   function setOpen(open) {
     body.classList.toggle("nav-open", open);
     if (toggle) {

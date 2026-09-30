@@ -15,6 +15,7 @@ import pandas as pd
 import statsmodels.api as sm
 
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv
+from src.kpi import CurrentLevel, current_level, save_page_summary
 from src.models.simulator import GrowthInputs, baseline_decomposition, simulate_scenarios, tornado_sensitivities
 from src.viz.html_report import HtmlReport
 
@@ -202,6 +203,8 @@ def forecast_holdout(df: pd.DataFrame) -> Dict:
         "n_valid": len(valid_idx),
         "pred_df": pred_df,
         "ols_summary": model.summary().as_text(),
+        "monthly": y,
+        "panel": df,
     }
 
 
@@ -226,10 +229,10 @@ def draw_integrated_diagram() -> Path:
 
     ax.text(6, 7.6, f"{PHARMACY_NAME} 統合患者獲得モデル（記述〜予測）", ha="center", fontsize=14, fontweight="bold")
 
-    box(0.3, 5.8, 2.4, 1.2, "① Prescription Flow\n門前89% / 非門前10%\nABC・時系列", "#f7e3d6")
-    box(3.2, 5.8, 2.4, 1.2, "② Clinic Catchment\n徒歩圏商圏\n地区×クリニック", "#ddeeea")
-    box(6.1, 5.8, 2.4, 1.2, "③ Visit/Choice Rate\n距離減衰GLM\nclogit(自店条件付)", "#d6e4f0")
-    box(9.0, 5.8, 2.5, 1.2, "④ Growth Engine\n定着41% / 間隔28日\nLTV感度", "#e8e0f2")
+    box(0.3, 5.8, 2.4, 1.2, "① 処方箋の流れ\n門前89% / 門前以外10%\nABC・時系列", "#f7e3d6")
+    box(3.2, 5.8, 2.4, 1.2, "② 診療圏\n徒歩圏商圏\n地区×クリニック", "#ddeeea")
+    box(6.1, 5.8, 2.4, 1.2, "③ 来局率・選択\n距離減衰の回帰\n条件付き選択モデル", "#d6e4f0")
+    box(9.0, 5.8, 2.5, 1.2, "④ 定着と成長\n定着41% / 間隔28日\n粗利の感度", "#e8e0f2")
 
     arrow(2.7, 6.4, 3.2, 6.4)
     arrow(5.6, 6.4, 6.1, 6.4)
@@ -237,13 +240,13 @@ def draw_integrated_diagram() -> Path:
 
     box(1.5, 3.6, 9.0, 1.4,
         "月間処方箋件数 ≈ Σ_a [ 人口_a × 来局率_a(距離,年齢,競合) × 月次来局頻度_a ]\n"
-        "        ≈ 門前流量（軸A・クリニック集患） + 非門前獲得（軸B・面）\n"
-        "Experience Engine（SEM）は観測変数なし → アンケート設計待ち",
+        "        ≈ 門前の流量（クリニックの集患） + 門前以外からの獲得\n"
+        "患者体験（構造方程式モデル）は観測変数なし → アンケート設計待ち",
         "#fff8ec")
 
-    box(0.5, 1.4, 3.5, 1.5, "入力レバー\n・門前連携（軸A）\n・非門前認知/導線（軸B）\n・定着・頻度・世帯*", "#f3f1eb")
+    box(0.5, 1.4, 3.5, 1.5, "入力レバー\n・門前との連携\n・門前以外での認知・導線\n・定着・頻度・世帯*", "#f3f1eb")
     box(4.3, 1.4, 3.5, 1.5, "シミュレータ\nシナリオ感度\nトルネード\n目標3000の必要条件", "#ddeeea")
-    box(8.1, 1.4, 3.4, 1.5, "検証\n時間分割ホールドアウト\nMAE/MAPE\nベースライン比較", "#d6e4f0")
+    box(8.1, 1.4, 3.4, 1.5, "検証\n時間分割ホールドアウト\n予測誤差（平均絶対誤差）\nベースライン比較", "#d6e4f0")
     arrow(4.0, 2.1, 4.3, 2.1)
     arrow(7.8, 2.1, 8.1, 2.1)
 
@@ -256,10 +259,38 @@ def draw_integrated_diagram() -> Path:
     return out
 
 
-def enhance_simulator_plot() -> Dict:
+def plain_forecast_figure(df: pd.DataFrame, level: CurrentLevel, next_month: str, mae: float) -> Path:
+    """月別の実績と、直近3か月平均による1か月先の見込み（検証用のモデル比較は載せない）。"""
+    _setup_font()
+    y = df["件数"].astype(float)
+    x = pd.PeriodIndex(y.index, freq="M").to_timestamp()
+    ma3 = y.rolling(3).mean().shift(1)
+    nx = pd.Period(next_month, freq="M").to_timestamp()
+
+    fig, ax = plt.subplots(figsize=(11, 4.8))
+    ax.plot(x, y.values, color="#1b2430", lw=2, marker="o", ms=3.5, label="実績")
+    ax.plot(x, ma3.values, color="#2f6f9f", lw=1.5, ls="--", label="見込み（直前3か月の平均）")
+    ax.errorbar([nx], [level.recent_mean], yerr=[[mae], [mae]], fmt="o", color="#2f6f9f", ms=8, capsize=5)
+    ax.annotate(f"来月の見込み\n約{level.recent_mean:,.0f}枚（±{mae:,.0f}）", (nx, level.recent_mean),
+                xytext=(-10, 30), textcoords="offset points", ha="right", fontsize=10, color="#2f6f9f")
+    ax.axhline(level.target, color="#b4540a", ls="--", lw=1.5)
+    ax.text(x[0], level.target, f"目標 {level.target:,.0f}枚", va="bottom", color="#b4540a", fontsize=10)
+    ax.set_ylim(0, level.target * 1.1)
+    ax.set_ylabel("処方箋（枚／月）")
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(frameon=False, loc="lower right")
+    ax.set_title("月別の処方箋枚数と来月の見込み", loc="left")
+    fig.tight_layout()
+    out = FIGURES / "phase6_forecast_plain.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def enhance_simulator_plot(level: CurrentLevel) -> Dict:
     ensure_dirs()
     _setup_font()
-    inp = GrowthInputs()
+    inp = GrowthInputs(monthly_visits=level.recent_mean, target_monthly=level.target)
     base = baseline_decomposition(inp)
     scen = simulate_scenarios(inp)
     tornado = tornado_sensitivities(inp, 0.1)
@@ -278,7 +309,7 @@ def enhance_simulator_plot() -> Dict:
                 "p10": float(np.percentile(samples, 10)),
                 "p50": float(np.percentile(samples, 50)),
                 "p90": float(np.percentile(samples, 90)),
-                "目標到達確率": float((samples >= 3000).mean()),
+                "目標到達確率": float((samples >= inp.target_monthly).mean()),
             }
         )
     band_df = pd.DataFrame(bands)
@@ -288,18 +319,18 @@ def enhance_simulator_plot() -> Dict:
     y = np.arange(len(band_df))
     ax.hlines(y, band_df["p10"], band_df["p90"], color="#2f6f9f", lw=6, label="P10–P90")
     ax.plot(band_df["p50"], y, "o", color="#0f6a6a", label="中央値")
-    ax.axvline(3000, color="#c45c26", ls="--", label="目標3000")
-    ax.axvline(1388, color="#888", ls=":", label="現状1388")
+    ax.axvline(inp.target_monthly, color="#c45c26", ls="--", label=f"目標{inp.target_monthly:,.0f}")
+    ax.axvline(level.recent_mean, color="#888", ls=":", label=f"現状{level.recent_mean:,.0f}（{level.period_label}平均）")
     ax.set_yticks(y)
     ax.set_yticklabels(band_df["シナリオ"])
     ax.set_xlabel("月間件数（シナリオ中央値±不確実性バンド）")
-    ax.set_title("Growthシミュレータ予測分布（CV≈8%の記述的バンド）")
+    ax.set_title("成長シミュレータの予測分布（変動係数 約8%の記述的バンド）")
     ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(FIGURES / "phase6_scenario_bands.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    return {"baseline": base, "scenarios": scen, "bands": band_df, "tornado": tornado}
+    return {"baseline": base, "scenarios": scen, "bands": band_df, "tornado": tornado, "level": level}
 
 
 def write_academic_positioning() -> Path:
@@ -355,7 +386,7 @@ def write_integrated_report(fc: Dict, sim: Dict, diagram: Path, academic: Path) 
 
 1. **統合式は「人口×来局率×頻度」＋門前/非門前分解で運用可能。** Experience（SEM）は欠測のため設計のみ。
 2. **月次予測の時間分割検証で最良は「{fc['best']}」（MAE={fc['best_mae']:.1f}, MAPE={fc['best_mape']:.1f}%）。** 単純平均より改善。
-3. **目標3,000は単一レバーでは到達確率が低い。** シナリオバンド上、複合施策が必要（Phase3と整合）。
+3. **今の施策の延長では目標3,000に届かない。** 現状（{sim['level'].period_label}平均）{sim['level'].recent_mean:,.0f}枚に対し、シナリオバンド上の到達確率は最大{bands['目標到達確率'].max():.0%}（Phase3と整合）。
 
 ## わからなかったこと3点
 
@@ -433,70 +464,111 @@ def write_integrated_report(fc: Dict, sim: Dict, diagram: Path, academic: Path) 
     md_path = REPORTS / "integrated_model.md"
     md_path.write_text(md, encoding="utf-8")
 
-    # also copy academic already written
+    level: CurrentLevel = sim["level"]
+    ma3 = metrics.set_index("モデル").loc["移動平均3"]
+    y = fc["monthly"]
+    next_month = str(pd.Period(y.index[-1], freq="M") + 1)
+    prev_year = str(pd.Period(next_month, freq="M") - 12)
+    prev_year_value = float(y.loc[prev_year]) if prev_year in y.index else float("nan")
+    best_prob = float(bands["目標到達確率"].max())
+    plain_forecast_figure(fc["panel"], level, next_month, float(ma3["MAE"]))
+    nm = pd.Period(next_month, freq="M")
+    py = pd.Period(prev_year, freq="M")
+
     rep = HtmlReport(
-        title="Phase 6 Integrated Model",
-        subtitle="Prescription Flow → Catchment → Choice Rate → Growth を一つの式系に統合。時間分割予測とシナリオ分布を検証する。",
+        title="この先の処方箋枚数はどうなるか",
+        subtitle="このまま進んだ場合の今後の処方箋枚数と、目標との距離を見ます。",
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 6",
         active_phase=6,
     )
-    rep.add_kpi("最良予測", fc["best"], f"MAE {fc['best_mae']:.0f}")
-    rep.add_kpi("MAPE", f"{fc['best_mape']:.1f}%", "検証期")
-    rep.add_kpi("現状月次", "1,388", "目標 3,000")
-    rep.add_kpi("目標倍率", f"{sim['baseline']['gap_ratio']:.2f}×", "要複合施策")
+    rep.add_kpi("来月の見込み", f"約{level.recent_mean:,.0f}枚", f"{nm.year}年{nm.month}月（直近3か月の平均から）",
+                compare=f"前年同月（{py.year}年{py.month}月）は {prev_year_value:,.0f}枚", tone="good"
+                if level.recent_mean > prev_year_value else "bad")
+    rep.add_kpi("予測のずれ", f"平均で月±{ma3['MAE']:,.0f}枚", f"約{ma3['MAPE%']:.0f}%",
+                compare=f"{VALID_START[:4]}年{int(VALID_START[5:])}月以降の実績と見込みを比べた場合", tone="neutral")
+    rep.add_kpi("現状", f"{level.recent_mean:,.0f}枚/月", f"{level.period_label}の平均",
+                compare=f"参考：全期間の平均は {level.all_mean:,.0f}枚/月", tone="neutral")
+    rep.add_kpi("目標3,000枚まで", f"あと{level.gap:,.0f}枚/月", f"現状の{level.ratio:.2f}倍が必要",
+                compare=f"どのシナリオでも、目標に届く確率は{best_prob:.0%}", tone="bad")
 
-    rep.callout(
-        "わかったこと",
-        [
-            f"統合運用式は人口×来局率×頻度（門前/非門前分解）。",
-            f"予測最良は {fc['best']}（MAE={fc['best_mae']:.1f}）。",
-            "3,000到達は複合レバーが必要。",
-        ],
-        kind="ok",
-    )
-    rep.callout(
-        "保留",
-        ["Phase5因果（年表で推定したが判定できない）", "多店舗外部妥当性", "世帯・Experience SEM"],
-        kind="warn",
+    rep.takeaway(
+        finding=f"このままのペースなら、月{level.recent_mean:,.0f}枚前後で推移する見込みです。",
+        judgment="今の施策の組み合わせでは、3,000枚に届く見込みはありません。",
+        action="Phase 3 と同じく、新しい処方元（クリニック）の獲得が必要です。",
     )
 
-    rep.section("diagram", "統合モデル")
-    rep.figure(diagram, "フロー→商圏→選択→定着の接続")
-
-    rep.section("forecast", "時間分割予測検証")
-    rep.figure(FIGURES / "phase6_forecast.png", "学習／検証の予測比較")
-    rep.table(
-        ["モデル", "MAE", "MAPE%"],
-        [[r["モデル"], f"{r['MAE']:.1f}", f"{r['MAPE%']:.1f}"] for _, r in metrics.iterrows()],
-        numeric_cols=[1, 2],
+    rep.section("forecast_plain", "月別の推移と来月の見込み")
+    rep.figure(
+        FIGURES / "phase6_forecast_plain.png",
+        point=f"処方箋は月{level.recent_mean:,.0f}枚ほどで、目標の3,000枚との間には大きな差があります。",
+        explain=(
+            "黒が毎月の実績、青の点線が「直前3か月の平均」で出した見込みです。"
+            f"右端の青い点が来月の見込みで、上下の線は平均的なずれ（±{ma3['MAE']:,.0f}枚）です。"
+        ),
     )
 
-    rep.section("sim", "シナリオ予測分布")
-    rep.figure(FIGURES / "phase6_scenario_bands.png", "シナリオ別の予測帯")
-    rep.table(
-        ["シナリオ", "P50", "P10", "P90", "3000到達確率"],
-        [
+    with rep.expert_details("専門家向けの詳細（統合モデル・予測検証・シナリオ分布・学術ポジショニング）"):
+        rep.callout(
+            "保留",
+            ["Phase5因果（年表で推定したが判定できない）", "多店舗外部妥当性", "世帯・Experience SEM"],
+            kind="warn",
+        )
+        rep.section("diagram", "統合モデル")
+        rep.paragraph("統合運用式は 人口×来局率×頻度（門前/非門前分解）。")
+        rep.figure(diagram, "フロー→商圏→選択→定着の接続")
+
+        rep.section("forecast", "時間分割予測検証")
+        rep.paragraph(
+            f"学習〜{TRAIN_END}（{fc['n_train']}か月）／検証 {VALID_START}〜（{fc['n_valid']}か月）。"
+            f"最良は {fc['best']}（MAE={fc['best_mae']:.1f}, MAPE={fc['best_mape']:.1f}%）。"
+            f"本文の見込みは 移動平均3（MAE={ma3['MAE']:.1f}, MAPE={ma3['MAPE%']:.1f}%）。"
+        )
+        rep.figure(FIGURES / "phase6_forecast.png", "学習／検証の予測比較")
+        rep.table(
+            ["モデル", "MAE", "MAPE%"],
+            [[r["モデル"], f"{r['MAE']:.1f}", f"{r['MAPE%']:.1f}"] for _, r in metrics.iterrows()],
+            numeric_cols=[1, 2],
+        )
+
+        rep.section("sim", "シナリオ予測分布")
+        rep.figure(FIGURES / "phase6_scenario_bands.png", f"シナリオ別の予測帯（現状={level.period_label}平均）")
+        rep.table(
+            ["シナリオ", "P50", "P10", "P90", "3000到達確率"],
             [
-                r["シナリオ"][:24],
-                f"{r['p50']:.0f}",
-                f"{r['p10']:.0f}",
-                f"{r['p90']:.0f}",
-                f"{r['目標到達確率']:.0%}",
-            ]
-            for _, r in bands.iterrows()
-        ],
-        numeric_cols=[1, 2, 3, 4],
-    )
+                [
+                    r["シナリオ"][:24],
+                    f"{r['p50']:.0f}",
+                    f"{r['p10']:.0f}",
+                    f"{r['p90']:.0f}",
+                    f"{r['目標到達確率']:.0%}",
+                ]
+                for _, r in bands.iterrows()
+            ],
+            numeric_cols=[1, 2, 3, 4],
+        )
 
-    rep.section("academic", "学術ポジショニング要約")
-    rep.paragraph("三角形定式化と門前/非門前二軸が新規性の中核。1店舗のため外部妥当性は未確立。詳細は academic_positioning.md。")
+        rep.section("academic", "学術ポジショニング要約")
+        rep.paragraph("三角形定式化と門前/非門前二軸が新規性の中核。1店舗のため外部妥当性は未確立。詳細は academic_positioning.md。")
 
     html_path = REPORTS / "phase6_integrated.html"
     rep.save(html_path)
 
-    # also save integrated html name alias
+    save_page_summary("p6", {
+        "next_month": next_month,
+        "forecast": level.recent_mean,
+        "mae": float(ma3["MAE"]),
+        "mape": float(ma3["MAPE%"]),
+        "recent_mean": level.recent_mean,
+        "period_label": level.period_label,
+        "all_mean": level.all_mean,
+        "gap": level.gap,
+        "target": level.target,
+        "conclusion": (
+            f"このままなら月{level.recent_mean:,.0f}枚前後の見込み。3,000枚まであと{level.gap:,.0f}枚です。"
+        ),
+    })
     return {"md": md_path, "html": html_path, "academic": academic}
 
 
@@ -542,7 +614,7 @@ def run_phase6() -> Dict:
     df.to_csv(PROCESSED_DIR / "phase6_monthly_panel.csv", encoding="utf-8-sig")
     diagram = draw_integrated_diagram()
     fc = forecast_holdout(df)
-    sim = enhance_simulator_plot()
+    sim = enhance_simulator_plot(current_level())
     academic = write_academic_positioning()
     paths = write_integrated_report(fc, sim, diagram, academic)
     publish_docs(paths["html"], academic)

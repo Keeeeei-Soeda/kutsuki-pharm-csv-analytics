@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib
 
@@ -24,6 +25,7 @@ from src.io import (
     ensure_dirs,
     read_csv,
 )
+from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
 
 FIGURES = ROOT / "reports" / "figures"
@@ -82,6 +84,74 @@ def std_dev_ellipse(lats: np.ndarray, lons: np.ndarray) -> Dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# 町名の近似（クリニック・競合薬局の住所と座標から作る簡易地名表）
+# ---------------------------------------------------------------------------
+
+TOWN_MATCH_KM = 0.7  # メッシュ中心からこの距離以内に住所点がなければ町名を付けない
+DISTANCE_BANDS = [0, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0]
+
+
+def town_of(address: object) -> Optional[str]:
+    """住所文字列から町名を取り出す（茨木市は町名のみ、他市は市名を前に付ける）。"""
+    s = str(address or "").replace("大阪府", "").strip()
+    m = re.match(r"(.+?[市郡])(.+?区)?(.*)", s)
+    if not m:
+        return None
+    city, ward, rest = m.group(1), m.group(2) or "", m.group(3)
+    town = re.split(r"[0-9０-９\-－ 　]", rest)[0]
+    town = re.sub(r"[一二三四五六七八九十]+丁目.*$", "", town)
+    if not town:
+        return None
+    return f"{ward}{town}" if city == "茨木市" else f"{city}{ward}{town}"
+
+
+def town_gazetteer(cm: pd.DataFrame, comp: pd.DataFrame) -> pd.DataFrame:
+    pts = pd.concat(
+        [cm[["住所", "緯度", "経度"]], comp[["住所", "緯度", "経度"]]], ignore_index=True
+    ).dropna()
+    pts["町名"] = pts["住所"].map(town_of)
+    pts = pts.dropna(subset=["町名"])
+    return (
+        pts.groupby("町名")
+        .agg(緯度=("緯度", "median"), 経度=("経度", "median"), 住所点=("住所", "size"))
+        .reset_index()
+    )
+
+
+def name_points(lat: np.ndarray, lon: np.ndarray, gaz: pd.DataFrame) -> List[Optional[str]]:
+    """各点に最も近い住所点の町名を付ける（遠すぎる場合は None）。"""
+    D = haversine_km(np.asarray(lat)[:, None], np.asarray(lon)[:, None],
+                     gaz["緯度"].values[None, :], gaz["経度"].values[None, :])
+    idx = D.argmin(axis=1)
+    near = D[np.arange(len(idx)), idx] <= TOWN_MATCH_KM
+    return [gaz["町名"].iloc[i] if ok else None for i, ok in zip(idx, near)]
+
+
+def plain_map_axes(ax, gaz: pd.DataFrame, max_labels: int = 14, within_km: float = 3.0,
+                   min_gap_km: float = 0.65) -> None:
+    """地図風の図から緯度・経度の目盛りを外し、主な町名を重ねる（近すぎるラベルは間引く）。"""
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    x0, x1 = ax.get_xlim()
+    y0, y1 = ax.get_ylim()
+    g = gaz.copy()
+    g["km"] = haversine_km(PHARMACY_LAT, PHARMACY_LON, g["緯度"].values, g["経度"].values)
+    g = g.loc[(g["km"] <= within_km) & g["km"].gt(0.25) & g["経度"].between(x0, x1) & g["緯度"].between(y0, y1)]
+    placed: List[Tuple[float, float]] = []
+    for _, r in g.sort_values("住所点", ascending=False).iterrows():
+        if len(placed) >= max_labels:
+            break
+        if any(haversine_km(r["緯度"], r["経度"], la, lo) < min_gap_km for la, lo in placed):
+            continue
+        placed.append((r["緯度"], r["経度"]))
+        ax.text(r["経度"], r["緯度"], r["町名"], fontsize=7.5, color="#1b2430", ha="center", va="center",
+                bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.7))
+    ax.text(PHARMACY_LON, PHARMACY_LAT, "  自店", fontsize=9, fontweight="bold", color="#0f6a6a", va="center")
+
+
 def load_visits() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     vt = read_csv("visit_triangle")
     vt["軸"] = np.select(
@@ -99,7 +169,7 @@ def load_visits() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFram
 # 1. Clinic catchments for top clinics
 # ---------------------------------------------------------------------------
 
-def clinic_catchments(vt: pd.DataFrame, min_visits: int = 100) -> pd.DataFrame:
+def clinic_catchments(vt: pd.DataFrame, gaz: pd.DataFrame, min_visits: int = 100) -> pd.DataFrame:
     ensure_dirs()
     _setup_font()
     counts = vt.dropna(subset=["クリニックID"]).groupby(["クリニックID", "クリニック名"]).size().rename("件数")
@@ -166,13 +236,11 @@ def clinic_catchments(vt: pd.DataFrame, min_visits: int = 100) -> pd.DataFrame:
         clat = pd.to_numeric(sub["クリニック緯度"], errors="coerce").dropna()
         clon = pd.to_numeric(sub["クリニック経度"], errors="coerce").dropna()
         if len(clat):
-            ax.scatter([clon.iloc[0]], [clat.iloc[0]], c="#c45c26", s=50, marker="^", label="clinic")
+            ax.scatter([clon.iloc[0]], [clat.iloc[0]], c="#c45c26", s=50, marker="^", label="クリニック")
         ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#0f6a6a", s=50, marker="s")
         med = d_road.median() if d_road.notna().any() else np.nan
         ax.set_title(f"{r['クリニック名'][:18]}\nN={int(r['件数'])} / 中央道路{med:.2f}km", fontsize=9)
-        ax.set_xlabel("経度")
-        ax.set_ylabel("緯度")
-        ax.tick_params(labelsize=7)
+        plain_map_axes(ax, gaz, max_labels=5, within_km=2.5)
 
     for j in range(len(top.head(6)), 6):
         axes[j].axis("off")
@@ -269,7 +337,7 @@ def district_clinic_matrix(vt: pd.DataFrame, top_n_clinic: int = 15, top_n_city:
 # 3. Mesh visit rate + simple Moran
 # ---------------------------------------------------------------------------
 
-def mesh_visit_rate(vt: pd.DataFrame, mesh: pd.DataFrame) -> Dict:
+def mesh_visit_rate(vt: pd.DataFrame, mesh: pd.DataFrame, gaz: pd.DataFrame) -> Dict:
     ensure_dirs()
     _setup_font()
     pts = vt.dropna(subset=["患者緯度", "患者経度"]).copy()
@@ -301,6 +369,7 @@ def mesh_visit_rate(vt: pd.DataFrame, mesh: pd.DataFrame) -> Dict:
     mesh2["総人口"] = pd.to_numeric(mesh2["総人口"], errors="coerce")
     mesh2["来局率"] = np.where(mesh2["総人口"] > 0, mesh2["来局ユニーク"] / mesh2["総人口"], np.nan)
     mesh2["距離km"] = pd.to_numeric(mesh2["くつき薬局南茨木店→メッシュ中心_直線km"], errors="coerce")
+    mesh2["町名"] = name_points(mesh2["中心緯度"].astype(float).values, mesh2["中心経度"].astype(float).values, gaz)
     mesh2.to_csv(PROCESSED_DIR / "mesh_visit_rate.csv", index=False, encoding="utf-8-sig")
 
     valid = mesh2.dropna(subset=["来局率"]).copy()
@@ -338,11 +407,12 @@ def mesh_visit_rate(vt: pd.DataFrame, mesh: pd.DataFrame) -> Dict:
         alpha=0.85,
     )
     ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#c45c26", s=80, marker="*", label="薬局")
-    fig.colorbar(sc, ax=ax, label="来局率×1000")
+    fig.colorbar(sc, ax=ax, label="人口1,000人あたりの来局者数")
     ax.set_title(
         f"メッシュ来局率（患者を最近傍メッシュへ割当）\nMoran's I≈{moran:.3f}（kNN=6・記述） Nメッシュ={n}"
     )
     ax.legend()
+    plain_map_axes(ax, gaz)
     fig.tight_layout()
     fig.savefig(FIGURES / "phase2_mesh_visit_rate.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -356,7 +426,7 @@ def mesh_visit_rate(vt: pd.DataFrame, mesh: pd.DataFrame) -> Dict:
 # 4. Competitor pressure on mesh
 # ---------------------------------------------------------------------------
 
-def competitor_pressure(mesh: pd.DataFrame, comp: pd.DataFrame) -> pd.DataFrame:
+def competitor_pressure(mesh: pd.DataFrame, comp: pd.DataFrame, gaz: pd.DataFrame) -> pd.DataFrame:
     ensure_dirs()
     mlat = mesh["中心緯度"].astype(float).values
     mlon = mesh["中心経度"].astype(float).values
@@ -409,16 +479,75 @@ def competitor_pressure(mesh: pd.DataFrame, comp: pd.DataFrame) -> pd.DataFrame:
     ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#0f6a6a", marker="*", s=90)
     fig.colorbar(sc, ax=ax, label="1km内競合数")
     ax.set_title("メッシュ別 競合密度（1km）")
+    plain_map_axes(ax, gaz, max_labels=10)
     ax = axes[1]
     sc = ax.scatter(out["中心経度"], out["中心緯度"], c=out["最近隣競合_km"], s=35, cmap="Blues_r")
     ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#0f6a6a", marker="*", s=90)
     fig.colorbar(sc, ax=ax, label="最近隣競合km")
     ax.set_title("メッシュ別 最近隣競合距離")
-    fig.suptitle(f"{PHARMACY_NAME} 競合の空間的圧力（競合66件・2km圏収録）", y=1.02)
+    plain_map_axes(ax, gaz, max_labels=10)
+    fig.suptitle(f"{PHARMACY_NAME} 競合の空間的圧力（競合{len(comp)}件・2km圏収録）", y=1.02)
     fig.tight_layout()
     fig.savefig(FIGURES / "phase2_competitor_pressure.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     return out
+
+
+# ---------------------------------------------------------------------------
+# 4.5 薬局長向けの要約（本文用）
+# ---------------------------------------------------------------------------
+
+def _rate(df: pd.DataFrame) -> float:
+    pop = float(df["総人口"].sum())
+    return float(df["来局ユニーク"].sum()) / pop if pop > 0 else float("nan")
+
+
+def plain_catchment_stats(mesh2: pd.DataFrame, comp: pd.DataFrame, pm: pd.DataFrame) -> Dict:
+    """徒歩圏への集中・距離帯ごとの来局の割合・獲得余地の候補地域をまとめ、本文用の図を描く。"""
+    ensure_dirs()
+    _setup_font()
+    km = pd.to_numeric(pm["患者→薬局_直線km"], errors="coerce").dropna()
+    m = mesh2.dropna(subset=["距離km", "総人口"]).copy()
+    m = m.loc[m["総人口"] > 0]
+
+    bands = pd.cut(m["距離km"], DISTANCE_BANDS, include_lowest=True)
+    by_band = m.groupby(bands, observed=False).apply(_rate).rename("来局の割合")
+    labels = [f"{a:g}〜{b:g}km" for a, b in zip(DISTANCE_BANDS[:-1], DISTANCE_BANDS[1:])]
+
+    fig, ax = plt.subplots(figsize=(10, 4.4))
+    vals = by_band.values * 100
+    colors = ["#0f7c74" if b <= 1.0 else "#9aa4b1" for b in DISTANCE_BANDS[1:]]
+    ax.bar(labels, vals, color=colors)
+    for i, v in enumerate(vals):
+        ax.text(i, v, f"{v:.1f}%", ha="center", va="bottom", fontsize=10)
+    ax.set_ylabel("地域の人口のうち自店に来た人の割合（%）")
+    ax.set_xlabel("薬局からの距離")
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.set_title("薬局からの距離ごとの「地域の人口のうち自店に来た人の割合」", loc="left")
+    fig.tight_layout()
+    fig.savefig(FIGURES / "phase2_distance_plain.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    named = m.dropna(subset=["町名"])
+    busy = named.loc[named["総人口"] >= 500].sort_values("来局率", ascending=False)
+    top_towns = list(dict.fromkeys(busy["町名"]))[:3]
+    near = named.loc[(named["距離km"] <= 2.0) & (named["総人口"] >= m["総人口"].median())]
+    near_low = near.sort_values("来局率").drop_duplicates("町名").head(5)
+
+    comp_km = pd.to_numeric(comp["くつき薬局南茨木店→競合薬局_直線km"], errors="coerce")
+    return {
+        "share_1km": float((km <= 1.0).mean()),
+        "share_1_2km": float(((km > 1.0) & (km <= 2.0)).mean()),
+        "median_km": float(km.median()),
+        "by_band": dict(zip(labels, by_band.values.tolist())),
+        "rate_1km": _rate(m.loc[m["距離km"] <= 1.0]),
+        "rate_all": _rate(m),
+        "top_towns": top_towns,
+        "top_towns_rate": _rate(named.loc[named["町名"].isin(top_towns)]),
+        "near_low": near_low[["町名", "距離km", "総人口", "来局ユニーク", "来局率"]],
+        "n_comp": int(len(comp)),
+        "n_comp_500m": int((comp_km <= 0.5).sum()),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +588,7 @@ def network_analysis(vt: pd.DataFrame) -> Dict:
     fig, ax = plt.subplots(figsize=(9, 5))
     clinic_bt.iloc[::-1].plot(kind="barh", ax=ax, color="#2f6f9f")
     ax.set_title("クリニック媒介中心性（地区↔自店の結節）\n注: 自店フロー上の重要性。市場全体の中心性ではない")
-    ax.set_xlabel("betweenness")
+    ax.set_xlabel("媒介中心性")
     fig.tight_layout()
     fig.savefig(FIGURES / "phase2_clinic_betweenness.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -526,7 +655,8 @@ def folium_map(catch: pd.DataFrame, mesh_rate: pd.DataFrame, comp: pd.DataFrame)
 # Reports
 # ---------------------------------------------------------------------------
 
-def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: pd.DataFrame) -> Dict[str, Path]:
+def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: pd.DataFrame,
+                  plain: Dict) -> Dict[str, Path]:
     pairs = matrix["pairs"].head(10)
     hot = mesh_stats["hot"][["メッシュコード", "総人口", "来局ユニーク", "来局率", "距離km"]].head(5)
     cold = mesh_stats["cold"][["メッシュコード", "総人口", "来局ユニーク", "来局率", "距離km"]].head(5)
@@ -613,38 +743,92 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     md_path.write_text(md, encoding="utf-8")
 
     # HTML
+    near_low = plain["near_low"]
+    low_town = near_low.iloc[0] if len(near_low) else None
+    low_names = "・".join(near_low["町名"].head(2)) if len(near_low) else "（該当なし）"
+    top_towns = "・".join(plain["top_towns"]) or "（該当なし）"
+
     rep = HtmlReport(
-        title="Phase 2 Clinic Catchment",
-        subtitle="クリニック商圏・地区選択・メッシュ来局率・競合圧力・ネットワーク。門前が規模、非門前が成長余地、という Phase1 の軸を空間で確認する。",
+        title="患者はどこに住み、どの医院に通っているか",
+        subtitle="患者が住んでいる地域と、自店の患者がまだ少ない地域を見ます。",
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 2",
         active_phase=2,
     )
-    rep.add_kpi("Moran's I", f"{mesh_stats['moran']:.3f}", "メッシュ来局率・kNN=6")
-    rep.add_kpi("分析メッシュ", f"{mesh_stats['n']}", "5km圏メッシュ")
-    rep.add_kpi("上位結節クリニック", bt.index[0][:14] if len(bt) else "-", "媒介中心性1位")
-    rep.add_kpi("競合薬局", "66", "半径2km収録")
+    rep.add_kpi("患者の多くが住む範囲", f"半径1km以内に{plain['share_1km']:.0%}",
+                f"患者と薬局の距離の中央値 {plain['median_km']:.2f}km",
+                compare=f"1〜2kmに住む患者は {plain['share_1_2km']:.0%}", tone="neutral")
+    rep.add_kpi("来局の多い地域", top_towns, "上位3地域（町名は近似）",
+                compare=f"人口の{plain['top_towns_rate']:.1%}が来局（5km圏全体は {plain['rate_all']:.1%}）",
+                tone="good")
+    if low_town is not None:
+        rep.add_kpi("来局の少ない近隣地域", str(low_town["町名"]), f"薬局から{low_town['距離km']:.1f}km",
+                    compare=f"人口の{low_town['来局率']:.1%}だけ（1km以内の地域は平均 {plain['rate_1km']:.1%}）",
+                    tone="bad")
+    rep.add_kpi("半径2km以内の競合薬局", f"{plain['n_comp']}軒",
+                compare=f"うち500m以内に {plain['n_comp_500m']}軒", tone="neutral")
 
-    rep.callout(
-        "わかったこと",
-        [
-            "上位クリニック商圏は徒歩圏中心（道路km中央値〜1km）。",
-            "地区×クリニックの偏りを自店内選択率として定量化。",
-            f"メッシュ来局率に空間相関（I≈{mesh_stats['moran']:.3f}）。コールドスポットは獲得余地候補。",
-        ],
-        kind="ok",
-    )
-    rep.callout(
-        "限界",
-        [
-            "分子は自店経由患者のみ（真の地区別クリニック選択率ではない）。",
-            "競合の処方箋枚数なし → 圧力は立地・営業時間代理。",
-            "楕円・距離は局所平面近似（厳密投影は今後強化可）。",
-        ],
-        kind="warn",
+    rep.takeaway(
+        finding=f"患者の多くは薬局の徒歩圏（約1km）に住んでいます。半径1km以内に患者の{plain['share_1km']:.0%}がいます。",
+        judgment="近所では強い一方、少し離れると急に来なくなります。",
+        action=f"「近いのに来局が少ない地域」（{low_names}など）に絞って、チラシや案内の配布先を決めます。",
     )
 
+    rep.section("distance", "距離と来局")
+    rep.figure(
+        FIGURES / "phase2_distance_plain.png",
+        point=(
+            f"1km以内の地域では人口の{plain['rate_1km']:.0%}前後が来ていますが、"
+            "1kmを超えると急に少なくなります。"
+        ),
+        explain="薬局からの距離ごとに、その範囲に住む人口のうち自店に来たことがある人の割合を示します。緑が1km以内です。",
+    )
+
+    rep.section("targets", "近いのに来局が少ない地域")
+    rep.paragraph("薬局から2km以内で人口が多いのに、自店に来た人の割合が低い地域です。チラシや案内の配布先の候補になります。")
+    rep.table(
+        ["地域（町名は近似）", "薬局からの距離（km）", "人口（人）", "自店に来た人（人）", "人口のうち自店に来た人の割合"],
+        [
+            [r["町名"], f"{r['距離km']:.1f}", f"{int(r['総人口']):,}", f"{int(r['来局ユニーク']):,}", f"{r['来局率']:.1%}"]
+            for _, r in near_low.iterrows()
+        ],
+        numeric_cols=[1, 2, 3, 4],
+    )
+    rep.add_html(
+        '<div class="card map-cta"><p>地域ごとの様子は、町名入りの地図で見るほうがわかりやすくなります。'
+        "自店・クリニック・競合薬局・患者が多い範囲を重ねて表示できます。</p>"
+        '<a class="btn-cta" href="map.html">商圏マップを開く</a></div>'
+    )
+
+    with rep.expert_details("専門家向けの詳細（商圏・地区×クリニック・空間相関・競合・ネットワーク）"):
+        rep.callout(
+            "限界",
+            [
+                "分子は自店経由患者のみ（真の地区別クリニック選択率ではない）。",
+                "競合の処方箋枚数なし → 圧力は立地・営業時間代理。",
+                "楕円・距離は局所平面近似（厳密投影は今後強化可）。",
+                f"町名はメッシュ中心から{TOWN_MATCH_KM}km以内で最も近いクリニック・競合薬局の住所の町名（近似）。",
+            ],
+            kind="warn",
+        )
+        write_expert_sections(rep, catch, pairs, mesh_stats, bt, map_path)
+
+    html_path = REPORTS / "phase2_catchment.html"
+    rep.save(html_path)
+
+    save_page_summary("p2", {
+        "share_1km": plain["share_1km"],
+        "median_km": plain["median_km"],
+        "rate_1km": plain["rate_1km"],
+        "top_towns": plain["top_towns"],
+        "near_low_towns": list(near_low["町名"].head(3)),
+        "conclusion": f"患者の{plain['share_1km']:.0%}が半径1km以内。1kmを超えると急に来なくなります。",
+    })
+    return {"md": md_path, "html": html_path}
+
+
+def write_expert_sections(rep: HtmlReport, catch, pairs, mesh_stats, bt, map_path: Path) -> None:
     rep.section("catchment", "1. クリニック別商圏", "件数≥100の上位施設。KDE等高線と患者重心。")
     rep.figure(FIGURES / "phase2_clinic_catchments.png", "自店経由患者の住所点群に基づく記述的商圏")
     rep.table(
@@ -664,7 +848,8 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     rep.section("district", "2. 地区 × クリニック", "行正規化＝地区内シェア（自店患者限定）。")
     rep.figure(FIGURES / "phase2_district_clinic_heatmap.png", "地区内シェア（全体）")
     if (FIGURES / "phase2_district_clinic_nongate.png").exists():
-        rep.figure(FIGURES / "phase2_district_clinic_nongate.png", "非門前のみ（軸B）")
+        rep.figure(FIGURES / "phase2_district_clinic_nongate.png", "門前以外のみ")
+    rep.add_html("<h4>地区ごとの主な経由クリニック（全体）</h4>")
     rep.table(
         ["市区町村", "第1クリニック", "自店内選択率", "件数"],
         [
@@ -699,23 +884,21 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     )
     rep.folium_iframe(map_path, "薬局・患者重心・メッシュ来局・競合")
 
-    html_path = REPORTS / "phase2_catchment.html"
-    rep.save(html_path)
-    return {"md": md_path, "html": html_path}
-
 
 def run_phase2() -> Dict:
     np.random.seed(SEED)
     ensure_dirs()
     vt, cm, mesh, comp = load_visits()
-    catch = clinic_catchments(vt)
+    gaz = town_gazetteer(cm, comp)
+    catch = clinic_catchments(vt, gaz)
     matrix = district_clinic_matrix(vt)
-    mesh_stats = mesh_visit_rate(vt, mesh)
+    mesh_stats = mesh_visit_rate(vt, mesh, gaz)
     # merge visit rate onto pressure base
-    pressure = competitor_pressure(mesh_stats["mesh"], comp)
+    pressure = competitor_pressure(mesh_stats["mesh"], comp, gaz)
     net = network_analysis(vt)
     map_path = folium_map(catch, mesh_stats["mesh"], comp)
-    paths = write_reports(catch, matrix, mesh_stats, pressure, net, map_path, vt)
+    plain = plain_catchment_stats(mesh_stats["mesh"], comp, read_csv("patient_master"))
+    paths = write_reports(catch, matrix, mesh_stats, pressure, net, map_path, vt, plain)
     return {"paths": paths, "moran": mesh_stats["moran"], "top_bt": net["betweenness"].index[0]}
 
 

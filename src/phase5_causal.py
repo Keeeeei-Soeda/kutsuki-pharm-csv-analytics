@@ -26,6 +26,7 @@ import statsmodels.api as sm
 import yaml
 
 from src.io import PHARMACY_NAME, PROCESSED_DIR, RAW_DIR, ROOT, SEED, ensure_dirs, read_csv
+from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
 
 FIGURES = ROOT / "reports" / "figures"
@@ -612,67 +613,160 @@ def write_report(ev: pd.DataFrame, did: Dict, its: Dict, figs: Dict[str, Path],
     md_path.write_text("\n".join(md_lines) + "\n", encoding="utf-8")
 
     # ---- HTML
+    evi_by_id = ev.set_index("id")
+    plain_rows = [
+        _plain_row(evi_by_id.loc[r["id"]], r["判定"], r["効果%"], "近くの新患")
+        for _, r in flyer.iterrows()
+    ] + [
+        _plain_row(evi_by_id.loc[eid], its_row(term)["判定"], its_row(term)["効果%"], "門前以外の処方箋")
+        for eid, term in [("meo_consult", "MEO_水準"), ("autumn_bundle", "秋施策_水準")]
+    ]
+    n_eval = len(plain_rows)
+    n_confirmed = sum(row[2] == "確認できた" for row in plain_rows)
+    months = (DATA_END.to_period("M") - pd.Timestamp("2024-09-01").to_period("M")).n + 1
+
     rep = HtmlReport(
-        title="Phase 5 Causal Impact",
-        subtitle="先方から届いた施策の年表をもとに、チラシと継続施策の効果を推定する。季節や開局後の伸びは週単位の比較で相殺する。",
+        title="チラシや施策は効いたか",
+        subtitle="これまでのチラシ配布や集客施策で、患者が増えたかを確かめます。",
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 5",
         active_phase=5,
     )
-    main_flyer = flyer.sort_values("効果%", ascending=False).iloc[0]
-    rep.add_kpi("評価したイベント", f"{len(ev)}件", "うちチラシ3・継続施策2")
-    rep.add_kpi("チラシ最大の推定効果", _fmt_pct(main_flyer["効果%"]), main_flyer["イベント"][:16])
-    rep.add_kpi("秋の施策群（非門前）", _fmt_pct(its_row("秋施策_水準")["効果%"]), "水準の変化")
-    rep.add_kpi("新患（分析対象）", f"{n_new:,}人", "初回受診日で定義")
+    rep.add_kpi("評価した施策", f"{n_eval}件", f"チラシ{len(flyer)}・継続施策{n_eval - len(flyer)}",
+                compare=f"年表の{len(ev)}件のうち、効果を測れる時期と期間があったもの", tone="neutral")
+    rep.add_kpi("効果を確認できた施策", f"{n_confirmed}件", f"評価{n_eval}件のうち",
+                compare=f"残り{n_eval - n_confirmed}件は、増えたとも減ったとも言えなかった",
+                tone="good" if n_confirmed else "bad")
+    rep.add_kpi("分析した新規患者", f"{n_new:,}人", "初めて来局した日で数えた人数",
+                compare=f"1か月あたり平均 約{n_new / months:,.0f}人", tone="neutral")
 
-    rep.callout("結果（数値はすべて前提付きの推定）", found, kind="ok")
-    rep.callout(
-        "限界",
-        [
-            "ポスティングは半径1km（先方確認済み）。半径内の全戸に配ったかは未確認。",
-            "秋の施策群は4施策が6週間に集中し、個別の効果は分けられない。",
-            "LINEチラシ同封は春ポスティング2026と重なり分けられない。競合イベントは事後期間が短く推定対象外。",
-            aux_issue,
-        ],
-        kind="warn",
+    if n_confirmed:
+        rep.takeaway(
+            finding=f"評価した{n_eval}件のうち{n_confirmed}件で、患者数の変化を確認できました。",
+            judgment="確認できなかった施策も、効果がなかったという意味ではありません。",
+            action=("次の施策では、①配布エリアと配布日を記録する、②同じ時期に別の施策を重ねない、"
+                    "③チラシにQRコードなど「チラシを見て来た」ことがわかる仕掛けを入れます。"),
+        )
+    else:
+        rep.takeaway(
+            finding="今回のデータでは、どの施策も「患者が増えた」とも「減った」とも言い切れませんでした。",
+            judgment=("効果がなかったという意味ではありません。施策の時期が重なっていたり、"
+                      "期間が短かったりして、効果を切り分けられませんでした。"),
+            action=("次の施策では、①配布エリアと配布日を記録する、②同じ時期に別の施策を重ねない、"
+                    "③チラシにQRコードなど「チラシを見て来た」ことがわかる仕掛けを入れます。"
+                    "これで効果を測れるようになります。"),
+        )
+
+    rep.section("results", "施策ごとの結果")
+    rep.table(["施策名", "時期", "結果", "ひとこと"], plain_rows)
+
+    rep.section("timeline", "月別の推移と施策の時期")
+    rep.figure(
+        figs["timeline"],
+        point="施策の前後で、処方箋や新患の数がはっきり変わった時期は見当たりません。",
+        explain=(
+            "黒が処方箋全体、橙が門前2院、青が門前以外、緑の点線が新患の月別の数です。"
+            "縦の点線と網掛けが施策の時期で、番号は下の注記に対応します。"
+        ),
     )
 
-    rep.section("timeline", "イベント年表と月次推移", "Excelの「↑」注記を転記。注記内の日付を優先した。")
-    rep.figure(figs["timeline"], "補助資料の月次KPIと施策イベント")
-    rep.table(["#", "イベント", "対象", "開始", "終了", "推定方法", "出典セル"], timeline_rows)
+    with rep.expert_details("専門家向けの詳細（推定方法・統計量・感度分析・前提）"):
+        rep.callout("結果（数値はすべて前提付きの推定）", found, kind="ok")
+        rep.callout(
+            "限界",
+            [
+                "ポスティングは半径1km（先方確認済み）。半径内の全戸に配ったかは未確認。",
+                "秋の施策群は4施策が6週間に集中し、個別の効果は分けられない。",
+                "LINEチラシ同封は春ポスティング2026と重なり分けられない。競合イベントは事後期間が短く推定対象外。",
+                aux_issue,
+                "新患＝初回受診日（新患フラグは不使用）。",
+            ],
+            kind="warn",
+        )
 
-    rep.section("mediators", "中間指標の動き", "施策がチャネルの数字を動かしたかの確認（効果推定ではない）。")
-    rep.figure(figs["mediators"], "オンライン系データの月次推移")
+        rep.section("events", "イベント年表", "Excelの「↑」注記を転記。注記内の日付を優先した。")
+        rep.table(["#", "イベント", "対象", "開始", "終了", "推定方法", "出典セル"], timeline_rows)
 
-    rep.section("flyer", "チラシの効果（近距離 vs 遠距離の新患）",
-                "週固定効果＋群別トレンドのポアソン回帰。効果窓＝配布期間＋4週。")
-    rep.figure(figs["flyer_weekly"], "週次の新患数と効果窓")
-    rep.figure(figs["flyer_effects"], "推定効果と感度分析・プラセボ")
-    n_sens = int((~dt["主分析"]).sum() / max(len(flyer), 1))
-    rep.table(
-        ["イベント", "効果", "95%CI", "プラセボp", "追加新患", f"感度{n_sens}仕様中の符号反転", "判定"],
-        [[r["イベント"], _fmt_pct(r["効果%"]), f"{r['下限%']:+.0f}〜{r['上限%']:+.0f}%",
-          f"{r['プラセボp']:.2f}", f"{r['追加新患(人)']:.0f}人", f"{r['感度で符号反転']}件", r["判定"]]
-         for _, r in flyer.iterrows()],
-        numeric_cols=[1, 3, 4, 5],
-    )
+        rep.section("mediators", "中間指標の動き", "施策がチャネルの数字を動かしたかの確認（効果推定ではない）。")
+        rep.figure(figs["mediators"], "オンライン系データの月次推移")
 
-    rep.section("its", "継続施策の効果（非門前 vs 門前の処方箋）",
-                "週固定効果の比較ITS。水準＝切れ目での段差、傾き＝その後の週あたりの伸びの変化。")
-    rep.figure(figs["its"], "非門前の実績・モデル・施策がなかった場合")
-    label = {"MEO_水準": "MEO 水準", "MEO_傾き": "MEO 傾き（週あたり）", "秋施策_水準": "秋施策 水準",
-             "秋施策_傾き": "秋施策 傾き（週あたり）", "統制_競合": "競合イベント（参考）"}
-    rep.table(
-        ["項", "効果", "95%CI", "プラセボp", *ITS_SENS, "判定"],
-        [[label[r["項"]], _fmt_pct(r["効果%"]) if "傾き" not in r["項"] else f"{r['効果%']:+.1f}%",
-          f"{r['下限%']:+.0f}〜{r['上限%']:+.0f}%",
-          "-" if np.isnan(r["プラセボp"]) else f"{r['プラセボp']:.2f}",
-          *[f"{s.loc[r['項'], '効果%']:+.1f}%" for s in its_sens.values()], r["判定"]]
-         for _, r in its_main.iterrows()],
-        numeric_cols=[1, 3, 4, 5, 6],
-    )
+        rep.section("flyer", "チラシの効果（近距離 vs 遠距離の新患）",
+                    "週固定効果＋群別トレンドのポアソン回帰。効果窓＝配布期間＋4週。")
+        rep.figure(figs["flyer_weekly"], "週次の新患数と効果窓")
+        rep.figure(figs["flyer_effects"], "推定効果と感度分析・プラセボ")
+        n_sens = int((~dt["主分析"]).sum() / max(len(flyer), 1))
+        rep.table(
+            ["イベント", "効果", "95%CI", "プラセボp", "追加新患", f"感度{n_sens}仕様中の符号反転", "判定"],
+            [[r["イベント"], _fmt_pct(r["効果%"]), f"{r['下限%']:+.0f}〜{r['上限%']:+.0f}%",
+              f"{r['プラセボp']:.2f}", f"{r['追加新患(人)']:.0f}人", f"{r['感度で符号反転']}件", r["判定"]]
+             for _, r in flyer.iterrows()],
+            numeric_cols=[1, 3, 4, 5],
+        )
 
+        rep.section("its", "継続施策の効果（非門前 vs 門前の処方箋）",
+                    "週固定効果の比較ITS。水準＝切れ目での段差、傾き＝その後の週あたりの伸びの変化。")
+        rep.figure(figs["its"], "非門前の実績・モデル・施策がなかった場合")
+        label = {"MEO_水準": "MEO 水準", "MEO_傾き": "MEO 傾き（週あたり）", "秋施策_水準": "秋施策 水準",
+                 "秋施策_傾き": "秋施策 傾き（週あたり）", "統制_競合": "競合イベント（参考）"}
+        rep.table(
+            ["項", "効果", "95%CI", "プラセボp", *ITS_SENS, "判定"],
+            [[label[r["項"]], _fmt_pct(r["効果%"]) if "傾き" not in r["項"] else f"{r['効果%']:+.1f}%",
+              f"{r['下限%']:+.0f}〜{r['上限%']:+.0f}%",
+              "-" if np.isnan(r["プラセボp"]) else f"{r['プラセボp']:.2f}",
+              *[f"{s.loc[r['項'], '効果%']:+.1f}%" for s in its_sens.values()], r["判定"]]
+             for _, r in its_main.iterrows()],
+            numeric_cols=[1, 3, 4, 5, 6],
+        )
+
+        _write_method_section(rep)
+
+    html_path = REPORTS / "phase5_causal.html"
+    rep.save(html_path)
+
+    save_page_summary("p5", {
+        "n_eval": n_eval,
+        "n_confirmed": n_confirmed,
+        "n_new": n_new,
+        "conclusion": (
+            f"評価した施策{n_eval}件のうち、効果を確認できたのは{n_confirmed}件。"
+            "次の施策は効果を測れる形で行う必要があります。"
+        ),
+    })
+    return {"md": md_path, "html": html_path}
+
+
+# 施策ごとの補足（年表の note を薬局長向けに短くしたもの）
+EVENT_NOTES = {
+    "autumn_bundle": "4つの施策が6週間に重なり、個別には分けられない",
+    "flyer_2026_spring": "LINEチラシ同封と時期が重なっている",
+    "meo_consult": "開始月だけが分かり、日付は不明",
+}
+
+
+def _period_label(e: pd.Series) -> str:
+    s = e["start"]
+    if e["design"] == "its":
+        return f"{s.year}年{s.month}月〜（継続）"
+    end = e["end"]
+    tail = f"{end.month}月{end.day}日" if end.year == s.year else f"{end.year}年{end.month}月{end.day}日"
+    return f"{s.year}年{s.month}月{s.day}日〜{tail}"
+
+
+def _plain_row(e: pd.Series, verdict: str, effect: float, target: str) -> list:
+    confirmed = verdict.startswith("効果あり") or verdict.startswith("減少")
+    direction = "増えた" if effect > 0 else "減った"
+    if confirmed:
+        comment = f"{target}が約{abs(effect):.0f}%{direction}"
+    else:
+        comment = f"{target}はやや{direction}が、偶然の範囲と区別できない"
+    note = EVENT_NOTES.get(e.name)
+    if note:
+        comment += f"。{note}"
+    return [e["name"], _period_label(e), "確認できた" if confirmed else "確認できなかった", comment]
+
+
+def _write_method_section(rep: HtmlReport) -> None:
     rep.section("method", "手法と前提")
     rep.paragraph(
         "週ごとの固定効果で、その週に全体へ一律にかかった変化（3月の花粉ピーク、開局後の伸び、祝日）を相殺する。"
@@ -690,10 +784,6 @@ def write_report(ev: pd.DataFrame, did: Dict, its: Dict, figs: Dict[str, Path],
         "3つを満たすときだけ『効果あり（前提付き）』とした。1つでも欠けた場合は、効果がないと言えるわけではなく、"
         "このデータでは区別できないという意味で『判定できない』とした。"
     )
-
-    html_path = REPORTS / "phase5_causal.html"
-    rep.save(html_path)
-    return {"md": md_path, "html": html_path}
 
 
 def publish_docs(html_path: Path) -> None:

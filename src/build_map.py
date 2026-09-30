@@ -23,6 +23,7 @@ import pandas as pd
 
 from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, ROOT, ensure_dirs, read_csv
 from src.specialty_taxonomy import build_specialty_map
+from src.viz.html_report import FOOTER_NOTE
 from src.viz.sidebar import FONTS_LINK, PERIOD_LABEL, render_sidebar, sidebar_css, sidebar_js
 
 REPORTS = ROOT / "reports"
@@ -188,8 +189,8 @@ def build(out_path: Path = REPORTS / "map.html") -> Path:
 
     toc = [
         ("map-sec", "地図"),
-        ("legend", "凡例と縮尺の考え方"),
-        ("notes-sec", "読み方と限界"),
+        ("legend", "凡例"),
+        ("notes-sec", "専門家向けの詳細"),
     ]
     sidebar = render_sidebar(
         "map", toc, breadcrumb="Kutsuki DataBank / 地図", period=PERIOD_LABEL
@@ -251,8 +252,7 @@ ul {{ padding-left: 1.2rem; }}
   <header class="hero">
     <div class="eyebrow">Kutsuki DataBank / 地図</div>
     <h1>商圏マップ</h1>
-    <p>自店・クリニック・メッシュ来局率・競合薬局・患者密度をレイヤ切替で重ねて見る。
-       円の大きさは件数の対数で、凡例は実数。</p>
+    <p>患者がどこに住み、どのクリニックから処方箋が来ているかを地図で見ます。</p>
     <div class="meta">
       <span class="chip">{PHARMACY_NAME}</span>
       <span class="chip">{PERIOD_LABEL}</span>
@@ -266,42 +266,45 @@ ul {{ padding-left: 1.2rem; }}
     右上のコントロールでレイヤを切り替えられます。円・矩形をクリックすると内訳が出ます。
   </p>
 
-  <h2 id="legend">凡例と縮尺の考え方</h2>
+  <h2 id="legend">凡例</h2>
   <div class="card">
     <div class="legend-grid">
       <div>
-        <strong style="font-size:13px">クリニック（円＝件数）</strong>
+        <strong style="font-size:13px">クリニック（処方箋の枚数）</strong>
         <div id="bubble-legend"></div>
         <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
-          半径は <span class="num">log1p(件数)</span> に比例。件数をそのまま半径にすると
-          最大施設1点だけが巨大になり、他が読めなくなるため。<strong>表示している数値は実数</strong>。
+          円が大きいほど処方箋が多い（大きさは実際の差より控えめに表示）。
+          数字は実際の枚数です。
         </p>
       </div>
       <div>
-        <strong style="font-size:13px">メッシュ来局率</strong>
+        <strong style="font-size:13px">地域ごとの来局の割合</strong>
         <div id="mesh-legend"></div>
         <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
-          500mメッシュの「自店来局ユニーク患者 ÷ メッシュ人口」。
-          最大 {mesh_rate_max:.1%}。色は非ゼロ値の<strong>五分位</strong>で割っている
-          （対数でも右に寄って読めないため）。
+          色が濃いほど、その地域の人口のうち自店に来た人の割合が高い（最大 {mesh_rate_max:.1%}）。
         </p>
       </div>
       <div>
-        <strong style="font-size:13px">その他のレイヤ</strong>
+        <strong style="font-size:13px">その他</strong>
         <div class="legend-row"><span class="swatch" style="background:#0f6a6a"></span>自店（くつき薬局南茨木店）</div>
-        <div class="legend-row"><span class="swatch" style="background:#2f6f9f"></span>競合薬局（{len(competitors)}件）</div>
-        <div class="legend-row"><span class="swatch" style="background:linear-gradient(90deg,#ffeda0,#feb24c,#fc4e2a,#bd0026)"></span>患者密度（KDEヒートマップ）</div>
-        <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
-          患者密度は<strong>個別点をプロットしていません</strong>。約250mグリッドに集約し、
-          {MIN_CELL_COUNT}件未満のセルは非表示（{density['suppressed_cells']}セルを秘匿）。
-        </p>
+        <div class="legend-row"><span class="swatch" style="background:#2f6f9f"></span>競合薬局（{len(competitors)}軒）</div>
+        <div class="legend-row"><span class="swatch" style="background:linear-gradient(90deg,#ffeda0,#feb24c,#fc4e2a,#bd0026)"></span>患者が多く住んでいる範囲</div>
       </div>
     </div>
   </div>
 
-  <h2 id="notes-sec">読み方と限界</h2>
+  <h2 id="notes-sec">専門家向けの詳細</h2>
+  <details class="expert">
+  <summary>専門家向けの詳細（縮尺・色分け・秘匿ルール・限界）</summary>
+  <div class="expert-body">
   <div class="card">
     <ul>
+      <li>クリニックの円の半径は <span class="num">log1p(件数)</span> に比例。件数をそのまま半径にすると
+          最大施設1点だけが巨大になり、他が読めなくなるため。表示している数値は実数。</li>
+      <li>メッシュ来局率は500mメッシュの「自店来局ユニーク患者 ÷ メッシュ人口」。色は非ゼロ値の五分位で割っている
+          （対数でも右に寄って読めないため）。</li>
+      <li>患者密度は個別点をプロットしていない。約250mグリッドに集約した KDE ヒートマップで、
+          {MIN_CELL_COUNT}件未満のセルは非表示（{density['suppressed_cells']}セルを秘匿）。</li>
       <li>クリニックの円は<strong>自店を経由した処方箋件数</strong>であり、そのクリニックの総発行数ではない。
           自店シェアの分母は観測できない。</li>
       <li>メッシュ来局率の分子は自店患者のみ。他薬局の利用は含まないため、
@@ -312,9 +315,11 @@ ul {{ padding-left: 1.2rem; }}
           要件になった段階で差し替える。</li>
     </ul>
   </div>
+  </div>
+  </details>
 
   <footer class="footer" id="notes">
-    自店受診データに基づく記述分析です。市場全体の選択率・因果効果としては解釈しないでください。
+    {FOOTER_NOTE}
   </footer>
 </main>
 
@@ -357,9 +362,9 @@ ul {{ padding-left: 1.2rem; }}
       fillColor: c.gate ? "#c45c26" : "#2f6f9f",
       fillOpacity: .42, weight: 1.2
     }}).bindPopup(
-      "<b>" + c.name + "</b><br>処方箋 " + c.n.toLocaleString() + " 件<br>" +
-      (c.sp || "-") + " / " + (c.gate ? "門前型" : "非門前型") +
-      (c.km !== null ? "<br>薬局まで直線 " + c.km.toFixed(3) + " km" : "")
+      "<b>" + c.name + "</b><br>処方箋 " + c.n.toLocaleString() + " 枚<br>" +
+      (c.sp || "-") + " / " + (c.gate ? "門前" : "門前以外") +
+      (c.km !== null ? "<br>薬局からの距離 " + c.km.toFixed(2) + " km" : "")
     ).addTo(clinicLayer);
   }});
   clinicLayer.addTo(map);
@@ -381,9 +386,9 @@ ul {{ padding-left: 1.2rem; }}
       color: "#8d8577", weight: .4, fillColor: meshColor(m.rate),
       fillOpacity: m.rate ? .6 : .18
     }}).bindPopup(
-      "メッシュ " + m.code + "<br>人口 " + m.pop.toLocaleString() +
-      "<br>来局ユニーク " + m.uniq.toLocaleString() +
-      "<br>来局率 " + (m.rate * 100).toFixed(2) + "%"
+      "メッシュ " + m.code + "<br>人口 " + m.pop.toLocaleString() + " 人" +
+      "<br>自店に来た人 " + m.uniq.toLocaleString() + " 人" +
+      "<br>人口のうち自店に来た人の割合 " + (m.rate * 100).toFixed(2) + "%"
     ).addTo(meshLayer);
   }});
 
@@ -407,11 +412,11 @@ ul {{ padding-left: 1.2rem; }}
 
   var overlays = {{
     "自店": storeLayer,
-    "クリニック（円=件数の対数）": clinicLayer,
-    "メッシュ来局率": meshLayer
+    "クリニック（円が大きいほど処方箋が多い）": clinicLayer,
+    "地域ごとの来局の割合": meshLayer
   }};
-  overlays["競合薬局（" + D.competitors.length + "件）"] = compLayer;
-  if (heatLayer) {{ overlays["患者密度（集約KDE）"] = heatLayer; }}
+  overlays["競合薬局（" + D.competitors.length + "軒）"] = compLayer;
+  if (heatLayer) {{ overlays["患者が多く住んでいる範囲"] = heatLayer; }}
   L.control.layers(
     {{ "地理院 淡色": gsi, "地理院 標準": gsiStd, "OpenStreetMap": osm }},
     overlays, {{ collapsed: false }}
@@ -426,9 +431,9 @@ ul {{ padding-left: 1.2rem; }}
       return '<div style="display:flex;align-items:center;gap:6px;margin:2px 0">' +
         '<span style="display:inline-block;width:' + (2 * r) + 'px;height:' + (2 * r) +
         'px;border-radius:50%;background:rgba(196,92,38,.45);border:1px solid #c45c26"></span>' +
-        '<span>' + n.toLocaleString() + ' 件</span></div>';
+        '<span>' + n.toLocaleString() + ' 枚</span></div>';
     }}).join("");
-    div.innerHTML = "<b>クリニック件数</b>（半径は対数）" + rows;
+    div.innerHTML = "<b>クリニックの処方箋</b>" + rows;
     L.DomEvent.disableClickPropagation(div);
     return div;
   }};
@@ -441,7 +446,7 @@ ul {{ padding-left: 1.2rem; }}
       var r = radiusFor(n);
       return '<div class="legend-row"><span class="bubble" style="width:' + (2 * r) +
         'px;height:' + (2 * r) + 'px"></span><span class="num">' + n.toLocaleString() +
-        '</span> 件</div>';
+        '</span> 枚</div>';
     }}).join("");
   }}
   var ml = document.getElementById("mesh-legend");

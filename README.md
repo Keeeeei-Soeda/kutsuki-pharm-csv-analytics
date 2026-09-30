@@ -58,15 +58,19 @@ python3 -m src.phase5_causal    # 施策効果（config/events.yaml の年表を
 python3 -m src.phase6_integrated
 python3 -m src.pathways        # 来院経路（診療科遷移）
 python3 -m src.build_map       # 商圏マップ（Leaflet / 地理院タイル）
-# Pages用にコピー（phase3/4/6・pathways・map は docs/ へ自動コピー）
+# Pages用にコピー（phase3〜6・pathways・map は docs/ へ自動コピー）
 cp reports/phase1_flow.html reports/phase2_catchment.html docs/
 cp reports/figures/* docs/figures/
-# UIシェル（サイドバー）を全ページへ適用 → 学術版へのバナーを入れる
+# トップページの経営サマリー（各ページが data/processed/page_summaries/ に出した値を読む）
+python3 -m src.build_summary
+# UIシェル（サイドバー）を全ページへ適用（学術版への導線はサイドバー下部のリンク）
 python3 -m src.apply_ui_shell
-python3 -m src.snapshot_academic
 ```
 
 分析を回さず UI だけ直したいときは `python3 -m src.apply_ui_shell` のみでよい。
+`docs/academic/` は凍結版なので、通常の再生成では `python3 -m src.snapshot_academic` を実行しない。
+
+「現状の処方箋枚数」は直近3か月の平均（`src/kpi.py`）。全期間平均は参考値として併記する。
 
 ### 補正の適用
 

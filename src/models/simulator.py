@@ -11,7 +11,8 @@ import pandas as pd
 
 @dataclass
 class GrowthInputs:
-    monthly_visits: float = 1388.0
+    # 現状の月間処方箋枚数。固定値は置かず、src.kpi.current_level()（直近3か月平均）を渡す。
+    monthly_visits: float
     target_monthly: float = 3000.0
     unique_patients: float = 8885.0
     months: float = 23.0
@@ -60,7 +61,7 @@ def simulate_scenarios(inp: GrowthInputs) -> pd.DataFrame:
             }
         )
 
-    add("現状ベース", base, "実測平均")
+    add("現状ベース", base, "直近3か月平均")
 
     # 門前+5%（クリニック流量増の代理）
     add(

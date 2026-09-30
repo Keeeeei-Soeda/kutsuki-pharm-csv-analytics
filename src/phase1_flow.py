@@ -22,6 +22,10 @@ from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_c
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
+# 図の表記（分析上の区分名 → 薬局長向けの言い方）
+AXIS_PLAIN = {"門前型": "門前", "非門前型": "門前以外"}
+COLOR_GATE = "#c45c26"
+COLOR_NONGATE = "#2f6f9f"
 
 
 def _setup_font() -> None:
@@ -104,10 +108,11 @@ def abc_pareto(vt: pd.DataFrame, cm: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         ax2.plot(range(len(top)), top["累積構成比"], color="#E45756", marker="o", ms=3)
         ax2.axhline(0.8, ls="--", color="gray", lw=1)
         ax2.set_ylim(0, 1.05)
+        plain = AXIS_PLAIN[axis_name]
         ax.set_title(
-            f"{axis_name} 上位20施設\n"
+            f"{plain} 上位20施設\n"
             f"N={g.attrs['n_visits']:,} / 施設{g.attrs['n_clinics']} / "
-            f"80%到達={g.attrs['n80']}施設 / 最大シェア={g.attrs['top1_share']:.1%}"
+            f"80%到達={g.attrs['n80']}施設 / {plain}の中での最大シェア={g.attrs['top1_share']:.1%}"
         )
         ax.set_xlabel("順位")
         ax.set_ylabel("件数")
@@ -202,7 +207,7 @@ def time_series_analysis(vt: pd.DataFrame) -> Dict:
     fig, axes = plt.subplots(3, 1, figsize=(11, 9), sharex=False)
     ax = axes[0]
     ax.plot(daily.index, daily.values, lw=0.8, color="#4C78A8", label="日次")
-    ax.plot(stl_df.index, stl_df["trend"], lw=1.5, color="#E45756", label="STL trend")
+    ax.plot(stl_df.index, stl_df["trend"], lw=1.5, color="#E45756", label="傾向（STL）")
     ax.set_title(f"日次受診件数とSTLトレンド（period=7） N日={daily.shape[0]}")
     ax.legend(loc="upper right")
     ax.set_ylabel("件数")
@@ -414,6 +419,7 @@ def patient_portfolio(vt: pd.DataFrame, pm: pd.DataFrame) -> Dict:
     visit_hist.plot(kind="hist", bins=30, ax=ax, color="#F58518", edgecolor="white")
     ax.set_title("来局回数分布（30回超は30にクリップ表示）")
     ax.set_xlabel("受診回数")
+    ax.set_ylabel("人数")
 
     ax = axes[1, 1]
     vc = port["受診クリニック数"].value_counts().sort_index()
@@ -446,6 +452,65 @@ def patient_portfolio(vt: pd.DataFrame, pm: pd.DataFrame) -> Dict:
         "visit_mean": float(port["受診回数"].mean()),
         "age_ct": age_ct,
     }
+
+
+# ---------------------------------------------------------------------------
+# 4.5 薬局長向けの図（本文用）
+# ---------------------------------------------------------------------------
+
+def plain_monthly_figure(vt: pd.DataFrame) -> Path:
+    """月別の処方箋枚数を「門前／門前以外」の2本の線で示す。"""
+    ensure_dirs()
+    _setup_font()
+    monthly = (
+        vt.loc[vt["軸"].isin(AXIS_PLAIN)]
+        .groupby(["年月", "軸"])
+        .size()
+        .unstack(fill_value=0)
+        .reindex(columns=list(AXIS_PLAIN), fill_value=0)
+    )
+    x = pd.PeriodIndex(monthly.index, freq="M").to_timestamp()
+    fig, ax = plt.subplots(figsize=(11, 4.4))
+    for axis_name, color in [("門前型", COLOR_GATE), ("非門前型", COLOR_NONGATE)]:
+        y = monthly[axis_name].values
+        ax.plot(x, y, color=color, lw=2.2, marker="o", ms=3.5, label=AXIS_PLAIN[axis_name])
+        ax.annotate(f"{AXIS_PLAIN[axis_name]} {y[-1]:,}枚", (x[-1], y[-1]), xytext=(8, 0),
+                    textcoords="offset points", va="center", fontsize=10, color=color, fontweight="bold")
+    ax.set_ylabel("処方箋（枚／月）")
+    ax.set_ylim(0, None)
+    ax.set_xlim(x[0] - pd.Timedelta(days=10), x[-1] + pd.Timedelta(days=80))
+    ax.grid(axis="y", alpha=0.3)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(loc="upper left", frameon=False)
+    ax.set_title("月別の処方箋枚数（門前／門前以外）", loc="left")
+    fig.tight_layout()
+    out = FIGURES / "phase1_monthly_plain.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def top_clinics_figure(abc_all: pd.DataFrame, k: int = 10) -> Path:
+    """処方箋の多いクリニック上位 k 件の横棒（門前は橙、門前以外は青）。"""
+    ensure_dirs()
+    _setup_font()
+    top = abc_all.head(k).iloc[::-1]
+    colors = [COLOR_GATE if bool(g) else COLOR_NONGATE for g in top["門前_0.3km"]]
+    fig, ax = plt.subplots(figsize=(10, 5.2))
+    ax.barh(top["クリニック名"].astype(str).str[:18], top["件数"], color=colors)
+    for i, (n, share) in enumerate(zip(top["件数"], top["構成比"])):
+        ax.text(n, i, f"  {n:,}枚（全体の{share:.0%}）", va="center", fontsize=9)
+    ax.set_xlim(0, float(top["件数"].max()) * 1.35)
+    ax.set_xlabel("期間中の処方箋（枚）")
+    ax.spines[["top", "right"]].set_visible(False)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=COLOR_GATE), plt.Rectangle((0, 0), 1, 1, color=COLOR_NONGATE)]
+    ax.legend(handles, ["門前（薬局から0.3km以内）", "門前以外"], loc="lower right", frameon=False)
+    ax.set_title(f"処方箋の多いクリニック 上位{k}件", loc="left")
+    fig.tight_layout()
+    out = FIGURES / "phase1_top_clinics.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -733,6 +798,8 @@ def run_phase1() -> Dict:
     ts = time_series_analysis(vt)
     exo = exogenous_glm(vt)
     port = patient_portfolio(vt, pm)
+    plain_monthly_figure(vt)
+    top_clinics_figure(abc["全体"])
     sankey = sankey_flow(vt)
     report = write_report(abc, ts, exo, port, sankey, vt)
     return {

@@ -29,7 +29,7 @@ FONTS_LINK = (
 NAV_PAGES: List[dict] = [
     {"key": "p1", "href": "phase1_flow.html", "title": "処方箋の流れ",
      "headline": "処方箋はどこから来ているか",
-     "desc": "Phase 1 · 門前と非門前", "group": "phase", "blocked": False,
+     "desc": "Phase 1 · 門前と門前以外", "group": "phase", "blocked": False,
      "icon": '<path d="M4 7h10M4 12h16M4 17h7"/>'},
     {"key": "p2", "href": "phase2_catchment.html", "title": "商圏とクリニック",
      "headline": "患者はどこに住み、どの医院に通っているか",
@@ -37,28 +37,28 @@ NAV_PAGES: List[dict] = [
      "icon": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'},
     {"key": "p3", "href": "phase3_model.html", "title": "来局率と成長余地",
      "headline": "何が来局率を左右し、どこまで伸ばせるか",
-     "desc": "Phase 3 · 選択モデルと成長試算", "group": "phase", "blocked": False,
+     "desc": "Phase 3 · 来局の決め手と目標試算", "group": "phase", "blocked": False,
      "icon": '<path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/>'},
-    {"key": "p4", "href": "phase4_retention.html", "title": "定着とLTV",
+    {"key": "p4", "href": "phase4_retention.html", "title": "患者の定着",
      "headline": "患者は定着しているか",
-     "desc": "Phase 4 · 残存・来局間隔・LTV", "group": "phase", "blocked": False,
+     "desc": "Phase 4 · 再来・来局間隔・患者タイプ", "group": "phase", "blocked": False,
      "icon": '<path d="M4 17l5-5 4 4 7-8"/>'},
     {"key": "p5", "href": "phase5_causal.html", "title": "施策の効果",
      "headline": "チラシや施策は効いたか",
      "desc": "Phase 5 · チラシと継続施策", "group": "phase", "blocked": False,
      "icon": '<path d="M6 12h12M13 7l5 5-5 5"/>'},
-    {"key": "p6", "href": "phase6_integrated.html", "title": "統合モデルと予測",
-     "headline": "この先の受診件数はどうなるか",
-     "desc": "Phase 6 · 月次予測とシナリオ", "group": "phase", "blocked": False,
+    {"key": "p6", "href": "phase6_integrated.html", "title": "今後の見込み",
+     "headline": "この先の処方箋枚数はどうなるか",
+     "desc": "Phase 6 · 来月の見込みと目標", "group": "phase", "blocked": False,
      "icon": '<rect x="3" y="3" width="7" height="7" rx="1.5"/>'
              '<rect x="14" y="3" width="7" height="7" rx="1.5"/>'
              '<rect x="3" y="14" width="7" height="7" rx="1.5"/>'
              '<rect x="14" y="14" width="7" height="7" rx="1.5"/>'},
     {"key": "pathways", "href": "pathways.html", "title": "来院経路",
-     "desc": "1→2→3回目の診療科遷移", "group": "extra", "blocked": False,
+     "desc": "耳鼻科・皮膚科から他の科へ広がるか", "group": "extra", "blocked": False,
      "icon": '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 8l8 8"/>'},
     {"key": "map", "href": "map.html", "title": "商圏マップ",
-     "desc": "商圏・競合・来局率マップ", "group": "extra", "blocked": False,
+     "desc": "患者の住まい・クリニック・競合薬局", "group": "extra", "blocked": False,
      "icon": '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>'},
 ]
 
@@ -148,7 +148,8 @@ def render_sidebar(
     values = {
         "{{HOME_HREF}}": _esc(home_href),
         "{{PERIOD}}": _esc(period or PERIOD_LABEL),
-        "{{GENERATED}}": _esc(generated or datetime.now().strftime("%Y-%m-%d %H:%M")),
+        # 日付までにして、同じ日に何度適用しても差分が出ないようにする
+        "{{GENERATED}}": _esc(generated or datetime.now().strftime("%Y-%m-%d")),
         "{{BREADCRUMB}}": _esc(breadcrumb),
         "{{PHASE_ITEMS}}": _nav_items("phase", active_key),
         "{{EXTRA_ITEMS}}": _nav_items("extra", active_key),

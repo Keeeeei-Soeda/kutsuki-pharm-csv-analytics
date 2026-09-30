@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import base64
 import html
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Union
+from typing import Iterable, Iterator, List, Optional, Sequence, Union
 
 from src.viz.sidebar import (
     FONTS_LINK,
     PERIOD_LABEL,
+    headline_for,
     key_for_phase,
     render_sidebar,
     sidebar_css,
     sidebar_js,
 )
+
+FOOTER_NOTE = "自店のデータにもとづく分析です。地域全体の数字ではありません。"
+KPI_TONES = ("good", "bad", "neutral")
 
 PathLike = Union[str, Path]
 
@@ -266,9 +271,20 @@ class HtmlReport:
         self.kpis: List[dict] = []
         self.toc: List[tuple] = []
         self.blocks: List[str] = []
+        self._expert_depth = 0
 
-    def add_kpi(self, label: str, value: str, sub: str = "") -> None:
-        self.kpis.append({"label": label, "value": value, "sub": sub})
+    def add_kpi(
+        self,
+        label: str,
+        value: str,
+        sub: str = "",
+        compare: str = "",
+        tone: str = "neutral",
+    ) -> None:
+        """KPI カード。``compare`` は比較対象の文、``tone`` は良し悪しの向き（good/bad/neutral）。"""
+        if tone not in KPI_TONES:
+            raise ValueError(f"tone は {KPI_TONES} のいずれか: {tone}")
+        self.kpis.append({"label": label, "value": value, "sub": sub, "compare": compare, "tone": tone})
 
     def add_toc(self, anchor: str, label: str) -> None:
         self.toc.append((anchor, label))
@@ -277,9 +293,41 @@ class HtmlReport:
         self.blocks.append(chunk)
 
     def section(self, anchor: str, title: str, note: str = "") -> None:
-        self.add_toc(anchor, title)
         note_html = f'<p class="section-note">{_esc(note)}</p>' if note else ""
+        if self._expert_depth:
+            # 折りたたみの中の見出しは目次に出さない（閉じた中へは飛べないため）
+            self.blocks.append(f"<h3>{_esc(title)}</h3>{note_html}")
+            return
+        self.add_toc(anchor, title)
         self.blocks.append(f'<h2 id="{_esc(anchor)}">{_esc(title)}</h2>{note_html}')
+
+    def takeaway(self, finding: str, judgment: str, action: str) -> None:
+        """ページ冒頭の結論ボックス（わかったこと／良い？悪い？／次にやること）。"""
+        rows = [("わかったこと", finding), ("良い？悪い？", judgment), ("次にやること", action)]
+        body = "".join(
+            f'<div class="tk-row"><dt>{_esc(head)}</dt><dd>{_esc(text)}</dd></div>' for head, text in rows
+        )
+        self.blocks.append(f'<section class="takeaway" aria-label="このページのまとめ"><dl>{body}</dl></section>')
+
+    @contextmanager
+    def expert_details(
+        self, summary: str = "専門家向けの詳細（手法・統計量・前提）", anchor: str = "expert"
+    ) -> Iterator[None]:
+        """手法・統計量・前提・限界を入れる折りたたみ（初期状態は閉じる）。"""
+        if anchor and not self._expert_depth:
+            self.section(anchor, "専門家向けの詳細")
+        start = len(self.blocks)
+        self._expert_depth += 1
+        try:
+            yield
+        finally:
+            self._expert_depth -= 1
+            inner = "".join(self.blocks[start:])
+            del self.blocks[start:]
+            self.blocks.append(
+                f'<details class="expert"><summary>{_esc(summary)}</summary>'
+                f'<div class="expert-body">{inner}</div></details>'
+            )
 
     def callout(self, title: str, items: Sequence[str], kind: str = "ok") -> None:
         lis = "".join(f"<li>{_esc(x)}</li>" for x in items)
@@ -300,13 +348,17 @@ class HtmlReport:
         caption: str = "",
         embed: bool = True,
         explain: str = "",
+        point: str = "",
     ) -> None:
+        """図を埋め込む。``point`` は図の上に出す「この図で言いたいこと」の1文。"""
         from src.viz.figure_explains import FIGURE_EXPLAINS
 
         p = Path(image_path)
         if not p.exists():
             self.blocks.append(f'<p class="caption">（図なし: {_esc(p.name)}）</p>')
             return
+        if point:
+            self.blocks.append(f'<p class="fig-point">{_esc(point)}</p>')
         src = img_to_data_uri(p) if embed else str(p)
         cap = f'<p class="caption">{_esc(caption)}</p>' if caption else ""
         text = explain or FIGURE_EXPLAINS.get(p.name, "")
@@ -359,11 +411,13 @@ class HtmlReport:
             cards = []
             span = 3 if len(self.kpis) >= 4 else (4 if len(self.kpis) == 3 else 6)
             for k in self.kpis:
+                sub = f'<div class="sub">{_esc(k["sub"])}</div>' if k["sub"] else ""
+                compare = f'<div class="compare">{_esc(k["compare"])}</div>' if k["compare"] else ""
                 cards.append(
-                    f'<div class="card span-{span} kpi">'
+                    f'<div class="card span-{span} kpi tone-{k["tone"]}">'
                     f'<div class="label">{_esc(k["label"])}</div>'
                     f'<div class="value">{_esc(k["value"])}</div>'
-                    f'<div class="sub">{_esc(k.get("sub",""))}</div></div>'
+                    f"{sub}{compare}</div>"
                 )
             kpi_html = f'<div class="grid">{"".join(cards)}</div>'
 
@@ -407,8 +461,7 @@ class HtmlReport:
   {kpi_html}
   {''.join(self.blocks)}
   <footer class="footer" id="notes">
-    自店受診データに基づく記述分析です。市場全体の選択率・因果効果としては解釈しないでください。
-    花粉欠損は0埋めしていません。新患フラグは使用していません。
+    {_esc(FOOTER_NOTE)}
   </footer>
 </main>
 <script data-shell="sidebar">

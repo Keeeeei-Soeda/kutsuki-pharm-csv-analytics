@@ -24,8 +24,10 @@ from src.io import (
     ensure_dirs,
     read_csv,
 )
+from src.kpi import CurrentLevel, current_level, save_page_summary
 from src.models.huff import attractiveness_from_competitor, fit_lambda_grid, huff_probabilities
 from src.models.simulator import GrowthInputs, baseline_decomposition, simulate_scenarios, tornado_sensitivities
+from src.phase2_catchment import plain_map_axes, town_gazetteer
 from src.viz.html_report import HtmlReport
 
 FIGURES = ROOT / "reports" / "figures"
@@ -38,6 +40,26 @@ def _setup_font() -> None:
     plt.rcParams["font.family"] = "sans-serif"
     plt.rcParams["font.sans-serif"] = ["Hiragino Sans", "AppleGothic", "DejaVu Sans"]
     plt.rcParams["axes.unicode_minus"] = False
+
+
+def _age_key(a: str) -> int:
+    """年齢階級を先頭の数字で並べ、「85+」のような上限なしの階級を最後にする。"""
+    return 999 if a.endswith("+") else int(a.split("-")[0])
+
+
+# 成長シナリオの表示名（simulator のシナリオ名 → 薬局長向けの言い方）
+SCENARIO_PLAIN = {
+    "現状ベース": "現状（直近3か月平均）",
+    "門前需要+10%": "門前の処方箋が1割増える",
+    "門前需要+20%": "門前の処方箋が2割増える",
+    "非門前×2": "門前以外の処方箋が2倍になる",
+    "非門前×3": "門前以外の処方箋が3倍になる",
+    "来局頻度+10%": "1人あたりの来局回数が1割増える",
+    "来局頻度+20%": "1人あたりの来局回数が2割増える",
+    "活動患者+15%": "通院中の患者が15%増える",
+    "活動患者+30%": "通院中の患者が30%増える",
+    "複合:門前+5%×非門前×2.5×頻度+10%": "組み合わせ（門前+5%・門前以外2.5倍・来局回数+1割）",
+}
 
 
 def _region_distance_table(vt: pd.DataFrame, pm: pd.DataFrame, visitor_regions: set) -> pd.DataFrame:
@@ -195,7 +217,7 @@ def fit_visit_rate_glm(pv: pd.DataFrame) -> Dict:
     # age pattern from FE
     age_params = {k.replace("age_", ""): float(v) for k, v in model.params.items() if str(k).startswith("age_")}
     # baseline age is dropped category
-    ages = sorted(d["年齢階級"].unique(), key=lambda a: (a != "85+", a))
+    ages = sorted(d["年齢階級"].unique(), key=_age_key)
     # reconstruct relative odds vs first age
     dropped = [a for a in ages if f"age_{a}" not in model.params.index]
     base_age = dropped[0] if dropped else ages[0]
@@ -221,6 +243,7 @@ def fit_visit_rate_glm(pv: pd.DataFrame) -> Dict:
         "aic": float(model.aic),
         "or_logdist": or_logdist,
         "odds_mult_1km": odds_mult,
+        "odds_mult_double": float(np.exp(b_dist * np.log(2.0))),
         "median_km": med_d,
         "coef": coef,
         "or_comp": None,
@@ -416,7 +439,7 @@ def clinic_choice_clogit(vt: pd.DataFrame, cm: pd.DataFrame, radius_km: float = 
     return out
 
 
-def run_huff(mesh_rate: pd.DataFrame, comp: pd.DataFrame) -> Dict:
+def run_huff(mesh_rate: pd.DataFrame, comp: pd.DataFrame, gaz: pd.DataFrame) -> Dict:
     stores = attractiveness_from_competitor(comp)
     # 自店魅力度: 競合中央値よりやや高めの仮置き
     pharmacy_A = float(stores["A"].median() * 1.1)
@@ -433,27 +456,56 @@ def run_huff(mesh_rate: pd.DataFrame, comp: pd.DataFrame) -> Dict:
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     ax = axes[0]
     ax.plot(fit["grid"]["lambda"], fit["grid"]["corr"], marker="o")
-    ax.set_xlabel("λ")
-    ax.set_ylabel("corr(来局率, Huff p)")
-    ax.set_title(f"Huff λ探索（最良λ={best['lambda']}）")
+    ax.set_xlabel("距離減衰の強さ（ラムダ）")
+    ax.set_ylabel("来局率とHuff予測の相関")
+    ax.set_title(f"Huff 距離減衰の強さの探索（最良={best['lambda']}）")
     ax = axes[1]
     sc = ax.scatter(pred["中心経度"], pred["中心緯度"], c=pred["残差"], s=35, cmap="coolwarm")
     ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#0f6a6a", marker="*", s=90)
     fig.colorbar(sc, ax=ax, label="来局率 - スケール済Huff")
     ax.set_title("Huff残差マップ（正=想定より取れている）\n注: 記述ベンチマーク。因果解釈しない")
+    plain_map_axes(ax, gaz, max_labels=10)
     fig.tight_layout()
     fig.savefig(FIGURES / "phase3_huff.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     return {"ok": True, "best_lambda": best["lambda"], "corr": best["corr"], "pharmacy_A": pharmacy_A, "grid": fit["grid"]}
 
 
-def run_growth_sim() -> Dict:
-    inp = GrowthInputs()
+def plain_scenario_figure(scen: pd.DataFrame, level: CurrentLevel) -> Path:
+    """シナリオ別の到達枚数（横棒）。3,000枚の線と現状の線を引き、棒の端に数字を出す。"""
+    _setup_font()
+    s = scen.loc[~scen["シナリオ"].str.startswith("参考")].iloc[::-1]
+    labels = [SCENARIO_PLAIN.get(n, n) for n in s["シナリオ"]]
+    fig, ax = plt.subplots(figsize=(11, 5.6))
+    ax.barh(labels, s["予測月間件数"], color="#9aa4b1")
+    for i, v in enumerate(s["予測月間件数"]):
+        ax.text(v, i, f"  {v:,.0f}枚", va="center", fontsize=9.5)
+    ax.axvline(level.recent_mean, color="#1b2430", ls=":", lw=1.5)
+    ax.axvline(level.target, color="#b4540a", ls="--", lw=2)
+    gap = level.target * 0.01
+    ax.text(level.recent_mean - gap, len(s) - 0.4, f"現状 {level.recent_mean:,.0f}枚", ha="right", fontsize=9)
+    ax.text(level.target - gap, len(s) - 0.4, f"目標 {level.target:,.0f}枚", ha="right", fontsize=9,
+            color="#b4540a", fontweight="bold")
+    ax.set_xlim(0, level.target * 1.1)
+    ax.set_ylim(-0.6, len(s) + 0.2)
+    ax.set_xlabel("到達する処方箋（枚／月）")
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.set_title("施策ごとの到達見込み（今の延長線上）", loc="left")
+    fig.tight_layout()
+    out = FIGURES / "phase3_scenarios_plain.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def run_growth_sim(level: CurrentLevel) -> Dict:
+    inp = GrowthInputs(monthly_visits=level.recent_mean, target_monthly=level.target)
     base = baseline_decomposition(inp)
     scen = simulate_scenarios(inp)
     tornado = tornado_sensitivities(inp, pct=0.1)
     scen.to_csv(PROCESSED_DIR / "phase3_growth_scenarios.csv", index=False, encoding="utf-8-sig")
     tornado.to_csv(PROCESSED_DIR / "phase3_growth_tornado.csv", index=False, encoding="utf-8-sig")
+    plain_scenario_figure(scen, level)
 
     _setup_font()
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
@@ -461,10 +513,10 @@ def run_growth_sim() -> Dict:
     s = scen.loc[~scen["シナリオ"].str.startswith("参考")]
     colors = ["#0f6a6a" if v else "#c45c26" for v in s["目標3,000到達"]]
     ax.barh(s["シナリオ"], s["予測月間件数"], color=colors)
-    ax.axvline(1388, color="#666", ls=":", label="現状")
-    ax.axvline(3000, color="#c45c26", ls="--", label="目標3000")
+    ax.axvline(level.recent_mean, color="#666", ls=":", label=f"現状（{level.period_label}平均）")
+    ax.axvline(level.target, color="#c45c26", ls="--", label="目標3000")
     ax.set_xlabel("月間件数（一次近似）")
-    ax.set_title("Growthシナリオ（交互作用無視の感度）")
+    ax.set_title("成長シナリオ（交互作用無視の感度）")
     ax.legend(fontsize=8)
 
     ax = axes[1]
@@ -476,18 +528,25 @@ def run_growth_sim() -> Dict:
     fig.tight_layout()
     fig.savefig(FIGURES / "phase3_growth_sim.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
-    return {"baseline": base, "scenarios": scen, "tornado": tornado}
+    s = scen.loc[~scen["シナリオ"].str.startswith("参考")]
+    best = s.loc[s["予測月間件数"].idxmax()]
+    need = scen.loc[scen["シナリオ"].str.startswith("参考"), "シナリオ"]
+    return {"baseline": base, "scenarios": scen, "tornado": tornado, "level": level,
+            "best_name": str(best["シナリオ"]), "best_value": float(best["予測月間件数"]),
+            "any_reach": bool(s["目標3,000到達"].any()),
+            "need_note": need.iloc[0] if len(need) else ""}
 
 
 def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
     ensure_dirs()
+    level: CurrentLevel = growth["level"]
     md = f"""# Phase 3: 来局率モデルと Pharmacy Choice Rate
 
 ## わかったこと3点
 
 1. **距離は来局率を強く規定する。** 集計Binomial GLMで log(道路距離) のOR={vr['or_logdist']:.3f}。中央距離{vr['median_km']:.1f}kmで+1kmすると選択オッズが約×{vr['odds_mult_1km']:.3f}（相関・条件付き関連）。
 2. **クリニック選択でも距離・門前が効く（自店条件付き）。** 条件付きロジット N={clogit.get('n_patients','-')} / McFadden R²={clogit.get('mcfadden_r2', float('nan')):.3f}。これは市場全体の選択率ではない。
-3. **目標3,000枚は非門前の大幅拡大か複数レバーの同時改善が必要。** シミュレータ上、非門前のみなら約×{(3000/1388 - 0.893 - 0.011)/0.096:.1f}が必要（他固定の粗い必要条件）。
+3. **今の施策をどれだけ強めても、この延長線上では3,000枚に届かない。** 現状（{level.period_label}平均）{level.recent_mean:,.0f}枚に対し、シナリオの最大は{growth['best_value']:,.0f}枚（{growth['best_name']}）。{growth['need_note']}（他固定の粗い必要条件）。届くには新しい処方元（クリニック）の獲得が必要。
 
 ## わからなかったこと3点
 
@@ -561,79 +620,119 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
     md_path = REPORTS / "phase3_model.md"
     md_path.write_text(md, encoding="utf-8")
 
-    # HTML
+    decay_1km = 1 - vr["odds_mult_1km"]
+    decay_double = 1 - vr["odds_mult_double"]
+    best_plain = SCENARIO_PLAIN.get(growth["best_name"], growth["best_name"])
+
     rep = HtmlReport(
-        title="Phase 3 Pharmacy Choice Rate",
-        subtitle="個票MNLが不可能なため、集計来局率・条件付きクリニック選択・Huff・成長シミュレータで代替する。",
+        title="何が来局を左右し、目標3,000枚に届くか",
+        subtitle="何が来局に影響しているかと、目標3,000枚に届くかを試算します。",
         pharmacy=PHARMACY_NAME,
         period="受診 2024-09-02 〜 2026-07-31",
         eyebrow="Kutsuki DataBank / Phase 3",
         active_phase=3,
     )
-    rep.add_kpi("距離OR(log)", f"{vr['or_logdist']:.3f}", "集計Binomial GLM")
-    rep.add_kpi("+1km効果", f"×{vr['odds_mult_1km']:.3f}", f"中央距離 {vr['median_km']:.1f}km")
-    rep.add_kpi("Clogit R²", f"{clogit.get('mcfadden_r2', float('nan')):.3f}", "自店条件付き")
-    rep.add_kpi("目標倍率", f"{growth['baseline']['gap_ratio']:.2f}×", "1388→3000")
+    rep.add_kpi("距離の影響", f"1km遠いと約{decay_1km * 10:.0f}割減る",
+                f"薬局から{vr['median_km']:.1f}km付近の地域で比べた場合",
+                compare=f"距離が2倍になると、来局は約{decay_double * 10:.0f}割減る", tone="bad")
+    rep.add_kpi("目標までの距離", f"{level.ratio:.2f}倍",
+                f"現状 {level.recent_mean:,.0f}枚/月（{level.period_label}平均）→ 目標 {level.target:,.0f}枚",
+                compare=f"参考：全期間の平均は {level.all_mean:,.0f}枚/月", tone="bad")
+    rep.add_kpi("今の施策の延長での最大", f"約{growth['best_value']:,.0f}枚/月", best_plain,
+                compare=f"目標まで、まだ {level.target - growth['best_value']:,.0f}枚/月 足りない", tone="bad")
 
-    rep.callout(
-        "わかったこと",
-        [
-            f"距離が来局率の主因（log距離OR={vr['or_logdist']:.3f}）。",
-            "クリニック選択でも距離・門前が効くが、自店来局条件付き。",
-            "3,000枚には非門前の大幅拡大か複合施策が必要。",
-        ],
-        kind="ok",
-    )
-    rep.callout(
-        "限界",
-        [
-            "真の薬局選択率は競合実売・クリニック総発行がないと推定不能。",
-            "Huffは記述ベンチマークのみ。",
-            "係数は因果ではない。",
-        ],
-        kind="warn",
+    rep.takeaway(
+        finding="来局をいちばん左右しているのは、薬局からの距離です。遠い地域ほど来局は大きく減ります。",
+        judgment=(
+            f"今の施策をどれだけ強めても、この延長では3,000枚に届きません"
+            f"（最大でも約{growth['best_value']:,.0f}枚）。"
+        ),
+        action="目標達成には、新しい処方元（クリニック）の獲得や新たな商圏づくりが必要です。",
     )
 
-    rep.section("visitrate", "集計来局率モデル", "V~Binomial(N,p)。自店来局÷住基人口。")
-    rep.figure(FIGURES / "phase3_visitrate_glm.png", "地区集計 binomial GLM")
-    rep.figure(FIGURES / "phase3_mesh_glm.png", "メッシュ拡張")
+    rep.section("scenarios", "施策ごとの到達見込み")
+    rep.figure(
+        FIGURES / "phase3_scenarios_plain.png",
+        point=f"どの施策を強めても、目標の3,000枚には届きません（最大は約{growth['best_value']:,.0f}枚）。",
+        explain=(
+            "今の処方箋の内訳（門前・門前以外・来局回数）を、施策ごとに一定の割合だけ増やしたときの"
+            "月の処方箋枚数です。点線が現状、橙の破線が目標3,000枚です。"
+        ),
+    )
 
-    rep.section("clogit", "クリニック選択（条件付きロジット）", "自店患者に限定。市場選択率ではない。")
-    if clogit.get("ok"):
-        rep.figure(FIGURES / "phase3_clinic_clogit.png", "条件付きロジット係数")
-        rep.table(
-            ["変数", "β", "SE"],
+    with rep.expert_details("専門家向けの詳細（来局率モデル・クリニック選択・Huff・シナリオ表）"):
+        rep.callout(
+            "限界",
             [
-                ["距離km", f"{clogit['beta_distance']:.3f}", f"{clogit['se'][0]:.3f}"],
-                ["門前", f"{clogit['beta_gate']:.3f}", f"{clogit['se'][1]:.3f}"],
-                ["log標榜数", f"{clogit['beta_log_specialty']:.3f}", f"{clogit['se'][2]:.3f}"],
+                "真の薬局選択率は競合実売・クリニック総発行がないと推定不能。",
+                "Huffは記述ベンチマークのみ。",
+                "係数は因果ではない。",
+                f"「1km遠いと約{decay_1km * 10:.0f}割減る」は、中央距離 {vr['median_km']:.1f}km で +1km したときのオッズ比 "
+                f"×{vr['odds_mult_1km']:.3f} を来局の減り方として読み替えたもの（来局率が小さいので近似）。",
+            ],
+            kind="warn",
+        )
+        rep.section("visitrate", "集計来局率モデル", "V~Binomial(N,p)。自店来局÷住基人口。")
+        rep.paragraph(
+            f"log(道路距離) OR={vr['or_logdist']:.3f} ／ +1km効果 ×{vr['odds_mult_1km']:.3f}"
+            f"（中央距離 {vr['median_km']:.1f}km）／ 距離2倍 ×{vr['odds_mult_double']:.3f} ／ AIC={vr['aic']:.1f}"
+        )
+        rep.figure(FIGURES / "phase3_visitrate_glm.png", "地区集計 binomial GLM")
+        rep.figure(FIGURES / "phase3_mesh_glm.png", "メッシュ拡張")
+
+        rep.section("clogit", "クリニック選択（条件付きロジット）", "自店患者に限定。市場選択率ではない。")
+        if clogit.get("ok"):
+            rep.paragraph(f"McFadden R²={clogit.get('mcfadden_r2', float('nan')):.3f}（自店来局条件付き）")
+            rep.figure(FIGURES / "phase3_clinic_clogit.png", "条件付きロジット係数")
+            rep.table(
+                ["変数", "β", "SE"],
+                [
+                    ["距離km", f"{clogit['beta_distance']:.3f}", f"{clogit['se'][0]:.3f}"],
+                    ["門前", f"{clogit['beta_gate']:.3f}", f"{clogit['se'][1]:.3f}"],
+                    ["log標榜数", f"{clogit['beta_log_specialty']:.3f}", f"{clogit['se'][2]:.3f}"],
+                ],
+                numeric_cols=[1, 2],
+            )
+
+        rep.section("huff", "Huff記述ベンチマーク")
+        if huff.get("ok"):
+            rep.figure(FIGURES / "phase3_huff.png", "距離減衰の強さの当てはまり")
+            rep.paragraph(f"最良の距離減衰パラメータ={huff['best_lambda']} / 相関={huff['corr']:.3f}")
+
+        rep.section("growth", "成長シナリオ（感度）")
+        rep.figure(FIGURES / "phase3_growth_sim.png", f"月間件数シナリオ感度（現状={level.period_label}平均）")
+        rep.table(
+            ["シナリオ", "予測月間（枚）", "現状の何倍", "3,000枚に届くか"],
+            [
+                [
+                    SCENARIO_PLAIN.get(r["シナリオ"], r["シナリオ"]),
+                    f"{r['予測月間件数']:,.0f}",
+                    f"{r['対ベース倍率']:.2f}倍",
+                    "届く" if r["目標3,000到達"] else "届かない",
+                ]
+                for _, r in growth["scenarios"].iterrows()
             ],
             numeric_cols=[1, 2],
         )
 
-    rep.section("huff", "Huff記述ベンチマーク")
-    if huff.get("ok"):
-        rep.figure(FIGURES / "phase3_huff.png", "距離減衰λの当てはまり")
-        rep.paragraph(f"最良λ={huff['best_lambda']} / 相関={huff['corr']:.3f}")
-
-    rep.section("growth", "Growthシナリオ")
-    rep.figure(FIGURES / "phase3_growth_sim.png", "月間件数シナリオ感度")
-    rep.table(
-        ["シナリオ", "予測月間", "倍率", "3000到達"],
-        [
-            [
-                r["シナリオ"][:28],
-                f"{r['予測月間件数']:.0f}",
-                f"{r['対ベース倍率']:.2f}",
-                "YES" if r["目標3,000到達"] else "no",
-            ]
-            for _, r in growth["scenarios"].head(10).iterrows()
-        ],
-        numeric_cols=[1, 2],
-    )
-
     html_path = REPORTS / "phase3_model.html"
     rep.save(html_path)
+
+    save_page_summary("p3", {
+        "decay_1km": decay_1km,
+        "decay_double": decay_double,
+        "recent_mean": level.recent_mean,
+        "period_label": level.period_label,
+        "gap": level.gap,
+        "ratio": level.ratio,
+        "best_value": growth["best_value"],
+        "best_name": best_plain,
+        "any_reach": growth["any_reach"],
+        "conclusion": (
+            f"今の施策の延長では3,000枚に届きません（最大でも約{growth['best_value']:,.0f}枚）。"
+            "新しい処方元が必要です。"
+        ),
+    })
     return {"md": md_path, "html": html_path}
 
 
@@ -650,6 +749,7 @@ def publish_docs(html_path: Path) -> None:
         "phase3_clinic_clogit.png",
         "phase3_huff.png",
         "phase3_growth_sim.png",
+        "phase3_scenarios_plain.png",
     ]:
         src = FIGURES / name
         if src.exists():
@@ -707,8 +807,9 @@ def run_phase3() -> Dict:
         mesh_rate = read_csv("mesh_population")
         mesh_rate["来局率"] = np.nan
     comp = read_csv("competitor_pharmacy")
-    huff = run_huff(mesh_rate if "来局率" in mesh_rate.columns else pd.read_csv(PROCESSED_DIR / "mesh_visit_rate.csv"), comp)
-    growth = run_growth_sim()
+    gaz = town_gazetteer(cm, comp)
+    huff = run_huff(mesh_rate if "来局率" in mesh_rate.columns else pd.read_csv(PROCESSED_DIR / "mesh_visit_rate.csv"), comp, gaz)
+    growth = run_growth_sim(current_level())
     paths = write_reports(vr, mesh_m, clogit, huff, growth)
     publish_docs(paths["html"])
     return {

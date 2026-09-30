@@ -15,6 +15,7 @@ GitHub Pages 上で **両方を同時に公開**する。
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -50,24 +51,12 @@ BANNER_ACADEMIC = """<div id="version-switch" style="background:#103a3a;color:#f
 <a href="../index.html" style="color:#9fe3dd">こちら</a>。
 </div>"""
 
-BANNER_MAIN = """<div id="version-switch" class="version-switch">
-<strong>薬局向け最新版</strong>を表示しています。サイドバー導入前の学術用（旧UI）版は
-<a href="academic/index.html">こちら</a>で凍結保存しています。
-</div>"""
-
-BANNER_MAIN_CSS = """
-.version-switch {
-  background: #eef5f4;
-  border: 1px solid #bcd9d5;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: #17423f;
-  margin: 0 0 16px;
-}
-.version-switch a { color: #0f6a6a; font-weight: 600; }
-@media print { .version-switch { display: none; } }
-"""
+# 最新版（docs/ 直下）から学術版への導線は、サイドバー下部のリンク（templates/_sidebar.html）に置く。
+# 以前ページ上部に入れていたバナーとその CSS は、見つけたら取り除く。
+_MAIN_BANNER_RE = re.compile(r'\s*<div id="version-switch" class="version-switch">.*?</div>', re.DOTALL)
+_MAIN_BANNER_CSS_RE = re.compile(
+    r"\s*\.version-switch \{.*?@media print \{ \.version-switch \{ display: none; \} \}", re.DOTALL
+)
 
 
 def snapshot(ref: str = DEFAULT_REF) -> List[Path]:
@@ -93,22 +82,15 @@ def snapshot(ref: str = DEFAULT_REF) -> List[Path]:
     return written
 
 
-def add_main_banner() -> List[Path]:
-    """最新版（docs/ 直下）に学術版への導線を入れる。"""
+def remove_main_banner() -> List[Path]:
+    """最新版（docs/ 直下）のページ上部から学術版バナーを取り除く（冪等）。"""
     touched: List[Path] = []
     for path in sorted(DOCS.glob("*.html")):
         text = path.read_text(encoding="utf-8")
-        if BANNER_ID in text:
-            continue
-        if ".version-switch" not in text and "</style>" in text:
-            text = text.replace("</style>", BANNER_MAIN_CSS + "\n</style>", 1)
-        marker = '<main class="wrap" id="main">'
-        if marker not in text:
-            continue
-        idx = text.index(marker) + len(marker)
-        text = text[:idx] + "\n  " + BANNER_MAIN + text[idx:]
-        path.write_text(text, encoding="utf-8")
-        touched.append(path)
+        new = _MAIN_BANNER_CSS_RE.sub("", _MAIN_BANNER_RE.sub("", text))
+        if new != text:
+            path.write_text(new, encoding="utf-8")
+            touched.append(path)
     return touched
 
 
@@ -116,8 +98,8 @@ def main() -> None:
     ref = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_REF
     files = snapshot(ref)
     print(f"snapshot {ref} -> docs/academic/ ({len(files)} files)")
-    for p in add_main_banner():
-        print("banner:", p.relative_to(ROOT))
+    for p in remove_main_banner():
+        print("banner removed:", p.relative_to(ROOT))
 
 
 if __name__ == "__main__":
