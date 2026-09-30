@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from typing import Dict, List
 
+from src.snapshot_academic import add_main_banner
 from src.viz.sidebar import FONTS_LINK, apply_shell
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +53,8 @@ def apply_all() -> List[Path]:
                 apply_shell(path, key or None)
                 inject_fonts(path)
                 touched.append(path)
+    # 再生成されたページから学術版への導線が落ちないよう、毎回入れ直す（冪等）
+    add_main_banner()
     return touched
 
 

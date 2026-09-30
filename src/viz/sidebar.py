@@ -27,23 +27,29 @@ FONTS_LINK = (
 
 # icon は viewBox 0 0 24 24 の線画パス
 NAV_PAGES: List[dict] = [
-    {"key": "p1", "href": "phase1_flow.html", "title": "Phase 1 Prescription Flow",
-     "desc": "門前と非門前のフロー", "group": "phase", "blocked": False,
+    {"key": "p1", "href": "phase1_flow.html", "title": "処方箋の流れ",
+     "headline": "処方箋はどこから来ているか",
+     "desc": "Phase 1 · 門前と非門前", "group": "phase", "blocked": False,
      "icon": '<path d="M4 7h10M4 12h16M4 17h7"/>'},
-    {"key": "p2", "href": "phase2_catchment.html", "title": "Phase 2 Clinic Catchment",
-     "desc": "商圏とクリニック分布", "group": "phase", "blocked": False,
+    {"key": "p2", "href": "phase2_catchment.html", "title": "商圏とクリニック",
+     "headline": "患者はどこに住み、どの医院に通っているか",
+     "desc": "Phase 2 · 患者の住所と通院先", "group": "phase", "blocked": False,
      "icon": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'},
-    {"key": "p3", "href": "phase3_model.html", "title": "Phase 3 Choice & Growth",
-     "desc": "選択モデルと成長試算", "group": "phase", "blocked": False,
+    {"key": "p3", "href": "phase3_model.html", "title": "来局率と成長余地",
+     "headline": "何が来局率を左右し、どこまで伸ばせるか",
+     "desc": "Phase 3 · 選択モデルと成長試算", "group": "phase", "blocked": False,
      "icon": '<path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/>'},
-    {"key": "p4", "href": "phase4_retention.html", "title": "Phase 4 Retention & LTV",
-     "desc": "残存・定着・LTV", "group": "phase", "blocked": False,
+    {"key": "p4", "href": "phase4_retention.html", "title": "定着とLTV",
+     "headline": "患者は定着しているか",
+     "desc": "Phase 4 · 残存・来局間隔・LTV", "group": "phase", "blocked": False,
      "icon": '<path d="M4 17l5-5 4 4 7-8"/>'},
-    {"key": "p5", "href": "phase5_causal.html", "title": "Phase 5 Causal Impact",
-     "desc": "介入効果の推定", "group": "phase", "blocked": False,
+    {"key": "p5", "href": "phase5_causal.html", "title": "施策の効果",
+     "headline": "チラシや施策は効いたか",
+     "desc": "Phase 5 · チラシと継続施策", "group": "phase", "blocked": False,
      "icon": '<path d="M6 12h12M13 7l5 5-5 5"/>'},
-    {"key": "p6", "href": "phase6_integrated.html", "title": "Phase 6 Integrated Model",
-     "desc": "統合モデルと予測", "group": "phase", "blocked": False,
+    {"key": "p6", "href": "phase6_integrated.html", "title": "統合モデルと予測",
+     "headline": "この先の受診件数はどうなるか",
+     "desc": "Phase 6 · 月次予測とシナリオ", "group": "phase", "blocked": False,
      "icon": '<rect x="3" y="3" width="7" height="7" rx="1.5"/>'
              '<rect x="14" y="3" width="7" height="7" rx="1.5"/>'
              '<rect x="3" y="14" width="7" height="7" rx="1.5"/>'
@@ -51,12 +57,20 @@ NAV_PAGES: List[dict] = [
     {"key": "pathways", "href": "pathways.html", "title": "来院経路",
      "desc": "1→2→3回目の診療科遷移", "group": "extra", "blocked": False,
      "icon": '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 8l8 8"/>'},
-    {"key": "map", "href": "map.html", "title": "地図",
+    {"key": "map", "href": "map.html", "title": "商圏マップ",
      "desc": "商圏・競合・来局率マップ", "group": "extra", "blocked": False,
      "icon": '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>'},
 ]
 
 _PHASE_TO_KEY = {1: "p1", 2: "p2", 3: "p3", 4: "p4", 5: "p5", 6: "p6"}
+
+
+def headline_for(key: Optional[str]) -> Optional[str]:
+    """ページ見出し（経営者向けの問いの形）。未定義なら None。"""
+    for page in NAV_PAGES:
+        if page["key"] == key:
+            return page.get("headline")
+    return None
 
 
 def _esc(text: object) -> str:
@@ -182,6 +196,47 @@ def _breadcrumb_of(text: str) -> str:
     return "Kutsuki DataBank"
 
 
+_TABLE_RE = re.compile(r"<table\b.*?</table>", re.DOTALL)
+_HERO_H1_RE = re.compile(r'(<header class="hero">.*?<h1[^>]*>)(.*?)(</h1>)', re.DOTALL)
+_TITLE_RE = re.compile(r"<title>.*?</title>", re.DOTALL)
+
+
+def align_numeric_headers(text: str) -> str:
+    """数値列（先頭行の td.num）に対応する th にも num を付け、見出しを右揃えにする（冪等）。"""
+
+    def _fix(match: re.Match) -> str:
+        table = match.group(0)
+        head = re.search(r"<thead>.*?</thead>", table, re.DOTALL)
+        row = re.search(r"<tbody>\s*<tr>(.*?)</tr>", table, re.DOTALL)
+        if not head or not row:
+            return table
+        num_idx = {i for i, td in enumerate(re.findall(r"<td([^>]*)>", row.group(1))) if 'class="num"' in td}
+        counter = iter(range(10_000))
+
+        def _th(m: re.Match) -> str:
+            i = next(counter)
+            attrs = m.group(1) or ""
+            if i in num_idx and "class=" not in attrs:
+                return f'<th class="num"{attrs}>'
+            return m.group(0)
+
+        new_head = re.sub(r"<th(\s[^>]*)?>", _th, head.group(0))
+        return table.replace(head.group(0), new_head, 1)
+
+    return _TABLE_RE.sub(_fix, text)
+
+
+def apply_headline(text: str, key: Optional[str]) -> str:
+    """ヒーローの h1 と <title> を経営者向けの見出しに差し替える（冪等）。"""
+    headline = headline_for(key)
+    if not headline:
+        return text
+    text = _HERO_H1_RE.sub(lambda m: m.group(1) + _esc(headline) + m.group(3), text, count=1)
+    phase = next((n for n, k in _PHASE_TO_KEY.items() if k == key), None)
+    title = f"Phase {phase}｜{headline}" if phase else headline
+    return _TITLE_RE.sub(f"<title>{_esc(title)}</title>", text, count=1)
+
+
 def apply_shell(html_path: PathLike, active_key: Optional[str] = None) -> Path:
     """既存レポート HTML を「サイドバー + main」構成へ差し替える（冪等）。"""
     path = Path(html_path)
@@ -216,6 +271,10 @@ def apply_shell(html_path: PathLike, active_key: Optional[str] = None) -> Path:
     text = text.replace('<footer class="footer">', '<footer class="footer" id="notes">', 1)
     if 'id="notes"' not in text:
         text = text.replace('<div class="note">', '<div class="note" id="notes">', 1)
+
+    # 5.5) 見出しを経営者向けの問いに、数値列の見出しを右揃えに
+    text = apply_headline(text, active_key)
+    text = align_numeric_headers(text)
 
     # 6) サイドバーを差し込む
     toc = extract_toc(text)

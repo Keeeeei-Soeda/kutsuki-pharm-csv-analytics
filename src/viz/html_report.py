@@ -322,7 +322,10 @@ class HtmlReport:
 
     def table(self, headers: Sequence[str], rows: Iterable[Sequence[object]], numeric_cols: Optional[Sequence[int]] = None) -> None:
         numeric_cols = set(numeric_cols or [])
-        thead = "".join(f"<th>{_esc(h)}</th>" for h in headers)
+        thead = "".join(
+            f'<th class="num">{_esc(h)}</th>' if i in numeric_cols else f"<th>{_esc(h)}</th>"
+            for i, h in enumerate(headers)
+        )
         body = []
         for row in rows:
             tds = []
@@ -373,8 +376,11 @@ class HtmlReport:
             chips.append(f'<span class="chip">{_esc(self.period)}</span>')
         chips.append(f'<span class="chip">生成 {datetime.now().strftime("%Y-%m-%d %H:%M")}</span>')
 
+        nav_key = self.nav_key or key_for_phase(self.active_phase)
+        headline = headline_for(nav_key) or self.title
+        doc_title = f"Phase {self.active_phase}｜{headline}" if self.active_phase and headline != self.title else headline
         sidebar = render_sidebar(
-            self.nav_key or key_for_phase(self.active_phase),
+            nav_key,
             self.toc,
             breadcrumb=self.eyebrow,
             period=self.period or PERIOD_LABEL,
@@ -384,7 +390,7 @@ class HtmlReport:
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>{_esc(self.title)}</title>
+<title>{_esc(doc_title)}</title>
 <style>{CSS}
 {sidebar_css()}</style>
 {FONTS_LINK}
@@ -394,7 +400,7 @@ class HtmlReport:
 <main class="wrap" id="main">
   <header class="hero">
     <div class="eyebrow">{_esc(self.eyebrow)}</div>
-    <h1>{_esc(self.title)}</h1>
+    <h1>{_esc(headline)}</h1>
     <p>{_esc(self.subtitle)}</p>
     <div class="meta">{''.join(chips)}</div>
   </header>

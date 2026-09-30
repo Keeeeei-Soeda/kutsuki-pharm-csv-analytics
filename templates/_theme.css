@@ -74,10 +74,20 @@ table { border-radius: var(--radius); }
 th { background: #f7f9fa; color: var(--muted); font-size: 12px; font-weight: 700; }
 th, td { border-bottom-color: var(--line-soft); }
 
-/* コールアウト */
-.callout { border-radius: 10px; border-color: var(--line); }
+/* 数値列は見出しも右揃え（本文の等幅は見出しには使わない） */
+th.num { text-align: right; font-family: inherit; font-size: 12px; }
+
+/* コールアウト：KPI行や隣のボックスと接しないよう上下に余白 */
+.callout { border-radius: 10px; border-color: var(--line); margin: 16px 0; }
 .callout.ok { background: var(--accent-soft); border-color: #bfdcd8; }
 .callout.warn { background: var(--warn-soft); border-color: #f0cfa8; }
+
+/* トップページのボタンはアクセント1色に統一 */
+.btn.secondary { background: var(--accent); }
+
+/* トップページのカード：Phase 番号を小見出しに、問いを見出しに */
+.card-kicker { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--accent-strong); letter-spacing: .02em; }
+.card-kicker + h2 { margin-top: 0; }
 
 /* 地図ページ */
 #map, iframe.map { border-radius: var(--radius); box-shadow: none; border: 1px solid var(--line); }

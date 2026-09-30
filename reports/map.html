@@ -254,9 +254,10 @@ a:focus-visible, button:focus-visible {
     z-index: 90;
     transform: translateX(-100%);
     transition: transform .22s ease;
-    box-shadow: 0 0 40px rgba(10, 20, 32, .35);
+    box-shadow: none;
   }
-  body.nav-open .sidebar { transform: translateX(0); }
+  /* 影は開いているときだけ（閉じたドロワーの影が画面左端に漏れないように） */
+  body.nav-open .sidebar { transform: translateX(0); box-shadow: 0 0 40px rgba(10, 20, 32, .35); }
   .nav-overlay {
     position: fixed; inset: 0; z-index: 80;
     background: rgba(18, 24, 32, .45);
@@ -363,10 +364,20 @@ table { border-radius: var(--radius); }
 th { background: #f7f9fa; color: var(--muted); font-size: 12px; font-weight: 700; }
 th, td { border-bottom-color: var(--line-soft); }
 
-/* コールアウト */
-.callout { border-radius: 10px; border-color: var(--line); }
+/* 数値列は見出しも右揃え（本文の等幅は見出しには使わない） */
+th.num { text-align: right; font-family: inherit; font-size: 12px; }
+
+/* コールアウト：KPI行や隣のボックスと接しないよう上下に余白 */
+.callout { border-radius: 10px; border-color: var(--line); margin: 16px 0; }
 .callout.ok { background: var(--accent-soft); border-color: #bfdcd8; }
 .callout.warn { background: var(--warn-soft); border-color: #f0cfa8; }
+
+/* トップページのボタンはアクセント1色に統一 */
+.btn.secondary { background: var(--accent); }
+
+/* トップページのカード：Phase 番号を小見出しに、問いを見出しに */
+.card-kicker { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--accent-strong); letter-spacing: .02em; }
+.card-kicker + h2 { margin-top: 0; }
 
 /* 地図ページ */
 #map, iframe.map { border-radius: var(--radius); box-shadow: none; border: 1px solid var(--line); }
@@ -416,17 +427,17 @@ th, td { border-bottom-color: var(--line-soft); }
   <nav class="sb-nav" aria-label="Phase ナビゲーション">
     <p class="sb-heading" id="sb-h-phase">Phase</p>
     <ul aria-labelledby="sb-h-phase">
-      <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">Phase 1 Prescription Flow</span><span class="sb-item-desc">門前と非門前のフロー</span></span></a></li>
-      <li><a href="phase2_catchment.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span class="sb-item-text"><span class="sb-item-title">Phase 2 Clinic Catchment</span><span class="sb-item-desc">商圏とクリニック分布</span></span></a></li>
-      <li><a href="phase3_model.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="sb-item-text"><span class="sb-item-title">Phase 3 Choice &amp; Growth</span><span class="sb-item-desc">選択モデルと成長試算</span></span></a></li>
-      <li><a href="phase4_retention.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8"/></svg><span class="sb-item-text"><span class="sb-item-title">Phase 4 Retention &amp; LTV</span><span class="sb-item-desc">残存・定着・LTV</span></span></a></li>
-      <li><a href="phase5_causal.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h12M13 7l5 5-5 5"/></svg><span class="sb-item-text"><span class="sb-item-title">Phase 5 Causal Impact</span><span class="sb-item-desc">介入効果の推定</span></span></a></li>
-      <li><a href="phase6_integrated.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="sb-item-text"><span class="sb-item-title">Phase 6 Integrated Model</span><span class="sb-item-desc">統合モデルと予測</span></span></a></li>
+      <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">処方箋の流れ</span><span class="sb-item-desc">Phase 1 · 門前と非門前</span></span></a></li>
+      <li><a href="phase2_catchment.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span class="sb-item-text"><span class="sb-item-title">商圏とクリニック</span><span class="sb-item-desc">Phase 2 · 患者の住所と通院先</span></span></a></li>
+      <li><a href="phase3_model.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="sb-item-text"><span class="sb-item-title">来局率と成長余地</span><span class="sb-item-desc">Phase 3 · 選択モデルと成長試算</span></span></a></li>
+      <li><a href="phase4_retention.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8"/></svg><span class="sb-item-text"><span class="sb-item-title">定着とLTV</span><span class="sb-item-desc">Phase 4 · 残存・来局間隔・LTV</span></span></a></li>
+      <li><a href="phase5_causal.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h12M13 7l5 5-5 5"/></svg><span class="sb-item-text"><span class="sb-item-title">施策の効果</span><span class="sb-item-desc">Phase 5 · チラシと継続施策</span></span></a></li>
+      <li><a href="phase6_integrated.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="sb-item-text"><span class="sb-item-title">統合モデルと予測</span><span class="sb-item-desc">Phase 6 · 月次予測とシナリオ</span></span></a></li>
     </ul>
     <p class="sb-heading" id="sb-h-extra">追加分析</p>
     <ul aria-labelledby="sb-h-extra">
       <li><a href="pathways.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 8l8 8"/></svg><span class="sb-item-text"><span class="sb-item-title">来院経路</span><span class="sb-item-desc">1→2→3回目の診療科遷移</span></span></a></li>
-      <li><a href="map.html" aria-current="page"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span class="sb-item-text"><span class="sb-item-title">地図</span><span class="sb-item-desc">商圏・競合・来局率マップ</span></span></a></li>
+      <li><a href="map.html" aria-current="page"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span class="sb-item-text"><span class="sb-item-title">商圏マップ</span><span class="sb-item-desc">商圏・競合・来局率マップ</span></span></a></li>
     </ul>
   </nav>
 
@@ -447,7 +458,7 @@ th, td { border-bottom-color: var(--line-soft); }
   </div>
 
   <div class="sb-footer">
-    <p class="sb-generated">生成 2026-09-30 11:00</p>
+    <p class="sb-generated" title="サイドバー・デザインを適用した日時。分析の生成日時は各ページ上部に表示">UI更新 2026-09-30 11:29</p>
     <a class="sb-notes-link" href="#notes">注意事項</a>
   </div>
 </aside>
