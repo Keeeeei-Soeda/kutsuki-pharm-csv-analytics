@@ -4,6 +4,7 @@
 #   列 C〜Z が 2024-09〜2026-08 に対応する前提（先方未確認）。
 #   一部の「↑」は注記内の日付と違う月の列に置かれているため、注記内の日付を優先する
 #   （例: G35 は 1月列だが本文は 2/22〜3/2）。
+#   チラシ3回の日付・部数・配布半径1km は先方に確認済み（2026-09-30）。
 #
 # date_precision:
 #   day   … 注記に日付がある
@@ -23,7 +24,7 @@ events:
     date_precision: day
     intensity: 13,290部×2回（EPARK 2/22〜3/2、自局 3/2〜3/10）
     design: flyer_did
-    source: G35, G39
+    source: G35, G39, 先方確認
     note: 2回の配布が連続しているため1つの窓として扱う
 
   - id: meo_consult
@@ -42,7 +43,7 @@ events:
     date_precision: day
     intensity: 13,290部
     design: flyer_did
-    source: L39
+    source: L39, 先方確認
 
   - id: autumn_bundle
     name: 秋の施策群（AIブログ・FindAD・マイナ広告/OV）
@@ -73,7 +74,7 @@ events:
     date_precision: day
     intensity: 16,280部
     design: flyer_did
-    source: U39
+    source: U39, 先方確認
     note: LINEチラシ同封（2/13〜）と重なる
 
   - id: competitor_yamato_epark
