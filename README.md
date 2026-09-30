@@ -18,7 +18,7 @@
 - [Phase 2](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase2_catchment.html)
 - [Phase 3](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase3_model.html)
 - [Phase 4](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase4_retention.html)
-- [Phase 5](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase5_causal.html)（データ不足・保留）
+- [Phase 5](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase5_causal.html)
 - [Phase 6](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase6_integrated.html)
 - [来院経路](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/pathways.html)
 - [商圏マップ](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/map.html)
@@ -32,7 +32,8 @@
 
 ## 現状
 
-- Phase 0〜4・6 完了（Phase5はイベント年表待ち）
+- Phase 0〜6 完了
+- Phase5: 施策年表（先方Excel、`config/events.yaml`）で推定。チラシ3回・MEO・秋の施策群はいずれも「判定できない」（前提付き）
 - **門前型 89.3%** / 非門前 9.6%
 - Phase6: 月次予測は移動平均3が最良（MAE≈126, MAPE≈6.8%）
 - 来院経路: 単発患者 44.4%。急性期（耳鼻咽喉科・皮膚科）→内科系への広がりは観測されず
@@ -53,6 +54,7 @@ python3 -m src.phase1_flow && python3 -m src.export_phase1_html
 python3 -m src.phase2_catchment
 python3 -m src.phase3_model
 python3 -m src.phase4_retention
+python3 -m src.phase5_causal    # 施策効果（config/events.yaml の年表を使う）
 python3 -m src.phase6_integrated
 python3 -m src.pathways        # 来院経路（診療科遷移）
 python3 -m src.build_map       # 商圏マップ（Leaflet / 地理院タイル）

@@ -1,0 +1,86 @@
+# Phase 5 のイベント年表。
+#
+# 出典: data/raw/オンライン系データ.xlsx（2026-09-30 受領）の「↑」注記。
+#   列 C〜Z が 2024-09〜2026-08 に対応する前提（先方未確認）。
+#   一部の「↑」は注記内の日付と違う月の列に置かれているため、注記内の日付を優先する
+#   （例: G35 は 1月列だが本文は 2/22〜3/2）。
+#
+# date_precision:
+#   day   … 注記に日付がある
+#   month … 月だけ分かる。start は月初とし、効果推定では感度分析の対象にする
+#
+# design:
+#   flyer_did  … 期間の短い商圏内ポスティング。近距離 vs 遠距離の新患で差の差をとる
+#   its        … 継続する施策。門前 vs 非門前の処方箋で比較 ITS をとる
+#   descriptive … 事後期間が短い・日付が曖昧などで推定しない。図に線を引くだけ
+
+events:
+  - id: flyer_2025_spring
+    name: 春ポスティング（EPARKチラシ＋自局チラシ）
+    target: 自店施策
+    start: 2025-02-22
+    end: 2025-03-10
+    date_precision: day
+    intensity: 13,290部×2回（EPARK 2/22〜3/2、自局 3/2〜3/10）
+    design: flyer_did
+    source: G35, G39
+    note: 2回の配布が連続しているため1つの窓として扱う
+
+  - id: meo_consult
+    name: MEOコンサル開始
+    target: 自店施策
+    start: 2025-04-01
+    date_precision: month
+    design: its
+    source: J15
+
+  - id: flyer_2025_summer
+    name: 夏ポスティング（自社チラシ）
+    target: 自店施策
+    start: 2025-06-27
+    end: 2025-07-11
+    date_precision: day
+    intensity: 13,290部
+    design: flyer_did
+    source: L39
+
+  - id: autumn_bundle
+    name: 秋の施策群（AIブログ・FindAD・マイナ広告/OV）
+    target: 自店施策
+    start: 2025-09-01
+    date_precision: month
+    design: its
+    source: O15, P15, O35, O39, P39
+    note: >-
+      AIブログ開始（2025-09）、FindAD開始（9/10）、DMPRマイナ広告・OV設置（9/29）、
+      OV交差点向け（10/24）が6週間に集中しており個別には分離できない。
+      ITS では 2025-09-01 を切れ目とし、9/29 に動かした場合を感度分析で見る。
+
+  - id: line_insert
+    name: LINEチラシ同封開始
+    target: 自店施策
+    start: 2026-02-13
+    date_precision: day
+    design: descriptive
+    source: S39
+    note: 継続施策だが2週間後に春ポスティング2026が始まり分離できない
+
+  - id: flyer_2026_spring
+    name: 春ポスティング2026
+    target: 自店施策
+    start: 2026-02-26
+    end: 2026-03-09
+    date_precision: day
+    intensity: 16,280部
+    design: flyer_did
+    source: U39
+    note: LINEチラシ同封（2/13〜）と重なる
+
+  - id: competitor_yamato_epark
+    name: ヤマト薬局がEPARK課金した可能性
+    target: 競合
+    start: 2026-06-01
+    date_precision: month
+    design: descriptive
+    source: X35
+    note: 先方注記は「可能性大」。受診データは 2026-07-31 までで事後が約2か月しかない

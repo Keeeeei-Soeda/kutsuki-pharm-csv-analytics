@@ -103,7 +103,7 @@ notebooks/, reports/figures/, tests/, config/
 - **Phase 2**：クリニック商圏GIS・地区×クリニック・Moran/LISA・競合圧力・ネットワーク → `reports/phase2_catchment.md`
 - **Phase 3**：集計来局率GLM、条件付きロジット、Huffベンチマーク、Growth分解シミュレータ → `reports/phase3_model.md`
 - **Phase 4**：コホート・定着・生存・世帯・LTV・マルチレベル・クラスタ → `reports/phase4_retention.md`
-- **Phase 5**：ITS / CausalImpact / DiD（イベント年表取得後）
+- **Phase 5**：チラシは近距離×遠距離の差の差、継続施策は門前×非門前の比較ITS、プラセボ検定・感度分析 → `reports/phase5_causal.md`（年表は `config/events.yaml`）
 - **Phase 6**：統合モデル・シミュレータ・学術ポジショニング
 
 ---

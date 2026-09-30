@@ -21,10 +21,16 @@ def test_every_nav_target_is_known_to_the_publisher():
         assert page["href"] in PAGE_KEYS, page["href"]
 
 
-def test_blocked_page_keeps_its_link():
+def test_blocked_page_keeps_its_link(monkeypatch):
+    p5 = next(p for p in NAV_PAGES if p["key"] == "p5")
+    monkeypatch.setitem(p5, "blocked", True)
     html = render_sidebar("p1", [("a", "A")])
     assert 'href="phase5_causal.html"' in html
     assert "sb-badge" in html  # データ不足バッジ
+
+
+def test_no_page_is_blocked_after_phase5_data_arrived():
+    assert "sb-badge" not in render_sidebar("p1", [("a", "A")])
 
 
 def test_active_page_is_marked_once():

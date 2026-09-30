@@ -40,7 +40,7 @@ NAV_PAGES: List[dict] = [
      "desc": "残存・定着・LTV", "group": "phase", "blocked": False,
      "icon": '<path d="M4 17l5-5 4 4 7-8"/>'},
     {"key": "p5", "href": "phase5_causal.html", "title": "Phase 5 Causal Impact",
-     "desc": "介入効果の推定", "group": "phase", "blocked": True,
+     "desc": "介入効果の推定", "group": "phase", "blocked": False,
      "icon": '<path d="M6 12h12M13 7l5 5-5 5"/>'},
     {"key": "p6", "href": "phase6_integrated.html", "title": "Phase 6 Integrated Model",
      "desc": "統合モデルと予測", "group": "phase", "blocked": False,
