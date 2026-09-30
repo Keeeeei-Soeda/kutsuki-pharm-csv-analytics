@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from src.corrections import gate_distance_km
 from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs, read_csv
 
 FIGURES = ROOT / "reports" / "figures"
@@ -117,7 +118,7 @@ def write_phase1_intro(stats: dict) -> Path:
 
 ## わかったこと3点
 
-1. **この薬局は『面薬局』ではなく、実態として門前薬局データである。** 立地パターン門前型は {stats['gate_n']:,}/{stats['n']:,} 件（**{stats['gate_n']/stats['n']:.1%}**）。
+1. **{'この薬局は『面薬局』ではなく、実態として門前薬局データである。' if stats['gate_n'] / stats['n'] >= 0.5 else '門前（クリニックから' + format(gate_distance_km() * 1000, '.0f') + 'm以内）経由は少数で、処方箋の大半は非門前経由。'}** 立地パターン門前型は {stats['gate_n']:,}/{stats['n']:,} 件（**{stats['gate_n']/stats['n']:.1%}**）。
 2. **成長余地の実体は非門前 {stats['non_gate_n']:,} 件（{stats['non_gate_n']/stats['n']:.1%}）。** 以降の5理論検証は主にこの軸Bで行う。
 3. 受診クリニック数≥2の患者は {stats['multi_clinic_patients']:,} 人（面利用候補）。
 
@@ -135,7 +136,7 @@ def write_phase1_intro(stats: dict) -> Path:
 
 ## この薬局は面薬局か門前薬局か（数値回答）
 
-**結論: 門前薬局（門前型 {stats['gate_n']/stats['n']:.1%}）。** 面の実体は非門前 {stats['non_gate_n']/stats['n']:.1%}。
+**結論: {'門前薬局' if stats['gate_n'] / stats['n'] >= 0.5 else '門前依存ではない'}（門前型 {stats['gate_n']/stats['n']:.1%}）。** 非門前 {stats['non_gate_n']/stats['n']:.1%}。
 
 ### 層別サマリ
 

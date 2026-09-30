@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.corrections import gate_distance_km
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs
 from src.kpi import RECENT_MONTHS, current_level, save_page_summary
 from src.viz.figure_explains import SANKY_EXPLAIN
@@ -57,6 +58,9 @@ def build_phase1_html() -> Path:
     monthly = pd.read_csv(PROCESSED_DIR / "monthly_by_gate.csv", index_col=0)
     level = current_level(monthly.sum(axis=1))
     recent_nongate = float(monthly["非門前型"].iloc[-RECENT_MONTHS:].mean())
+    recent_gate = float(monthly["門前型"].iloc[-RECENT_MONTHS:].mean())
+    gate_major = gate_share >= 0.5
+    gate_def = f"クリニックから{gate_distance_km() * 1000:.0f}m以内"
 
     rep = HtmlReport(
         title="処方箋はどこから来ているか",
@@ -67,7 +71,9 @@ def build_phase1_html() -> Path:
         active_phase=1,
     )
     rep.add_kpi("門前からの処方箋", f"{gate_share:.0%}", f"{gate_n:,}枚 / 全{total:,}枚",
-                compare=f"門前以外は {nongate_share:.0%}。門前への依存が大きい", tone="bad")
+                compare=(f"門前以外は {nongate_share:.0%}。門前への依存が大きい" if gate_major
+                         else f"門前＝{gate_def}。処方箋の大半は門前以外"),
+                tone="bad" if gate_major else "neutral")
     rep.add_kpi("門前以外からの処方箋", f"{nongate_share:.0%}", f"{nongate_n:,}枚",
                 compare=f"{n_nongate_clinics}施設に分散（1施設あたり平均 {nongate_n / n_nongate_clinics:.0f}枚）",
                 tone="neutral")
@@ -78,8 +84,11 @@ def build_phase1_html() -> Path:
 
     rep.takeaway(
         finding=(
-            f"処方箋の約{gate_share:.0%}が門前、特に上位2院（{top2_names}）に{top2_share:.0%}が集中しています。"
-            f"門前以外は{n_nongate_clinics}か所のクリニックに少しずつ分散しています。"
+            (f"処方箋の約{gate_share:.0%}が門前、特に上位2院（{top2_names}）に{top2_share:.0%}が集中しています。"
+             f"門前以外は{n_nongate_clinics}か所のクリニックに少しずつ分散しています。")
+            if gate_major else
+            (f"門前（{gate_def}）は処方箋の約{gate_share:.0%}で、大半は門前以外から来ています。"
+             f"ただし上位2院（{top2_names}）に{top2_share:.0%}が集中しています。")
         ),
         judgment="2院への依存度が高く、どちらかの患者数が減ると店全体に直結します。",
         action=f"門前以外のうち処方箋の多いクリニック上位{TOP_TARGETS}件を優先して、関係づくりを進めます。",
@@ -89,8 +98,11 @@ def build_phase1_html() -> Path:
     rep.figure(
         FIGURES / "phase1_monthly_plain.png",
         point=(
-            f"毎月の処方箋の大半は門前で、門前以外は月{recent_nongate:,.0f}枚ほど"
-            f"（{level.period_label}の平均）にとどまっています。"
+            (f"毎月の処方箋の大半は門前で、門前以外は月{recent_nongate:,.0f}枚ほど"
+             f"（{level.period_label}の平均）にとどまっています。")
+            if gate_major else
+            (f"毎月の処方箋の大半は門前以外で、門前（{gate_def}）は月{recent_gate:,.0f}枚ほど"
+             f"（{level.period_label}の平均）です。")
         ),
         explain="橙が門前、青が門前以外の月別の処方箋枚数です。線の右端の数字が直近月の枚数です。",
     )
@@ -123,14 +135,14 @@ def build_phase1_html() -> Path:
         rep.section("abc", "クリニック別ABC（パレート）")
         rep.figure(FIGURES / "phase1_abc_pareto.png", "累積構成比（パレート）。最大シェアは門前・門前以外それぞれの中での割合")
         rep.table(
-            ["クリニック", "処方箋（枚）", "全体に対する割合", "薬局からの距離（km）", "区分（0.3km基準）"],
+            ["クリニック", "処方箋（枚）", "全体に対する割合", "薬局からの距離（km）", f"区分（{gate_distance_km() * 1000:.0f}m基準）"],
             [
                 [
                     _short_name(r["クリニック名"]),
                     int(r["件数"]),
                     f"{r['構成比']:.1%}",
                     f"{r['クリニック→薬局_直線km']:.3f}",
-                    _gate_label(r["門前_0.3km"]),
+                    _gate_label(r["門前判定"]),
                 ]
                 for _, r in abc.head(8).iterrows()
             ],
@@ -162,7 +174,7 @@ def build_phase1_html() -> Path:
         rep.callout(
             "データの扱いと限界",
             [
-                "門前＝立地パターン「門前型」、門前以外＝患者近接型・経由型・遠隔型。",
+                f"門前＝立地パターン「門前型」（{gate_def}）、門前以外＝患者近接型・経由型・遠隔型。",
                 "花粉欠損は0埋めしていません。新患フラグは使用していません。",
                 "クリニックの総発行処方箋数がないため、各クリニックに対する自店シェアは分かりません。",
             ],
@@ -180,7 +192,9 @@ def build_phase1_html() -> Path:
         "n_nongate_clinics": n_nongate_clinics,
         "multi_patients": multi,
         "multi_share": multi / n_patients,
-        "conclusion": f"処方箋の{gate_share:.0%}が門前。上位2院だけで{top2_share:.0%}を占めています。",
+        "conclusion": (f"処方箋の{gate_share:.0%}が門前。上位2院だけで{top2_share:.0%}を占めています。" if gate_major
+                       else f"門前（{gate_def}）は処方箋の{gate_share:.0%}。上位2院だけで{top2_share:.0%}を占めています。"),
+        "gate_def": gate_def,
     })
     return out
 

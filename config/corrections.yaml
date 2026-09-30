@@ -12,22 +12,110 @@
 #
 # propagate_to:
 #   同じ列を持つ他ファイルにも同じ補正を波及させる。
-#   クリニック→薬局_道路km は clinic_master 以外に visit_triangle /
-#   visit_history / patient_clinic_with_distance にも実体として入っており、
+#   クリニック→薬局の距離は clinic_master 以外にも実体として入っており、
 #   1ファイルだけ直すと分析間で数値が食い違う。
+#
+# 距離を補正すると visit_triangle の門前フラグ・立地パターンは読み込み時に再判定される
+# （基準は config/economics.yaml の gate_distance_km、実装は src/corrections.py）。
+
+_all_distance_files: &all_distance_files
+  - clinic_master_from_prescriptions
+  - visit_history
+  - visit_history_with_weather_pollen
+  - visit_triangle
+  - patient_clinic_with_distance
 
 corrections:
   - id: kitagawa_2026_09_17_road_km
     target: clinic_master
-    propagate_to:
-      - visit_triangle
-      - visit_history
-      - patient_clinic_with_distance
+    propagate_to: *all_distance_files
     key: {クリニックID: C001}
     column: クリニック→薬局_道路km
     to: 0.04
-    reason: 北川氏指示（2026-09-17 レビュー）
-    # 適用前チェック: key のクリニックIDが本当に意図したクリニックか名前で突合する。
+    reason: 北川氏指示（2026-09-17 レビュー）。2026-09-30 の LINE 指示（0.3）で置き換え
     expect_name: 医療法人はせがわ耳鼻咽喉科
-    enabled: false     # ← 北川氏のテキスト到着後、名前突合を済ませてから true にする
-    applied_at: null   # ← 適用時に日付を入れる
+    enabled: false
+    applied_at: null
+
+  # 北川氏 LINE 指示（2026-09-30、docs/REQUESTS_KITAGAWA_LINE.md の A-1）
+  # 門前2院は 0.3km、門前とは言えない2院は 0.6km に直す。
+  - id: kitagawa_line_c001_road
+    target: clinic_master
+    propagate_to: *all_distance_files
+    key: {クリニックID: C001}
+    column: クリニック→薬局_道路km
+    to: 0.3
+    reason: 北川氏 LINE 指示（2026-09-30）
+    expect_name: 医療法人はせがわ耳鼻咽喉科
+    enabled: true
+    applied_at: 2026-09-30
+  - id: kitagawa_line_c001_line
+    target: clinic_master
+    propagate_to: *all_distance_files
+    key: {クリニックID: C001}
+    column: クリニック→薬局_直線km
+    to: 0.3
+    reason: 北川氏 LINE 指示（2026-09-30）
+    expect_name: 医療法人はせがわ耳鼻咽喉科
+    enabled: true
+    applied_at: 2026-09-30
+  - id: kitagawa_line_c002_road
+    target: clinic_master
+    propagate_to: *all_distance_files
+    key: {クリニックID: C002}
+    column: クリニック→薬局_道路km
+    to: 0.3
+    reason: 北川氏 LINE 指示（2026-09-30）
+    expect_name: 平山皮フ科クリニック
+    enabled: true
+    applied_at: 2026-09-30
+  - id: kitagawa_line_c002_line
+    target: clinic_master
+    propagate_to: *all_distance_files
+    key: {クリニックID: C002}
+    column: クリニック→薬局_直線km
+    to: 0.3
+    reason: 北川氏 LINE 指示（2026-09-30）
+    expect_name: 平山皮フ科クリニック
+    enabled: true
+    applied_at: 2026-09-30
+  - id: kitagawa_line_c018_road
+    target: clinic_master
+    propagate_to: *all_distance_files
+    key: {クリニックID: C018}
+    column: クリニック→薬局_道路km
+    to: 0.6
+    reason: 北川氏 LINE 指示（2026-09-30）。街区代表点で C001 と同一座標になっていた
+    expect_name: 高原クリニック
+    enabled: true
+    applied_at: 2026-09-30
+  - id: kitagawa_line_c018_line
+    target: clinic_master
+    propagate_to: *all_distance_files
+    key: {クリニックID: C018}
+    column: クリニック→薬局_直線km
+    to: 0.6
+    reason: 北川氏 LINE 指示（2026-09-30）。街区代表点で C001 と同一座標になっていた
+    expect_name: 高原クリニック
+    enabled: true
+    applied_at: 2026-09-30
+  - id: kitagawa_line_c019_road
+    target: clinic_master
+    propagate_to: *all_distance_files
+    key: {クリニックID: C019}
+    column: クリニック→薬局_道路km
+    to: 0.6
+    reason: 北川氏 LINE 指示（2026-09-30）
+    expect_name: 医療法人　歯徳会　芝歯科クリニック
+    enabled: true
+    applied_at: 2026-09-30
+  - id: kitagawa_line_c019_line
+    target: clinic_master
+    propagate_to: *all_distance_files
+    key: {クリニックID: C019}
+    column: クリニック→薬局_直線km
+    to: 0.6
+    reason: 北川氏 LINE 指示（2026-09-30）
+    expect_name: 医療法人　歯徳会　芝歯科クリニック
+    enabled: true
+    applied_at: 2026-09-30

@@ -229,7 +229,9 @@ def draw_integrated_diagram() -> Path:
 
     ax.text(6, 7.6, f"{PHARMACY_NAME} 統合患者獲得モデル（記述〜予測）", ha="center", fontsize=14, fontweight="bold")
 
-    box(0.3, 5.8, 2.4, 1.2, "① 処方箋の流れ\n門前89% / 門前以外10%\nABC・時系列", "#f7e3d6")
+    m = monthly_series()
+    gate_pct, nongate_pct = m["門前"].sum() / m["件数"].sum(), m["非門前"].sum() / m["件数"].sum()
+    box(0.3, 5.8, 2.4, 1.2, f"① 処方箋の流れ\n門前{gate_pct:.0%} / 門前以外{nongate_pct:.0%}\nABC・時系列", "#f7e3d6")
     box(3.2, 5.8, 2.4, 1.2, "② 診療圏\n徒歩圏商圏\n地区×クリニック", "#ddeeea")
     box(6.1, 5.8, 2.4, 1.2, "③ 来局率・選択\n距離減衰の回帰\n条件付き選択モデル", "#d6e4f0")
     box(9.0, 5.8, 2.5, 1.2, "④ 定着と成長\n定着41% / 間隔28日\n粗利の感度", "#e8e0f2")

@@ -79,9 +79,11 @@ def read_csv(
     if apply_age_fix and "年齢階級" in df.columns:
         df["年齢階級"] = _normalize_age_class(df["年齢階級"].astype(str))
     if corrections:
-        from src.corrections import apply_corrections
+        from src.corrections import apply_corrections, rederive_gate
 
         df = apply_corrections(df, logical_name)
+        if logical_name == "visit_triangle":
+            df = rederive_gate(df)
     return df
 
 

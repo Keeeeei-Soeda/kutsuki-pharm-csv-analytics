@@ -1,7 +1,7 @@
 {
   "retention90": 0.4067027844273655,
-  "gate_retention90": 0.405175899716943,
-  "nongate_retention90": 0.46825396825396826,
+  "gate_retention90": 0.9230769230769231,
+  "nongate_retention90": 0.4073741007194245,
   "median_gap_days": 28.0,
   "clinic_gap_pt": 25.783972125435533,
   "single_share": 0.4112385032128008,

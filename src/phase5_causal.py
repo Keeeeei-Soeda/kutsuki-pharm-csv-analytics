@@ -25,6 +25,7 @@ import pandas as pd
 import statsmodels.api as sm
 import yaml
 
+from src.corrections import gate_distance_km
 from src.io import PHARMACY_NAME, PROCESSED_DIR, RAW_DIR, ROOT, SEED, ensure_dirs, read_csv
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
@@ -681,6 +682,8 @@ def write_report(ev: pd.DataFrame, did: Dict, its: Dict, figs: Dict[str, Path],
                 "LINEチラシ同封は春ポスティング2026と重なり分けられない。競合イベントは事後期間が短く推定対象外。",
                 aux_issue,
                 "新患＝初回受診日（新患フラグは不使用）。",
+                f"門前＝クリニックから直線{gate_distance_km() * 1000:.0f}m以内（北川氏指示 2026-09-30）。"
+                "この基準では門前が処方箋の約1%しかなく、継続施策の比較ITSは対照群（門前）が小さいため信頼区間が非常に広い。",
             ],
             kind="warn",
         )

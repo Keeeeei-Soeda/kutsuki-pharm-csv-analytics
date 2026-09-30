@@ -4,10 +4,12 @@ import pandas as pd
 import pytest
 
 from src.corrections import (
+    GATE_LINE_KM,
     Correction,
     CorrectionError,
     apply_corrections,
     load_corrections,
+    rederive_gate,
     verify_key,
 )
 from src.io import read_csv
@@ -64,6 +66,25 @@ def test_name_mismatch_raises():
 def test_missing_key_raises():
     with pytest.raises(CorrectionError):
         apply_corrections(_sample(), "clinic_master", [_corr(key={"クリニックID": "C999"})])
+
+
+def test_rederive_gate_reproduces_raw_with_raw_threshold():
+    """補正なし・生データの閾値なら、門前フラグと立地パターンは生データと一致する。"""
+    raw = read_csv("visit_triangle", corrections=False)
+    out = rederive_gate(raw, GATE_LINE_KM)
+    assert out["立地パターン"].fillna("NA").equals(raw["立地パターン"].fillna("NA"))
+    assert (out["門前フラグ"].astype(str).str.upper() == raw["門前フラグ"].astype(str).str.upper()).all()
+
+
+def test_rederive_gate_moves_only_rows_beyond_threshold():
+    raw = read_csv("visit_triangle", corrections=False)
+    out = rederive_gate(raw, 0.04)
+    km = pd.to_numeric(raw["クリニック→薬局_直線km"], errors="coerce")
+    assert out.loc[km <= 0.04, "立地パターン"].dropna().eq("門前型").all()
+    assert not out.loc[km > 0.04, "立地パターン"].eq("門前型").any()
+    # もともと非門前の行は生データのまま
+    was_non_gate = raw["立地パターン"].notna() & raw["立地パターン"].ne("門前型")
+    assert out.loc[was_non_gate, "立地パターン"].equals(raw.loc[was_non_gate, "立地パターン"])
 
 
 def test_config_keys_resolve_to_expected_clinics():

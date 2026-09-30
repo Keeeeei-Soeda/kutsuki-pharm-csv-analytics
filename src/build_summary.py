@@ -57,7 +57,7 @@ def summary_html(s: Dict[str, Dict[str, object]]) -> str:
     status = [
         f"処方箋 <strong>{p6['recent_mean']:,.0f}枚/月</strong>（{p6['period_label']}の平均）"
         f"｜目標 {p6['target']:,.0f}枚/月まで あと<strong>{p6['gap']:,.0f}枚</strong>",
-        f"処方箋の<strong>{_pct(p1['gate_share'])}</strong>が門前（上位2院に{_pct(p1['top2_share'])}が集中）",
+        f"処方箋の<strong>{_pct(p1['gate_share'])}</strong>が門前（{p1.get('gate_def', '')}）、上位2院に{_pct(p1['top2_share'])}が集中",
         f"初めて来た人のうち、90日以内にまた来るのは<strong>{_pct(p4['retention90'])}</strong>",
     ]
     spread = (
@@ -66,7 +66,7 @@ def summary_html(s: Dict[str, Dict[str, object]]) -> str:
         else f"耳鼻科・皮膚科の患者が、内科など他の科へ広がっている（内科系へ移ったのは{_pct(pw['acute_rate'])}）"
     )
     findings = [
-        f"門前2院への依存度が高い（上位2院で処方箋の{_pct(p1['top2_share'])}）",
+        f"上位2院への依存度が高い（上位2院で処方箋の{_pct(p1['top2_share'])}）",
         f"患者の多くは徒歩圏に住み、少し離れると来なくなる（薬局から1km以内に{_pct(p2['share_1km'])}）",
         spread,
     ]

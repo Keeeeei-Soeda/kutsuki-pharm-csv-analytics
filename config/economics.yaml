@@ -3,6 +3,7 @@ pharmacy_lon: 135.56540221590993
 pharmacy_name: くつき薬局南茨木店
 seed: 42
 catchment_road_km_max: 10.0
-gate_distance_km: 0.3
+# 門前判定: クリニック→薬局の直線km がこの値以内なら門前（生データは 0.3、北川氏指示 2026-09-30 で 40m）
+gate_distance_km: 0.04
 # LTV仮置き（未保有のため感度分析用）
 gross_margin_per_visit_yen: 2000

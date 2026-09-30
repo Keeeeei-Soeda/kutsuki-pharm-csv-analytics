@@ -154,10 +154,60 @@ def apply_corrections(
 
 
 # --------------------------------------------------------------------------
+# 門前フラグ・立地パターンの再判定（visit_triangle の派生列）
+# --------------------------------------------------------------------------
+
+ECONOMICS_PATH = ROOT / "config" / "economics.yaml"
+GATE = "門前型"
+# 生データの非門前3型を逆算したルール（既存の非門前 3,060件で 97% 一致）。
+TRANSIT_ANGLE_DEG = 120.0     # クリニックの角が大きい＝患者から見てクリニックの先に薬局がある
+PATIENT_NEAR_RATIO = 0.9      # 患者→薬局 が 患者→クリニック の9割未満なら薬局が患者寄り
+
+
+def gate_distance_km() -> float:
+    """門前判定の閾値（クリニック→薬局の直線km 以内なら門前）。"""
+    cfg = yaml.safe_load(ECONOMICS_PATH.read_text(encoding="utf-8")) or {}
+    return float(cfg["gate_distance_km"])
+
+
+def _non_gate_pattern(df: pd.DataFrame) -> pd.Series:
+    angle = pd.to_numeric(df["角度_クリニック_度"], errors="coerce")
+    to_pharmacy = pd.to_numeric(df["患者→薬局_直線km"], errors="coerce")
+    to_clinic = pd.to_numeric(df["患者→クリニック_直線km"], errors="coerce")
+    pattern = pd.Series("遠隔型", index=df.index)
+    pattern[to_pharmacy < PATIENT_NEAR_RATIO * to_clinic] = "患者近接型"
+    pattern[angle >= TRANSIT_ANGLE_DEG] = "経由型"
+    return pattern
+
+
+def rederive_gate(vt: pd.DataFrame, gate_km: Optional[float] = None) -> pd.DataFrame:
+    """補正後の直線km と閾値から門前フラグ・立地パターンを引き直した **コピー** を返す。
+
+    - 門前フラグ: 直線km が閾値以内なら TRUE（距離欠損は元の値のまま）。
+    - 立地パターン: 閾値以内になった行は門前型。門前型から外れた行だけ非門前3型に振り直し、
+      もともと非門前・欠損の行は生データの値を残す。
+    """
+    gate_km = gate_distance_km() if gate_km is None else gate_km
+    out = vt.copy()
+    km = pd.to_numeric(out["クリニック→薬局_直線km"], errors="coerce")
+    known = km.notna()
+    is_gate = km <= gate_km + 1e-9
+    out["門前フラグ"] = out["門前フラグ"].astype(object)
+    out.loc[known, "門前フラグ"] = is_gate[known]
+
+    pattern = out["立地パターン"]
+    has_pattern = pattern.notna()
+    left_gate = has_pattern & pattern.eq(GATE) & known & ~is_gate
+    out.loc[has_pattern & known & is_gate, "立地パターン"] = GATE
+    out.loc[left_gate, "立地パターン"] = _non_gate_pattern(out.loc[left_gate])
+    return out
+
+
+# --------------------------------------------------------------------------
 # 影響レポート
 # --------------------------------------------------------------------------
 
-GATE_LINE_KM = 0.3  # 門前判定（直線km）。config/economics.yaml の gate_distance_km と対。
+GATE_LINE_KM = 0.3  # 生データの門前判定（直線km）。現行の閾値は gate_distance_km()。
 
 
 def _gate_counts(vt: pd.DataFrame) -> Dict[str, int]:
@@ -168,11 +218,11 @@ def _gate_counts(vt: pd.DataFrame) -> Dict[str, int]:
     }
 
 
-def _road_gate_counts(df: pd.DataFrame, column: str) -> Dict[str, int]:
+def _road_gate_counts(df: pd.DataFrame, column: str, gate_km: float) -> Dict[str, int]:
     km = pd.to_numeric(df[column], errors="coerce")
     return {
-        f"{column}<=0.3km": int((km <= GATE_LINE_KM).sum()),
-        f"{column}>0.3km": int((km > GATE_LINE_KM).sum()),
+        f"{column}<={gate_km:g}km": int((km <= gate_km + 1e-9).sum()),
+        f"{column}>{gate_km:g}km": int((km > gate_km + 1e-9).sum()),
         f"{column}欠損": int(km.isna().sum()),
     }
 
@@ -256,7 +306,9 @@ def build_impact_report(path: Path = IMPACT_PATH, *, force: bool = False) -> Pat
     changes: List[AppliedChange] = []
     vt_before = read_csv("visit_triangle", corrections=False)
     cm_before = read_csv("clinic_master", corrections=False)
-    vt_after = apply_corrections(vt_before, "visit_triangle", corrections, log=changes, force=force)
+    vt_after = rederive_gate(
+        apply_corrections(vt_before, "visit_triangle", corrections, log=changes, force=force)
+    )
     cm_after = apply_corrections(cm_before, "clinic_master", corrections, log=changes, force=force)
 
     lines += ["## 2. 書き換わったレコード", "", "| 補正ID | ファイル | 列 | 前 | 後 | 行数 |", "|---|---|---|---|---|---|"]
@@ -268,9 +320,16 @@ def build_impact_report(path: Path = IMPACT_PATH, *, force: bool = False) -> Pat
     lines.append("")
 
     # 3) 門前フラグ・立地パターンの件数変化
-    lines += ["## 3. 門前フラグ・立地パターンの件数変化", ""]
-    before_counts = _gate_counts(vt_before) | _road_gate_counts(vt_before, "クリニック→薬局_道路km")
-    after_counts = _gate_counts(vt_after) | _road_gate_counts(vt_after, "クリニック→薬局_道路km")
+    gate_km = gate_distance_km()
+    lines += [
+        "## 3. 門前フラグ・立地パターンの件数変化",
+        "",
+        f"門前の基準: 補正前＝生データ（直線 {GATE_LINE_KM:g}km 以内）、"
+        f"補正後＝`config/economics.yaml` の gate_distance_km（直線 {gate_km:g}km 以内）。",
+        "",
+    ]
+    before_counts = _gate_counts(vt_before) | _road_gate_counts(vt_before, "クリニック→薬局_直線km", GATE_LINE_KM)
+    after_counts = _gate_counts(vt_after) | _road_gate_counts(vt_after, "クリニック→薬局_直線km", gate_km)
     diffs = {k: (before_counts.get(k, 0), after_counts.get(k, 0)) for k in sorted(set(before_counts) | set(after_counts))}
     changed = {k: v for k, v in diffs.items() if v[0] != v[1]}
     if changed:
@@ -278,12 +337,32 @@ def build_impact_report(path: Path = IMPACT_PATH, *, force: bool = False) -> Pat
         for k, (b, a) in changed.items():
             lines.append(f"| {k} | {b:,} | {a:,} | {a - b:+,} |")
     else:
-        lines.append(
-            "**変化なし。** 立地パターン・門前フラグは visit_triangle に実体値として "
-            "格納済みで、道路km の補正では再計算されません（再計算が必要なら派生列の "
-            "再生成が別途必要）。"
-        )
+        lines.append("**変化なし。**")
     lines.append("")
+
+    moved = vt_before["立地パターン"].eq(GATE) & vt_after["立地パターン"].ne(GATE) & vt_after["立地パターン"].notna()
+    if moved.any():
+        lines += [
+            "### 門前型から外れたクリニック",
+            "",
+            "非門前3型への振り分けは生データのルールを逆算したもの（角度_クリニック≥120°＝経由型、"
+            "患者→薬局＜患者→クリニック×0.9＝患者近接型、それ以外＝遠隔型）。"
+            "患者→クリニックの距離と角度は補正していない座標から計算されている。",
+            "",
+        ]
+        table = (
+            vt_after.loc[moved]
+            .groupby(["クリニックID", "クリニック名", "立地パターン"])
+            .size()
+            .unstack(fill_value=0)
+        )
+        table["計"] = table.sum(axis=1)
+        table = table.sort_values("計", ascending=False)
+        cols = list(table.columns)
+        lines += ["| クリニック | " + " | ".join(cols) + " |", "|---" * (len(cols) + 1) + "|"]
+        for (cid, name), row in table.iterrows():
+            lines.append(f"| {cid} {name} | " + " | ".join(f"{int(v):,}" for v in row) + " |")
+        lines.append("")
 
     # 4) 距離を説明変数に含むモデルの係数変化
     lines += ["## 4. 距離を説明変数に含むモデルの係数変化", "",

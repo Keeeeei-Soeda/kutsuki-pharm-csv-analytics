@@ -17,7 +17,10 @@ import pandas as pd
 import statsmodels.api as sm
 from statsmodels.tsa.seasonal import STL
 
+from src.corrections import gate_distance_km
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv
+
+GATE_KM = gate_distance_km()
 
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
@@ -94,7 +97,7 @@ def abc_pareto(vt: pd.DataFrame, cm: pd.DataFrame) -> Dict[str, pd.DataFrame]:
             on="クリニックID",
             how="left",
         )
-        g["門前_0.3km"] = pd.to_numeric(g["クリニック→薬局_直線km"], errors="coerce") <= 0.3
+        g["門前判定"] = pd.to_numeric(g["クリニック→薬局_直線km"], errors="coerce") <= GATE_KM + 1e-9
         n80 = int((g["累積構成比"] <= 0.8).sum()) + 1
         n80 = min(n80, len(g))
         top1_share = float(g.iloc[0]["構成比"]) if len(g) else np.nan
@@ -142,7 +145,7 @@ def abc_pareto(vt: pd.DataFrame, cm: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         on="クリニックID",
         how="left",
     )
-    g["門前_0.3km"] = pd.to_numeric(g["クリニック→薬局_直線km"], errors="coerce") <= 0.3
+    g["門前判定"] = pd.to_numeric(g["クリニック→薬局_直線km"], errors="coerce") <= GATE_KM + 1e-9
     n80 = int((g["累積構成比"] <= 0.8).sum()) + 1
     g.attrs = {
         "n80": min(n80, len(g)),
@@ -495,7 +498,7 @@ def top_clinics_figure(abc_all: pd.DataFrame, k: int = 10) -> Path:
     ensure_dirs()
     _setup_font()
     top = abc_all.head(k).iloc[::-1]
-    colors = [COLOR_GATE if bool(g) else COLOR_NONGATE for g in top["門前_0.3km"]]
+    colors = [COLOR_GATE if bool(g) else COLOR_NONGATE for g in top["門前判定"]]
     fig, ax = plt.subplots(figsize=(10, 5.2))
     ax.barh(top["クリニック名"].astype(str).str[:18], top["件数"], color=colors)
     for i, (n, share) in enumerate(zip(top["件数"], top["構成比"])):
@@ -504,7 +507,7 @@ def top_clinics_figure(abc_all: pd.DataFrame, k: int = 10) -> Path:
     ax.set_xlabel("期間中の処方箋（枚）")
     ax.spines[["top", "right"]].set_visible(False)
     handles = [plt.Rectangle((0, 0), 1, 1, color=COLOR_GATE), plt.Rectangle((0, 0), 1, 1, color=COLOR_NONGATE)]
-    ax.legend(handles, ["門前（薬局から0.3km以内）", "門前以外"], loc="lower right", frameon=False)
+    ax.legend(handles, [f"門前（薬局から{GATE_KM * 1000:.0f}m以内）", "門前以外"], loc="lower right", frameon=False)
     ax.set_title(f"処方箋の多いクリニック 上位{k}件", loc="left")
     fig.tight_layout()
     out = FIGURES / "phase1_top_clinics.png"
@@ -632,7 +635,7 @@ def write_report(abc, ts, exo, port, sankey_path: Path, vt: pd.DataFrame) -> Pat
     abc_ng = abc["非門前型"]
 
     def top_table(g: pd.DataFrame, k: int = 10) -> str:
-        cols = ["クリニック名", "件数", "構成比", "クリニック→薬局_直線km", "診療科", "門前_0.3km"]
+        cols = ["クリニック名", "件数", "構成比", "クリニック→薬局_直線km", "診療科", "門前判定"]
         t = g.head(k)[cols].copy()
         t["構成比"] = t["構成比"].map(lambda x: f"{x:.1%}")
         t["クリニック→薬局_直線km"] = pd.to_numeric(t["クリニック→薬局_直線km"], errors="coerce").round(3)
@@ -659,7 +662,7 @@ def write_report(abc, ts, exo, port, sankey_path: Path, vt: pd.DataFrame) -> Pat
 
 ## わかったこと3点
 
-1. **門前集中が規模を決める。** 全体の80%件数は上位 **{abc_all.attrs['n80']}** 施設で到達。最大シェア施設は **{abc_all.attrs['top1_share']:.1%}**（経営の単一クリニック依存リスク）。門前型ではさらに集中が強い。
+1. **上位クリニックへの集中が規模を決める。** 全体の80%件数は上位 **{abc_all.attrs['n80']}** 施設で到達。最大シェア施設は **{abc_all.attrs['top1_share']:.1%}**（経営の単一クリニック依存リスク）。
 2. **非門前は別構造。** 非門前の80%到達施設数は **{abc_ng.attrs['n80']}**、最大シェア **{abc_ng.attrs['top1_share']:.1%}**。クリニック→薬局距離の中央値が門前より大きく、面の獲得は分散した多数施設経由。
 3. **外生要因は曜日・季節が主で、花粉・府感染症は補助的。** 花粉は欠測を0埋めせず飛散期のみ推定（N={exo['pollen_n']}日）。府定点は生態学的相関に留まる。
 
@@ -677,7 +680,7 @@ def write_report(abc, ts, exo, port, sankey_path: Path, vt: pd.DataFrame) -> Pat
 
 ## この薬局は面薬局か門前薬局か（数値回答）
 
-**結論: 門前薬局（門前型 {gate_n/n:.1%}）。** 面の実体は非門前 {nongate_n/n:.1%}（{nongate_n:,}件）。
+**結論: {'門前薬局' if gate_n / n >= 0.5 else '門前依存ではない'}（門前型＝クリニックから{GATE_KM * 1000:.0f}m以内 {gate_n/n:.1%}）。** 非門前 {nongate_n/n:.1%}（{nongate_n:,}件）。
 
 | 区分 | 受診件数 | 構成比 | ユニーク患者 |
 |---|---:|---:|---:|
