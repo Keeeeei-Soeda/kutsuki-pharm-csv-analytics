@@ -30,6 +30,7 @@ from src.specialty_taxonomy import (
 )
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
+from src.viz.palette import PAL, apply_figure_style
 
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
@@ -57,9 +58,7 @@ PALETTE = {
 
 
 def _setup_font() -> None:
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = ["Hiragino Sans", "AppleGothic", "DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
+    apply_figure_style()
 
 
 # --------------------------------------------------------------------------
@@ -187,7 +186,7 @@ def fig_transition_heatmap(pairs: pd.DataFrame, labels: List[str]) -> Path:
             if pd.notna(v) and v >= 0.03:
                 ax.text(
                     j, i, f"{v:.0%}", ha="center", va="center", fontsize=7.5,
-                    color="#fff" if v > 0.55 else "#1c2430",
+                    color="#fff" if v > 0.55 else PAL.ink,
                 )
     ax.set_xlabel("次の来局の診療科")
     ax.set_ylabel("ある来局の診療科")
@@ -216,9 +215,9 @@ def fig_repeat_rate(pairs: pd.DataFrame, labels: List[str]) -> Tuple[Path, pd.Da
 
     fig, ax = plt.subplots(figsize=(9.5, 5.2))
     y = np.arange(len(tbl))
-    ax.barh(y, tbl["同一科リピート率"], color="#0f6a6a", label="次も同じ科")
+    ax.barh(y, tbl["同一科リピート率"], color=PAL.teal, label="次も同じ科")
     ax.barh(
-        y, tbl["診療科変更率"], left=tbl["同一科リピート率"], color="#c45c26", label="次は別の科"
+        y, tbl["診療科変更率"], left=tbl["同一科リピート率"], color=PAL.secondary, label="次は別の科"
     )
     ax.set_yticks(y)
     ax.set_yticklabels([f"{r.診療科}（{r.N:,}件）" for r in tbl.itertuples()], fontsize=9)
@@ -246,16 +245,16 @@ def fig_acute_to_chronic(wide: pd.DataFrame, spread: Dict[str, object]) -> Path:
     tbl = pd.DataFrame([r for r in spread["by_first"] if r["区分"] != "初回から内科系（参考）"])
     fig, ax = plt.subplots(figsize=(9.5, 5.0))
     y = np.arange(len(tbl))
-    ax.barh(y, tbl["内科到達率"], color=["#c45c26" if a else "#2f6f9f" for a in tbl["急性期"]])
+    ax.barh(y, tbl["内科到達率"], color=[PAL.secondary if a else PAL.primary for a in tbl["急性期"]])
     ax.set_yticks(y)
     ax.set_yticklabels([f"{r.初回診療科}（{r.N:,}人）" for r in tbl.itertuples()], fontsize=9)
     ax.invert_yaxis()
-    ax.axvline(spread["overall_rate"], color="#1c2430", ls="--", lw=1.2)
+    ax.axvline(spread["overall_rate"], color=PAL.ink, ls="--", lw=1.2)
     ax.annotate(
         f"初回内科系を除く全体 {spread['overall_rate']:.1%}",
         xy=(spread["overall_rate"], 0.02), xycoords=("data", "axes fraction"),
         xytext=(6, 0), textcoords="offset points",
-        fontsize=9, color="#1c2430", va="bottom", ha="left",
+        fontsize=9, color=PAL.ink, va="bottom", ha="left",
     )
     for i, r in enumerate(tbl.itertuples()):
         ax.text(r.内科到達率 + 0.008, i, f"{r.内科到達率:.1%}", va="center", fontsize=9)

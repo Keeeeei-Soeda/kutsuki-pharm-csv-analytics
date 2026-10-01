@@ -27,6 +27,7 @@ from src.io import (
 )
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
+from src.viz.palette import PAL, apply_figure_style
 
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
@@ -34,9 +35,7 @@ NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 
 
 def _setup_font() -> None:
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = ["Hiragino Sans", "AppleGothic", "DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
+    apply_figure_style()
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -147,9 +146,9 @@ def plain_map_axes(ax, gaz: pd.DataFrame, max_labels: int = 14, within_km: float
         if any(haversine_km(r["緯度"], r["経度"], la, lo) < min_gap_km for la, lo in placed):
             continue
         placed.append((r["緯度"], r["経度"]))
-        ax.text(r["経度"], r["緯度"], r["町名"], fontsize=7.5, color="#1b2430", ha="center", va="center",
+        ax.text(r["経度"], r["緯度"], r["町名"], fontsize=7.5, color=PAL.ink, ha="center", va="center",
                 bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.7))
-    ax.text(PHARMACY_LON, PHARMACY_LAT, "  自店", fontsize=9, fontweight="bold", color="#0f6a6a", va="center")
+    ax.text(PHARMACY_LON, PHARMACY_LAT, "  自店", fontsize=9, fontweight="bold", color=PAL.teal, va="center")
 
 
 def load_visits() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -227,17 +226,17 @@ def clinic_catchments(vt: pd.DataFrame, gaz: pd.DataFrame, min_visits: int = 100
                 xx, yy = np.meshgrid(np.linspace(xmin, xmax, 60), np.linspace(ymin, ymax, 60))
                 zz = kde(np.vstack([xx.ravel(), yy.ravel()])).reshape(xx.shape)
                 levels = np.quantile(zz, [0.2, 0.5])
-                ax.contour(xx, yy, zz, levels=levels, colors=["#4C78A8", "#E45756"], linewidths=1.2)
+                ax.contour(xx, yy, zz, levels=levels, colors=[PAL.series[0], PAL.accent], linewidths=1.2)
             except Exception:
                 pass
-            ax.scatter(lon_p, lat_p, s=6, alpha=0.25, c="#9ecae1")
+            ax.scatter(lon_p, lat_p, s=6, alpha=0.25, c=PAL.faint)
         if ell.get("ok"):
-            ax.scatter([ell["centroid_lon"]], [ell["centroid_lat"]], c="#E45756", s=40, marker="x")
+            ax.scatter([ell["centroid_lon"]], [ell["centroid_lat"]], c=PAL.accent, s=40, marker="x")
         clat = pd.to_numeric(sub["クリニック緯度"], errors="coerce").dropna()
         clon = pd.to_numeric(sub["クリニック経度"], errors="coerce").dropna()
         if len(clat):
-            ax.scatter([clon.iloc[0]], [clat.iloc[0]], c="#c45c26", s=50, marker="^", label="クリニック")
-        ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#0f6a6a", s=50, marker="s")
+            ax.scatter([clon.iloc[0]], [clat.iloc[0]], c=PAL.secondary, s=50, marker="^", label="クリニック")
+        ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c=PAL.teal, s=50, marker="s")
         med = d_road.median() if d_road.notna().any() else np.nan
         ax.set_title(f"{r['クリニック名'][:18]}\nN={int(r['件数'])} / 中央道路{med:.2f}km", fontsize=9)
         plain_map_axes(ax, gaz, max_labels=5, within_km=2.5)
@@ -406,7 +405,7 @@ def mesh_visit_rate(vt: pd.DataFrame, mesh: pd.DataFrame, gaz: pd.DataFrame) -> 
         cmap="viridis",
         alpha=0.85,
     )
-    ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#c45c26", s=80, marker="*", label="薬局")
+    ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c=PAL.secondary, s=80, marker="*", label="薬局")
     fig.colorbar(sc, ax=ax, label="人口1,000人あたりの来局者数")
     ax.set_title(
         f"メッシュ来局率（患者を最近傍メッシュへ割当）\nMoran's I≈{moran:.3f}（kNN=6・記述） Nメッシュ={n}"
@@ -476,13 +475,13 @@ def competitor_pressure(mesh: pd.DataFrame, comp: pd.DataFrame, gaz: pd.DataFram
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
     ax = axes[0]
     sc = ax.scatter(out["中心経度"], out["中心緯度"], c=out["競合数_1km"], s=35, cmap="Reds")
-    ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#0f6a6a", marker="*", s=90)
+    ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c=PAL.teal, marker="*", s=90)
     fig.colorbar(sc, ax=ax, label="1km内競合数")
     ax.set_title("メッシュ別 競合密度（1km）")
     plain_map_axes(ax, gaz, max_labels=10)
     ax = axes[1]
     sc = ax.scatter(out["中心経度"], out["中心緯度"], c=out["最近隣競合_km"], s=35, cmap="Blues_r")
-    ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#0f6a6a", marker="*", s=90)
+    ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c=PAL.teal, marker="*", s=90)
     fig.colorbar(sc, ax=ax, label="最近隣競合km")
     ax.set_title("メッシュ別 最近隣競合距離")
     plain_map_axes(ax, gaz, max_labels=10)
@@ -516,7 +515,7 @@ def plain_catchment_stats(mesh2: pd.DataFrame, comp: pd.DataFrame, pm: pd.DataFr
 
     fig, ax = plt.subplots(figsize=(10, 4.4))
     vals = by_band.values * 100
-    colors = ["#0f7c74" if b <= 1.0 else "#9aa4b1" for b in DISTANCE_BANDS[1:]]
+    colors = [PAL.near if b <= 1.0 else PAL.grey for b in DISTANCE_BANDS[1:]]
     ax.bar(labels, vals, color=colors)
     for i, v in enumerate(vals):
         ax.text(i, v, f"{v:.1f}%", ha="center", va="bottom", fontsize=10)
@@ -586,7 +585,7 @@ def network_analysis(vt: pd.DataFrame) -> Dict:
 
     # plot top betweenness clinics bar
     fig, ax = plt.subplots(figsize=(9, 5))
-    clinic_bt.iloc[::-1].plot(kind="barh", ax=ax, color="#2f6f9f")
+    clinic_bt.iloc[::-1].plot(kind="barh", ax=ax, color=PAL.primary)
     ax.set_title("クリニック媒介中心性（地区↔自店の結節）\n注: 自店フロー上の重要性。市場全体の中心性ではない")
     ax.set_xlabel("媒介中心性")
     fig.tight_layout()

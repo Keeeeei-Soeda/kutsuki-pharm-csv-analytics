@@ -20,6 +20,7 @@ from sklearn.preprocessing import StandardScaler
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
+from src.viz.palette import GATE, NONGATE, PAL, apply_figure_style
 
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
@@ -32,9 +33,7 @@ AXIS_PLAIN = {"門前型": "門前", "非門前型": "門前以外"}
 
 
 def _setup_font() -> None:
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = ["Hiragino Sans", "AppleGothic", "DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
+    apply_figure_style()
 
 
 def load_base() -> Dict[str, pd.DataFrame]:
@@ -170,7 +169,7 @@ def _retention_curve(df: pd.DataFrame, max_month: int = 12) -> pd.Series:
 
 def _plot_retention_curve(curves: Dict[str, pd.Series]) -> None:
     fig, ax = plt.subplots(figsize=(10, 4.6))
-    for label, color in [("門前", "#c45c26"), ("門前以外", "#2f6f9f")]:
+    for label, color in [("門前", GATE), ("門前以外", NONGATE)]:
         s = curves[label].iloc[1:] * 100
         ax.plot(s.index, s.values, marker="o", color=color, lw=2, label=f"初回が{label}")
         ax.text(s.index[-1] + 0.2, s.values[-1], f"{s.values[-1]:.0f}%", color=color, va="center", fontsize=10)
@@ -242,7 +241,7 @@ def first_retention_logit(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     ax = axes[0]
     by_axis = d.loc[mask].groupby("初回軸")["定着90"].mean()
-    by_axis.plot(kind="bar", ax=ax, color=["#c45c26", "#2f6f9f", "#888"])
+    by_axis.plot(kind="bar", ax=ax, color=[GATE, NONGATE, PAL.grey_line])
     ax.set_ylim(0, 1)
     ax.set_ylabel("90日以内再来率")
     ax.set_xticklabels([AXIS_PLAIN.get(str(t.get_text()), t.get_text()) for t in ax.get_xticklabels()], rotation=0)
@@ -252,8 +251,8 @@ def first_retention_logit(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
     ax = axes[1]
     keys = ["log距離", "年齢", "非門前", "上位門前クリニック"]
     sub = coef.loc[[k for k in keys if k in coef.index]]
-    ax.barh(sub.index, sub["OR"], color="#0f6a6a")
-    ax.axvline(1, color="#333", lw=1)
+    ax.barh(sub.index, sub["OR"], color=PAL.teal)
+    ax.axvline(1, color=PAL.ink, lw=1)
     ax.set_xlabel("オッズ比")
     ax.set_title("90日定着ロジスティック OR（相関）")
     fig.suptitle(f"{PHARMACY_NAME} 初回定着（新患フラグ不使用・自前定義）", y=1.02)
@@ -315,7 +314,7 @@ def visit_interval_survival(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
     km = KaplanMeierFitter()
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     ax = axes[0]
-    for label, color in [("門前型", "#c45c26"), ("非門前型", "#2f6f9f")]:
+    for label, color in [("門前型", GATE), ("非門前型", NONGATE)]:
         sub = obs.loc[obs["初回軸"] == label, "間隔日"].dropna()
         if len(sub) < 30:
             continue
@@ -328,9 +327,9 @@ def visit_interval_survival(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
     # histogram peaks
     ax = axes[1]
     clipped = obs["間隔日"].clip(upper=180)
-    ax.hist(clipped, bins=60, color="#0f6a6a", alpha=0.85)
+    ax.hist(clipped, bins=60, color=PAL.teal, alpha=0.85)
     for mark, name in [(28, "28日"), (56, "56日"), (84, "84日")]:
-        ax.axvline(mark, color="#c45c26", ls="--", lw=1, label=name if mark == 28 else None)
+        ax.axvline(mark, color=PAL.secondary, ls="--", lw=1, label=name if mark == 28 else None)
     ax.set_title("再来間隔ヒストグラム（180日でクリップ）")
     ax.set_xlabel("日")
     ax.legend(["28/56/84日目安"])
@@ -403,7 +402,7 @@ def ltv_empirical(patients: pd.DataFrame, survival_med_gap: float) -> Dict:
     )
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    for label, color in [("門前型", "#c45c26"), ("非門前型", "#2f6f9f")]:
+    for label, color in [("門前型", GATE), ("非門前型", NONGATE)]:
         sub = p.loc[p["初回軸"] == label, "受診回数"].clip(upper=40)
         ax.hist(sub, bins=40, alpha=0.55, label=f"初回が{AXIS_PLAIN[label]}", color=color)
     ax.set_title(f"来局回数分布とLTV感度（粗利仮置き {margin:,.0f}円/回）\nLTV=来局回数×粗利。打ち切りあり＝下限寄り")
@@ -466,8 +465,8 @@ def multilevel_visits(patients: pd.DataFrame) -> Dict:
         _setup_font()
         fig, ax = plt.subplots(figsize=(8, 5))
         plot_df = top.iloc[::-1]
-        ax.barh(plot_df["クリニック名"].astype(str).str[:18], plot_df["RE"], color="#2f6f9f")
-        ax.axvline(0, color="#333", lw=1)
+        ax.barh(plot_df["クリニック名"].astype(str).str[:18], plot_df["RE"], color=PAL.primary)
+        ax.axvline(0, color=PAL.ink, lw=1)
         ax.set_title(f"初回クリニックのランダム切片（log来局） ICC≈{icc:.3f}\n正＝そのクリニック経由患者の来局が多い")
         fig.tight_layout()
         fig.savefig(FIGURES / "phase4_multilevel.png", dpi=150, bbox_inches="tight")
@@ -514,10 +513,10 @@ def cluster_patients(patients: pd.DataFrame) -> Dict:
     pd.DataFrame(scores).to_csv(PROCESSED_DIR / "phase4_cluster_silhouette.csv", index=False, encoding="utf-8-sig")
 
     fig, ax = plt.subplots(figsize=(8, 4.8))
-    colors = plt.get_cmap("tab10")
+    colors = PAL.categorical
     for i, (c, r) in enumerate(summary.iterrows()):
         sub = d.loc[d["クラスタ"] == c]
-        ax.scatter(sub["道路km"], sub["受診回数"].clip(upper=40), s=10, alpha=0.5, color=colors(i),
+        ax.scatter(sub["道路km"], sub["受診回数"].clip(upper=40), s=10, alpha=0.5, color=colors[i % len(colors)],
                    label=f"{r['タイプ']}（{int(r['人数']):,}人）")
     ax.set_xlabel("薬局までの道のり（km）")
     ax.set_ylabel("来局回数（40回以上は40として表示）")

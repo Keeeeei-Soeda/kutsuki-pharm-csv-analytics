@@ -29,6 +29,7 @@ from src.models.huff import attractiveness_from_competitor, fit_lambda_grid, huf
 from src.models.simulator import GrowthInputs, baseline_decomposition, simulate_scenarios, tornado_sensitivities
 from src.phase2_catchment import plain_map_axes, town_gazetteer
 from src.viz.html_report import HtmlReport
+from src.viz.palette import GATE, PAL, apply_figure_style
 
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
@@ -37,9 +38,7 @@ NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 
 
 def _setup_font() -> None:
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = ["Hiragino Sans", "AppleGothic", "DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
+    apply_figure_style()
 
 
 def _age_key(a: str) -> int:
@@ -205,7 +204,7 @@ def fit_visit_rate_glm(pv: pd.DataFrame) -> Dict:
         .agg(人口=("人口", "sum"), 来局=("来局患者数", "sum"), 道路距離_km=("道路距離_km", "first"))
     )
     reg["来局率"] = reg["来局"] / reg["人口"]
-    ax.scatter(reg["道路距離_km"], reg["来局率"] * 1000, s=18, alpha=0.55, c="#2f6f9f")
+    ax.scatter(reg["道路距離_km"], reg["来局率"] * 1000, s=18, alpha=0.55, c=PAL.primary)
     xs = np.linspace(0.1, 30, 100)
     # partial effect curve holding other X at means (approx)
     # use age=30-34, year=2026 if present
@@ -228,7 +227,7 @@ def fit_visit_rate_glm(pv: pd.DataFrame) -> Dict:
         elif f"age_{a}" in model.params:
             rel.append((a, float(np.exp(model.params[f"age_{a}"]))))
     rdf = pd.DataFrame(rel, columns=["年齢階級", "相対オッズ"])
-    rdf.plot(x="年齢階級", y="相対オッズ", kind="bar", ax=ax, legend=False, color="#c45c26")
+    rdf.plot(x="年齢階級", y="相対オッズ", kind="bar", ax=ax, legend=False, color=PAL.secondary)
     ax.set_title(f"年齢階級FE（基準={base_age}）")
     ax.tick_params(axis="x", rotation=45)
     fig.suptitle(f"{PHARMACY_NAME} 集計来局率モデル（自店来局÷住基人口）", y=1.02)
@@ -427,8 +426,8 @@ def clinic_choice_clogit(vt: pd.DataFrame, cm: pd.DataFrame, radius_km: float = 
     # figure
     fig, ax = plt.subplots(figsize=(6, 4))
     labs = ["距離km", "門前", "log標榜数"]
-    ax.barh(labs, theta, xerr=se, color=["#2f6f9f", "#c45c26", "#0f6a6a"], alpha=0.85)
-    ax.axvline(0, color="#333", lw=1)
+    ax.barh(labs, theta, xerr=se, color=[PAL.primary, GATE, PAL.teal], alpha=0.85)
+    ax.axvline(0, color=PAL.ink, lw=1)
     ax.set_title(
         f"クリニック選択 条件付きロジット（半径{radius_km}km）\n"
         f"N患者={out['n_patients']} / McFadden R²={mcf:.3f}\n注: 自店来局条件付き・市場選択ではない"
@@ -461,7 +460,7 @@ def run_huff(mesh_rate: pd.DataFrame, comp: pd.DataFrame, gaz: pd.DataFrame) -> 
     ax.set_title(f"Huff 距離減衰の強さの探索（最良={best['lambda']}）")
     ax = axes[1]
     sc = ax.scatter(pred["中心経度"], pred["中心緯度"], c=pred["残差"], s=35, cmap="coolwarm")
-    ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c="#0f6a6a", marker="*", s=90)
+    ax.scatter([PHARMACY_LON], [PHARMACY_LAT], c=PAL.teal, marker="*", s=90)
     fig.colorbar(sc, ax=ax, label="来局率 - スケール済Huff")
     ax.set_title("Huff残差マップ（正=想定より取れている）\n注: 記述ベンチマーク。因果解釈しない")
     plain_map_axes(ax, gaz, max_labels=10)
@@ -477,15 +476,15 @@ def plain_scenario_figure(scen: pd.DataFrame, level: CurrentLevel) -> Path:
     s = scen.loc[~scen["シナリオ"].str.startswith("参考")].iloc[::-1]
     labels = [SCENARIO_PLAIN.get(n, n) for n in s["シナリオ"]]
     fig, ax = plt.subplots(figsize=(11, 5.6))
-    ax.barh(labels, s["予測月間件数"], color="#9aa4b1")
+    ax.barh(labels, s["予測月間件数"], color=PAL.grey)
     for i, v in enumerate(s["予測月間件数"]):
         ax.text(v, i, f"  {v:,.0f}枚", va="center", fontsize=9.5)
-    ax.axvline(level.recent_mean, color="#1b2430", ls=":", lw=1.5)
-    ax.axvline(level.target, color="#b4540a", ls="--", lw=2)
+    ax.axvline(level.recent_mean, color=PAL.ink, ls=":", lw=1.5)
+    ax.axvline(level.target, color=PAL.target, ls="--", lw=2)
     gap = level.target * 0.01
     ax.text(level.recent_mean - gap, len(s) - 0.4, f"現状 {level.recent_mean:,.0f}枚", ha="right", fontsize=9)
     ax.text(level.target - gap, len(s) - 0.4, f"目標 {level.target:,.0f}枚", ha="right", fontsize=9,
-            color="#b4540a", fontweight="bold")
+            color=PAL.target, fontweight="bold")
     ax.set_xlim(0, level.target * 1.1)
     ax.set_ylim(-0.6, len(s) + 0.2)
     ax.set_xlabel("到達する処方箋（枚／月）")
@@ -511,18 +510,18 @@ def run_growth_sim(level: CurrentLevel) -> Dict:
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
     ax = axes[0]
     s = scen.loc[~scen["シナリオ"].str.startswith("参考")]
-    colors = ["#0f6a6a" if v else "#c45c26" for v in s["目標3,000到達"]]
+    colors = [PAL.teal if v else PAL.secondary for v in s["目標3,000到達"]]
     ax.barh(s["シナリオ"], s["予測月間件数"], color=colors)
-    ax.axvline(level.recent_mean, color="#666", ls=":", label=f"現状（{level.period_label}平均）")
-    ax.axvline(level.target, color="#c45c26", ls="--", label="目標3000")
+    ax.axvline(level.recent_mean, color=PAL.grey_line, ls=":", label=f"現状（{level.period_label}平均）")
+    ax.axvline(level.target, color=PAL.target, ls="--", label="目標3000")
     ax.set_xlabel("月間件数（一次近似）")
     ax.set_title("成長シナリオ（交互作用無視の感度）")
     ax.legend(fontsize=8)
 
     ax = axes[1]
     t = tornado.iloc[::-1]
-    ax.hlines(t["レバー"], t["低"], t["高"], color="#2f6f9f", lw=6)
-    ax.axvline(t["ベース"].iloc[0], color="#c45c26", ls="--")
+    ax.hlines(t["レバー"], t["低"], t["高"], color=PAL.primary, lw=6)
+    ax.axvline(t["ベース"].iloc[0], color=PAL.secondary, ls="--")
     ax.set_title("感度トルネード（各±10%）")
     ax.set_xlabel("月間件数")
     fig.tight_layout()

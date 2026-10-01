@@ -18,6 +18,8 @@ from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_c
 from src.kpi import CurrentLevel, current_level, save_page_summary
 from src.models.simulator import GrowthInputs, baseline_decomposition, simulate_scenarios, tornado_sensitivities
 from src.viz.html_report import HtmlReport
+from src.viz.palette import PAL, apply_figure_style
+from src.viz.palette import PAL, apply_figure_style
 
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
@@ -28,9 +30,7 @@ VALID_START = "2026-02"
 
 
 def _setup_font() -> None:
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = ["Hiragino Sans", "AppleGothic", "DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
+    apply_figure_style()
 
 
 def monthly_series() -> pd.DataFrame:
@@ -172,12 +172,12 @@ def forecast_holdout(df: pd.DataFrame) -> Dict:
     # plot
     fig, axes = plt.subplots(2, 1, figsize=(11, 7), sharex=False)
     ax = axes[0]
-    ax.plot(months, y.values, color="#333", lw=1.5, label="実績")
-    ax.axvline(train_idx[-1], color="#888", ls="--", label="学習/検証境界")
+    ax.plot(months, y.values, color=PAL.ink, lw=1.5, label="実績")
+    ax.axvline(train_idx[-1], color=PAL.grey_line, ls="--", label="学習/検証境界")
     best = metrics.iloc[0]["モデル"]
-    ax.plot(valid_idx, preds[best], "o-", color="#0f6a6a", label=f"最良:{best}")
-    ax.plot(valid_idx, preds["移動平均3"], "s--", color="#2f6f9f", alpha=0.8, label="移動平均3")
-    ax.plot(valid_idx, preds["前年同月"], "^--", color="#c45c26", alpha=0.8, label="前年同月")
+    ax.plot(valid_idx, preds[best], "o-", color=PAL.teal, label=f"最良:{best}")
+    ax.plot(valid_idx, preds["移動平均3"], "s--", color=PAL.primary, alpha=0.8, label="移動平均3")
+    ax.plot(valid_idx, preds["前年同月"], "^--", color=PAL.secondary, alpha=0.8, label="前年同月")
     ax.set_title(
         f"{PHARMACY_NAME} 月次件数 予測検証（学習〜{TRAIN_END} / 検証{VALID_START}〜）\n"
         f"最良 MAE={metrics.iloc[0]['MAE']:.1f} / MAPE={metrics.iloc[0]['MAPE%']:.1f}%"
@@ -187,7 +187,7 @@ def forecast_holdout(df: pd.DataFrame) -> Dict:
     ax.tick_params(axis="x", rotation=45)
 
     ax = axes[1]
-    ax.barh(metrics["モデル"], metrics["MAE"], color="#0f6a6a")
+    ax.barh(metrics["モデル"], metrics["MAE"], color=PAL.teal)
     ax.set_xlabel("MAE（検証期）")
     ax.set_title("ベースライン比較（低いほど良い）")
     fig.tight_layout()
@@ -219,13 +219,13 @@ def draw_integrated_diagram() -> Path:
     def box(x, y, w, h, text, color):
         r = mpatches.FancyBboxPatch(
             (x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.15",
-            facecolor=color, edgecolor="#1c2430", lw=1.2, alpha=0.92,
+            facecolor=color, edgecolor=PAL.ink, lw=1.2, alpha=0.92,
         )
         ax.add_patch(r)
-        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=9, color="#1c2430")
+        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=9, color=PAL.ink)
 
     def arrow(x1, y1, x2, y2):
-        ax.annotate("", xy=(x2, y2), xytext=(x1, y1), arrowprops=dict(arrowstyle="->", color="#333", lw=1.4))
+        ax.annotate("", xy=(x2, y2), xytext=(x1, y1), arrowprops=dict(arrowstyle="->", color=PAL.ink, lw=1.4))
 
     ax.text(6, 7.6, f"{PHARMACY_NAME} 統合患者獲得モデル（記述〜予測）", ha="center", fontsize=14, fontweight="bold")
 
@@ -252,7 +252,7 @@ def draw_integrated_diagram() -> Path:
     arrow(4.0, 2.1, 4.3, 2.1)
     arrow(7.8, 2.1, 8.1, 2.1)
 
-    ax.text(6, 0.5, "※世帯は住所詳細空欄のため未実装 / 係数は因果ではない / 自店データ限定", ha="center", fontsize=8, color="#5c6675")
+    ax.text(6, 0.5, "※世帯は住所詳細空欄のため未実装 / 係数は因果ではない / 自店データ限定", ha="center", fontsize=8, color=PAL.note)
 
     out = FIGURES / "phase6_integrated_diagram.png"
     fig.tight_layout()
@@ -270,13 +270,13 @@ def plain_forecast_figure(df: pd.DataFrame, level: CurrentLevel, next_month: str
     nx = pd.Period(next_month, freq="M").to_timestamp()
 
     fig, ax = plt.subplots(figsize=(11, 4.8))
-    ax.plot(x, y.values, color="#1b2430", lw=2, marker="o", ms=3.5, label="実績")
-    ax.plot(x, ma3.values, color="#2f6f9f", lw=1.5, ls="--", label="見込み（直前3か月の平均）")
-    ax.errorbar([nx], [level.recent_mean], yerr=[[mae], [mae]], fmt="o", color="#2f6f9f", ms=8, capsize=5)
+    ax.plot(x, y.values, color=PAL.ink, lw=2, marker="o", ms=3.5, label="実績")
+    ax.plot(x, ma3.values, color=PAL.primary, lw=1.5, ls="--", label="見込み（直前3か月の平均）")
+    ax.errorbar([nx], [level.recent_mean], yerr=[[mae], [mae]], fmt="o", color=PAL.primary, ms=8, capsize=5)
     ax.annotate(f"来月の見込み\n約{level.recent_mean:,.0f}枚（±{mae:,.0f}）", (nx, level.recent_mean),
-                xytext=(-10, 30), textcoords="offset points", ha="right", fontsize=10, color="#2f6f9f")
-    ax.axhline(level.target, color="#b4540a", ls="--", lw=1.5)
-    ax.text(x[0], level.target, f"目標 {level.target:,.0f}枚", va="bottom", color="#b4540a", fontsize=10)
+                xytext=(-10, 30), textcoords="offset points", ha="right", fontsize=10, color=PAL.primary)
+    ax.axhline(level.target, color=PAL.target, ls="--", lw=1.5)
+    ax.text(x[0], level.target, f"目標 {level.target:,.0f}枚", va="bottom", color=PAL.target, fontsize=10)
     ax.set_ylim(0, level.target * 1.1)
     ax.set_ylabel("処方箋（枚／月）")
     ax.spines[["top", "right"]].set_visible(False)
@@ -319,10 +319,10 @@ def enhance_simulator_plot(level: CurrentLevel) -> Dict:
 
     fig, ax = plt.subplots(figsize=(10, 5))
     y = np.arange(len(band_df))
-    ax.hlines(y, band_df["p10"], band_df["p90"], color="#2f6f9f", lw=6, label="P10–P90")
-    ax.plot(band_df["p50"], y, "o", color="#0f6a6a", label="中央値")
-    ax.axvline(inp.target_monthly, color="#c45c26", ls="--", label=f"目標{inp.target_monthly:,.0f}")
-    ax.axvline(level.recent_mean, color="#888", ls=":", label=f"現状{level.recent_mean:,.0f}（{level.period_label}平均）")
+    ax.hlines(y, band_df["p10"], band_df["p90"], color=PAL.primary, lw=6, label="P10–P90")
+    ax.plot(band_df["p50"], y, "o", color=PAL.teal, label="中央値")
+    ax.axvline(inp.target_monthly, color=PAL.target, ls="--", label=f"目標{inp.target_monthly:,.0f}")
+    ax.axvline(level.recent_mean, color=PAL.grey_line, ls=":", label=f"現状{level.recent_mean:,.0f}（{level.period_label}平均）")
     ax.set_yticks(y)
     ax.set_yticklabels(band_df["シナリオ"])
     ax.set_xlabel("月間件数（シナリオ中央値±不確実性バンド）")

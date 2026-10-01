@@ -5,6 +5,7 @@
 :root {
   /* ベース */
   --bg: #fbf6f1;            /* 生成り */
+  --bg-overlay: rgba(251, 246, 241, .94);  /* 地図の上に重ねる小箱 */
   --surface: #ffffff;
   --ink: #3a2e28;           /* こげ茶 */
   --muted: #6b5a52;
@@ -280,7 +281,7 @@ details.expert h3 { margin-top: 24px; }
 
 /* ===== 地図ページ ===== */
 #map, iframe.map { border: none; border-radius: var(--radius); box-shadow: var(--shadow); }
-.map-legend { border-radius: 14px; }
+.map-legend { border-radius: 14px; background: var(--bg-overlay); border-color: var(--line); box-shadow: var(--shadow); }
 
 .footer { border-top: 1px dashed var(--line); color: var(--muted); }
 .note { border-radius: var(--radius-sm); }

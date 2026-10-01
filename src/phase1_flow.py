@@ -19,6 +19,7 @@ from statsmodels.tsa.seasonal import STL
 
 from src.corrections import gate_distance_km
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv
+from src.viz.palette import GATE, NONGATE, PAL, apply_figure_style
 
 GATE_KM = gate_distance_km()
 
@@ -27,14 +28,12 @@ REPORTS = ROOT / "reports"
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 # 図の表記（分析上の区分名 → 薬局長向けの言い方）
 AXIS_PLAIN = {"門前型": "門前", "非門前型": "門前以外"}
-COLOR_GATE = "#c45c26"
-COLOR_NONGATE = "#2f6f9f"
+COLOR_GATE = GATE
+COLOR_NONGATE = NONGATE
 
 
 def _setup_font() -> None:
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = ["Hiragino Sans", "AppleGothic", "DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
+    apply_figure_style()
 
 
 def _axis_label(pattern: pd.Series) -> pd.Series:
@@ -106,10 +105,10 @@ def abc_pareto(vt: pd.DataFrame, cm: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         g.to_csv(PROCESSED_DIR / f"abc_clinics_{axis_name}.csv", index=False, encoding="utf-8-sig")
 
         top = g.head(20)
-        ax.bar(range(len(top)), top["件数"], color="#F58518" if axis_name == "門前型" else "#4C78A8")
+        ax.bar(range(len(top)), top["件数"], color=PAL.gate_bar if axis_name == "門前型" else PAL.nongate_bar)
         ax2 = ax.twinx()
-        ax2.plot(range(len(top)), top["累積構成比"], color="#E45756", marker="o", ms=3)
-        ax2.axhline(0.8, ls="--", color="gray", lw=1)
+        ax2.plot(range(len(top)), top["累積構成比"], color=PAL.accent, marker="o", ms=3)
+        ax2.axhline(0.8, ls="--", color=PAL.grey_line, lw=1)
         ax2.set_ylim(0, 1.05)
         plain = AXIS_PLAIN[axis_name]
         ax.set_title(
@@ -209,14 +208,14 @@ def time_series_analysis(vt: pd.DataFrame) -> Dict:
     # figures
     fig, axes = plt.subplots(3, 1, figsize=(11, 9), sharex=False)
     ax = axes[0]
-    ax.plot(daily.index, daily.values, lw=0.8, color="#4C78A8", label="日次")
-    ax.plot(stl_df.index, stl_df["trend"], lw=1.5, color="#E45756", label="傾向（STL）")
+    ax.plot(daily.index, daily.values, lw=0.8, color=PAL.series[0], label="日次")
+    ax.plot(stl_df.index, stl_df["trend"], lw=1.5, color=PAL.accent, label="傾向（STL）")
     ax.set_title(f"日次受診件数とSTLトレンド（period=7） N日={daily.shape[0]}")
     ax.legend(loc="upper right")
     ax.set_ylabel("件数")
 
     ax = axes[1]
-    dow.plot(kind="bar", ax=ax, color="#54A24B")
+    dow.plot(kind="bar", ax=ax, color=PAL.series[2])
     ax.set_title("曜日別合計（日曜=0は休業/非取扱の可能性。祝日フラグ未整備）")
     ax.set_ylabel("件数")
 
@@ -329,21 +328,21 @@ def exogenous_glm(vt: pd.DataFrame) -> Dict:
     # figure: daily vs pollen / flu
     fig, axes = plt.subplots(2, 1, figsize=(11, 7), sharex=True)
     ax = axes[0]
-    ax.plot(df.index, df["件数"], color="#4C78A8", lw=0.7, label="日次件数(月〜土)")
+    ax.plot(df.index, df["件数"], color=PAL.series[0], lw=0.7, label="日次件数(月〜土)")
     ax.set_ylabel("件数")
     ax.legend(loc="upper left")
     ax2 = ax.twinx()
-    ax2.plot(df.index, df["花粉合計"], color="#F58518", lw=0.8, alpha=0.7, label="花粉合計(欠測は空白)")
+    ax2.plot(df.index, df["花粉合計"], color=PAL.series[1], lw=0.8, alpha=0.7, label="花粉合計(欠測は空白)")
     ax2.set_ylabel("花粉合計")
     ax.set_title("日次件数 vs 花粉（0埋めなし。欠測区間は空白）")
 
     ax = axes[1]
-    ax.plot(df.index, df["件数"], color="#4C78A8", lw=0.7)
+    ax.plot(df.index, df["件数"], color=PAL.series[0], lw=0.7)
     ax2 = ax.twinx()
     if "定当_インフルエンザ" in df.columns:
-        ax2.plot(df.index, df["定当_インフルエンザ"], color="#E45756", lw=0.9, label="インフル定当(府)")
+        ax2.plot(df.index, df["定当_インフルエンザ"], color=PAL.accent, lw=0.9, label="インフル定当(府)")
     if "定当_COVID-19" in df.columns:
-        ax2.plot(df.index, df["定当_COVID-19"], color="#B279A2", lw=0.9, label="COVID定当(府)")
+        ax2.plot(df.index, df["定当_COVID-19"], color=PAL.series[3], lw=0.9, label="COVID定当(府)")
     ax2.legend(loc="upper right")
     ax.set_title("日次件数 vs 大阪府感染症定点（生態学的相関。個人疾患ではない）")
     fig.tight_layout()
@@ -409,24 +408,24 @@ def patient_portfolio(vt: pd.DataFrame, pm: pd.DataFrame) -> Dict:
     # age order
     order = [f"{a}-{a+4}" for a in range(0, 85, 5)] + ["85+"]
     age_counts = port["年齢階級"].value_counts().reindex(order).fillna(0)
-    age_counts.plot(kind="bar", ax=ax, color="#4C78A8")
+    age_counts.plot(kind="bar", ax=ax, color=PAL.series[0])
     ax.set_title(f"年齢階級分布（基準日2026-07-31固定） N患者={len(port):,}")
     ax.tick_params(axis="x", rotation=45)
 
     ax = axes[0, 1]
-    city_top.plot(kind="barh", ax=ax, color="#54A24B")
+    city_top.plot(kind="barh", ax=ax, color=PAL.series[2])
     ax.invert_yaxis()
     ax.set_title("市区町村 Top15（visit_triangle由来・自店患者）")
 
     ax = axes[1, 0]
-    visit_hist.plot(kind="hist", bins=30, ax=ax, color="#F58518", edgecolor="white")
+    visit_hist.plot(kind="hist", bins=30, ax=ax, color=PAL.series[1], edgecolor="white")
     ax.set_title("来局回数分布（30回超は30にクリップ表示）")
     ax.set_xlabel("受診回数")
     ax.set_ylabel("人数")
 
     ax = axes[1, 1]
     vc = port["受診クリニック数"].value_counts().sort_index()
-    vc.plot(kind="bar", ax=ax, color="#E45756")
+    vc.plot(kind="bar", ax=ax, color=PAL.accent)
     ax.set_title(f"受診クリニック数（2施設以上={int(port['面利用候補'].sum()):,}人={(port['面利用候補'].mean()):.1%}）")
     ax.set_xlabel("クリニック数")
 

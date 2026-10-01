@@ -29,6 +29,7 @@ from src.corrections import gate_distance_km
 from src.io import PHARMACY_NAME, PROCESSED_DIR, RAW_DIR, ROOT, SEED, ensure_dirs, read_csv
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
+from src.viz.palette import GATE, NONGATE, PAL, apply_figure_style
 
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
@@ -47,17 +48,15 @@ ITS_START = pd.Timestamp("2024-12-01")
 ITS_START_ALT = pd.Timestamp("2025-01-01")
 EXCEL_MONTHS = pd.period_range("2024-09", periods=24, freq="M")
 
-COLOR_NEAR = "#0f7c74"
-COLOR_FAR = "#8a94a3"
-COLOR_GATE = "#c45c26"
-COLOR_NONGATE = "#2f6f9f"
-COLOR_EVENT = "#b4540a"
+COLOR_NEAR = PAL.near
+COLOR_FAR = PAL.far
+COLOR_GATE = GATE
+COLOR_NONGATE = NONGATE
+COLOR_EVENT = PAL.target
 
 
 def _setup_font() -> None:
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = ["Hiragino Sans", "AppleGothic", "DejaVu Sans"]
-    plt.rcParams["axes.unicode_minus"] = False
+    apply_figure_style()
 
 
 # --------------------------------------------------------------------------
@@ -361,7 +360,7 @@ def plot_timeline(aux: pd.DataFrame, ev: pd.DataFrame) -> Path:
     d = aux.loc[:"2026-07"]
     x = d.index.to_timestamp()
     fig, ax = plt.subplots(figsize=(11, 4.6))
-    ax.plot(x, d["処方箋枚数"], color="#1b2430", lw=2, label="処方箋枚数（全体）")
+    ax.plot(x, d["処方箋枚数"], color=PAL.ink, lw=2, label="処方箋枚数（全体）")
     ax.plot(x, d["門前(はせ、平山）枚数"], color=COLOR_GATE, lw=1.6, label="門前2院の枚数")
     ax.plot(x, d["広域合計枚数"], color=COLOR_NONGATE, lw=1.6, label="広域（門前以外）の枚数")
     ax.plot(x, d["新患数"], color=COLOR_NEAR, lw=1.6, ls="--", label="新患数")
@@ -370,7 +369,7 @@ def plot_timeline(aux: pd.DataFrame, ev: pd.DataFrame) -> Path:
     ax.set_title(f"{PHARMACY_NAME} 月次推移と施策イベント（2024-09〜2026-07、補助資料）")
     ax.legend(fontsize=8, ncol=4, loc="upper left")
     legend = "  ".join(f"{i + 1}:{n}" for i, n in enumerate(ev["name"]))
-    fig.text(0.01, -0.04, legend, fontsize=7.5, color="#5b6776", wrap=True)
+    fig.text(0.01, -0.04, legend, fontsize=7.5, color=PAL.note, wrap=True)
     fig.tight_layout()
     out = FIGURES / "phase5_timeline.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
@@ -426,7 +425,7 @@ def plot_flyer_weekly(did: Dict, ev: pd.DataFrame, weeks: pd.PeriodIndex) -> Pat
     ax.legend(fontsize=8)
     ax = axes[1]
     ratio = np.log((near + 0.5) / (far + 0.5))
-    ax.plot(x, ratio, color="#1b2430", lw=1)
+    ax.plot(x, ratio, color=PAL.ink, lw=1)
     ax.plot(x, pd.Series(ratio).rolling(5, center=True).mean(), color=COLOR_NEAR, lw=2, label="5週移動平均")
     ax.set_ylabel("log(近距離/遠距離)")
     ax.legend(fontsize=8)
@@ -448,7 +447,7 @@ def plot_flyer_effects(did: Dict) -> Path:
     for ev_name in events:
         sub = t.loc[t["イベント"] == ev_name]
         for _, r in sub.iterrows():
-            color = COLOR_NEAR if r["主分析"] else "#9aa4b1"
+            color = COLOR_NEAR if r["主分析"] else PAL.grey
             ax.errorbar(r["効果%"], y, xerr=[[r["効果%"] - r["下限%"]], [r["上限%"] - r["効果%"]]],
                         fmt="o", color=color, ms=6 if r["主分析"] else 4, capsize=2)
             spec = (f"{r['近距離km']:g}km以内 vs {r['遠距離km']:g}km超"
@@ -458,7 +457,7 @@ def plot_flyer_effects(did: Dict) -> Path:
             labels.append(f"{ev_name[:14]}｜{spec}" if r["主分析"] else spec)
             y -= 1
         y -= 0.6
-    ax.axvline(0, color="#1b2430", lw=1)
+    ax.axvline(0, color=PAL.ink, lw=1)
     ax.set_yticks(ticks)
     ax.set_yticklabels(labels, fontsize=7.5)
     ax.set_xlabel("近距離の新患の変化（%、95%信頼区間）")
@@ -468,9 +467,9 @@ def plot_flyer_effects(did: Dict) -> Path:
     main = t.loc[t["主分析"]]
     for i, (_, r) in enumerate(main.iterrows()):
         dist = did["placebo"].get(r["id"], np.array([]))
-        ax.scatter(np.expm1(dist) * 100, np.full(len(dist), i), s=8, color="#9aa4b1", alpha=0.6)
+        ax.scatter(np.expm1(dist) * 100, np.full(len(dist), i), s=8, color=PAL.grey, alpha=0.6)
         ax.scatter(r["効果%"], i, s=60, color=COLOR_NEAR, zorder=3)
-    ax.axvline(0, color="#1b2430", lw=1)
+    ax.axvline(0, color=PAL.ink, lw=1)
     ax.set_yticks(range(len(main)))
     ax.set_yticklabels([f"{n[:12]}（p={p:.2f}）" for n, p in zip(main["イベント"], main["プラセボp"])], fontsize=8)
     ax.set_xlabel("変化（%）")
@@ -496,7 +495,7 @@ def plot_its(its: Dict, ev: pd.DataFrame, weeks: pd.PeriodIndex) -> Path:
     ax = axes[0]
     ax.plot(x, panel.loc[ng, "y"].values, color=COLOR_NONGATE, lw=1, alpha=0.6, label="非門前 実績")
     ax.plot(x, fitted.values, color=COLOR_NONGATE, lw=2, label="非門前 モデル")
-    ax.plot(x, cf.values, color="#1b2430", lw=1.5, ls="--", label="非門前 施策がなかった場合（推定）")
+    ax.plot(x, cf.values, color=PAL.ink, lw=1.5, ls="--", label="非門前 施策がなかった場合（推定）")
     _event_lines(ax, ev)
     ax.set_ylabel("処方箋／週")
     ax.set_title("継続施策の比較ITS: 非門前の処方箋（門前との比で週ごとの共通変動を相殺、2024-12以降）")

@@ -13,19 +13,14 @@ import pandas as pd
 
 from src.corrections import gate_distance_km
 from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs, read_csv
+from src.viz.palette import PAL, apply_figure_style
 
 FIGURES = ROOT / "reports" / "figures"
 REPORTS = ROOT / "reports"
 
 
 def _setup_font() -> None:
-    plt.rcParams["font.family"] = "sans-serif"
-    plt.rcParams["font.sans-serif"] = [
-        "Hiragino Sans",
-        "AppleGothic",
-        "DejaVu Sans",
-    ]
-    plt.rcParams["axes.unicode_minus"] = False
+    apply_figure_style()
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -86,7 +81,7 @@ def phase1_gate_stats() -> dict:
     summary.to_csv(PROCESSED_DIR / "gate_stratified_summary.csv", index=False, encoding="utf-8-sig")
 
     fig, ax = plt.subplots(figsize=(10, 4.5))
-    monthly.plot(kind="bar", stacked=True, ax=ax, color=["#F58518", "#4C78A8"], width=0.85)
+    monthly.plot(kind="bar", stacked=True, ax=ax, color=[PAL.gate_bar, PAL.nongate_bar], width=0.85)
     ax.set_title(
         f"門前型 vs 非門前型の月別受診件数\n{PHARMACY_NAME} / N={n:,} "
         f"（門前型 {gate_n:,}={gate_n/n:.1%} / 非門前 {non_gate_n:,}={non_gate_n/n:.1%}）"
@@ -236,7 +231,7 @@ def visit_rate_and_decay() -> Path:
     # plot region scatter + band curve
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     ax = axes[0]
-    ax.scatter(merged["道路距離_km"], merged["来局率"] * 1000, s=18, alpha=0.6, c="#4C78A8")
+    ax.scatter(merged["道路距離_km"], merged["来局率"] * 1000, s=18, alpha=0.6, c=PAL.series[0])
     # log-distance simple fit for visual
     x = merged["道路距離_km"].values
     y = merged["来局率"].values
@@ -245,7 +240,7 @@ def visit_rate_and_decay() -> Path:
         coef = np.polyfit(np.log(x[mask]), np.log(y[mask]), 1)
         xs = np.linspace(max(x[mask].min(), 0.05), x[mask].max(), 100)
         ys = np.exp(coef[1] + coef[0] * np.log(xs))
-        ax.plot(xs, ys * 1000, color="#E45756", label=f"log-log傾き={coef[0]:.2f}")
+        ax.plot(xs, ys * 1000, color=PAL.accent, label=f"log-log傾き={coef[0]:.2f}")
         ax.legend()
     ax.set_xlabel("地域中央値 患者→薬局 道路km（自店患者）")
     ax.set_ylabel("来局率 ×1000（2026・地域合計）")
@@ -253,7 +248,7 @@ def visit_rate_and_decay() -> Path:
 
     ax2 = axes[1]
     decay_plot = decay.dropna(subset=["来局率_粗"]).copy()
-    ax2.bar(range(len(decay_plot)), decay_plot["来局率_粗"] * 1000, color="#54A24B")
+    ax2.bar(range(len(decay_plot)), decay_plot["来局率_粗"] * 1000, color=PAL.series[2])
     ax2.set_xticks(range(len(decay_plot)))
     ax2.set_xticklabels([str(i) for i in decay_plot.index], rotation=45, ha="right")
     ax2.set_ylabel("粗来局率 ×1000")
