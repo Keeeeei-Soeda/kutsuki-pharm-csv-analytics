@@ -8,6 +8,7 @@ Phase を増やすときは :data:`NAV_PAGES` を1行足すだけでよい。
 from __future__ import annotations
 
 import html
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -20,10 +21,30 @@ TEMPLATES = ROOT / "templates"
 
 PERIOD_LABEL = "受診 2024-09-02 〜 2026-07-31"
 
-FONTS_LINK = (
-    '<link rel="stylesheet" data-shell="fonts" href="https://fonts.googleapis.com/css2?'
-    'family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap">'
-)
+# --------------------------------------------------------------------------
+# テーマ（見た目）の切り替え
+#   a … クリニカル・スタンダード（ネイビーのサイドバー）
+#   d … ソフト・ベント（白い浮きサイドバー＋パステルのタイル）
+# 既定値は DEFAULT_THEME。環境変数 REPORT_THEME=a / d で一時的に上書きできる。
+# --------------------------------------------------------------------------
+_GF = "https://fonts.googleapis.com/css2?"
+THEMES = {
+    "a": {
+        "css": "_theme.css",
+        "fonts": _GF + "family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap",
+    },
+    "d": {
+        "css": "_theme_d.css",
+        "fonts": _GF + "family=Zen+Maru+Gothic:wght@500;700;900&display=swap",
+    },
+}
+DEFAULT_THEME = "d"
+THEME = os.environ.get("REPORT_THEME", DEFAULT_THEME).strip().lower()
+if THEME not in THEMES:
+    raise ValueError(f"REPORT_THEME は {sorted(THEMES)} のいずれか: {THEME!r}")
+
+FONTS_LINK = f'<link rel="stylesheet" data-shell="fonts" href="{THEMES[THEME]["fonts"]}">'
+
 
 # icon は viewBox 0 0 24 24 の線画パス
 NAV_PAGES: List[dict] = [
@@ -88,7 +109,7 @@ _END = "/* === サイドバーシェル END === */"
 def sidebar_css() -> str:
     body = "\n".join(
         _read(n).replace(_BEGIN, "").replace(_END, "").strip()
-        for n in ("_sidebar.css", "_theme.css")
+        for n in ("_sidebar.css", THEMES[THEME]["css"])
     )
     return f"{_BEGIN}\n{body}\n{_END}"
 
