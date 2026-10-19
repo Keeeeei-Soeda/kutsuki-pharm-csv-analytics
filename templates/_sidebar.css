@@ -143,18 +143,51 @@ body > .skip-link, body > .topbar, body > .nav-overlay { grid-column: 1 / -1; }
 .sb-toc:empty, .sb-toc ul:empty { display: none; }
 
 .sb-filters { margin-top: 18px; padding-top: 4px; border-top: 1px solid var(--sb-line); }
-.sb-filter-slot {
-  margin: 0 4px 6px;
-  padding: 8px 12px;
-  border: 1px dashed #2c4460;
+.sb-filter-block { margin: 10px 4px 14px; }
+.sb-filter-label { margin: 0 0 6px; font-size: 11px; color: var(--sb-muted); font-weight: 700; }
+.sb-filter-row { display: flex; align-items: center; gap: 6px; }
+.sb-filter-row select, .sb-field input, .sb-filters input[type="search"] {
+  width: 100%; min-width: 0;
+  background: var(--sb-hover-bg);
+  color: var(--sb-ink);
+  border: 1px solid var(--sb-line);
   border-radius: 8px;
-  color: var(--sb-muted);
-  font-size: 11px;
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
 }
-.sb-filter-slot span { font-size: 10px; opacity: .8; }
+.sb-presets, .sb-chip-row, .sb-radio-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.sb-presets button, .sb-reset {
+  background: var(--sb-hover-bg);
+  color: var(--sb-ink);
+  border: 1px solid var(--sb-line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sb-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--sb-line);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sb-chip.is-on { background: var(--sb-active-bg); border-color: var(--sb-accent); }
+.sb-chip input { margin: 0; }
+.sb-clinic-list {
+  max-height: 140px; overflow: auto;
+  margin-top: 6px; padding: 4px;
+  border: 1px solid var(--sb-line);
+  border-radius: 8px;
+}
+.sb-check { display: flex; gap: 6px; align-items: flex-start; font-size: 11px; padding: 3px 0; }
+.sb-check span { overflow-wrap: anywhere; }
+.sb-toggle { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.sb-assumptions { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--sb-line); }
+.sb-field { display: block; margin: 8px 4px; font-size: 11px; color: var(--sb-muted); }
+.sb-field input { margin-top: 4px; }
+.sb-filter-error { color: var(--sb-muted); font-size: 12px; padding: 8px; }
 
 .sb-footer { margin: 18px 8px 0; padding-top: 12px; border-top: 1px solid var(--sb-line); }
 .sb-generated { margin: 0 0 6px; color: var(--sb-muted); font-size: 11px; }

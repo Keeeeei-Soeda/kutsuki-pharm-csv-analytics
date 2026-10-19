@@ -26,6 +26,9 @@
   <p class="sb-period" title="全ページ共通のデータ期間">{{PERIOD}}</p>
 
   <nav class="sb-nav" aria-label="Phase ナビゲーション">
+    <ul class="sb-explore-nav">
+      {{EXPLORE_ITEMS}}
+    </ul>
     <p class="sb-heading" id="sb-h-phase">Phase</p>
     <ul aria-labelledby="sb-h-phase">
       {{PHASE_ITEMS}}
@@ -43,11 +46,10 @@
     </ul>
   </nav>
 
-  <!-- フィルタ領域: 枠のみ確保。機能は未実装。 -->
-  <div class="sb-filters" aria-label="フィルタ（準備中）">
+  <div class="sb-filters" id="sb-filters" aria-label="フィルタ">
     <p class="sb-heading">フィルタ</p>
-    <div class="sb-filter-slot" data-filter-slot="period">期間フィルタ<span>準備中</span></div>
-    <div class="sb-filter-slot" data-filter-slot="segment">区分フィルタ<span>準備中</span></div>
+    <div id="sb-filters-root"></div>
+    <div class="sb-assumptions" id="sb-assumptions"></div>
   </div>
 
   <div class="sb-footer">
