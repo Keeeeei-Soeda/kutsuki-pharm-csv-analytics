@@ -95,8 +95,10 @@ def build_phase1_html() -> Path:
     )
 
     rep.section("monthly", "月別の推移")
-    rep.figure(
-        FIGURES / "phase1_monthly_plain.png",
+    rep.chart(
+        "p1-monthly",
+        "monthly",
+        fallback=FIGURES / "phase1_monthly_plain.png",
         point=(
             (f"毎月の処方箋の大半は門前で、門前以外は月{recent_nongate:,.0f}枚ほど"
              f"（{level.period_label}の平均）にとどまっています。")
@@ -108,8 +110,10 @@ def build_phase1_html() -> Path:
     )
 
     rep.section("clinics", "クリニック別の処方箋")
-    rep.figure(
-        FIGURES / "phase1_top_clinics.png",
+    rep.chart(
+        "p1-clinics",
+        "clinic_rank",
+        fallback=FIGURES / "phase1_top_clinics.png",
         point=f"上位2院だけで処方箋全体の{top2_share:.0%}を占めています。",
         explain="期間中の処方箋が多いクリニック上位10件です。棒の右の割合は、全処方箋に対する割合です。",
     )
@@ -154,7 +158,7 @@ def build_phase1_html() -> Path:
         rep.paragraph(f"80%到達施設数: 全体 {n80} ／ 門前 {n80_g} ／ 門前以外 {n80_ng}。")
 
         rep.section("ts", "時系列")
-        rep.figure(FIGURES / "phase1_timeseries.png", "月次・季節パターン")
+        rep.chart("p1-ts", "monthly", {"kind": "line"}, fallback=FIGURES / "phase1_timeseries.png", caption="月次・季節パターン")
 
         rep.section("exo", "外生要因（相関）")
         rep.figure(FIGURES / "phase1_exogenous.png", "花粉は0埋めせず欠測のまま表示")

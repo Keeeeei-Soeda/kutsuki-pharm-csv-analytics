@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Iterator, List, Optional, Sequence, Union
 
+from src.viz.explore_assets import MODEL_FIGURES, chart_markup, explore_script_tags
 from src.viz.sidebar import (
     FONTS_LINK,
     PERIOD_LABEL,
@@ -230,6 +231,51 @@ iframe.map {
   .hero { break-inside: avoid; }
   .card, .figure { box-shadow: none; }
   .phase-nav { display: none !important; }
+  .chart-canvas, .chart-save { display: none !important; }
+  .chart-print-fallback { display: block !important; }
+}
+.chart-wrap { margin: 8px 0 18px; }
+.chart-canvas { width: 100%; min-height: 320px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.chart-save, .chart-toolbar button {
+  margin: 0 0 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.has-js .chart-print-fallback { display: none; }
+.model-badge {
+  display: inline-block;
+  margin: 8px 8px 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+.explore-status { margin: 12px 0 0; }
+.explore-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.explore-chip {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.explore-model-note { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.sim-sliders { display: grid; gap: 10px; }
+.sim-sliders label { display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 13px; }
+.sim-sliders input[type="range"] { grid-column: 1 / -1; }
+.toolbar-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+.toolbar-row button { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+#explore-kpis { margin-top: 16px; }
+#explore-suppress-note { color: var(--muted); font-size: 12px; }
+@media (max-width: 899px) {
+  .chart-canvas { min-height: 280px; }
+  body { overflow-x: hidden; }
 }
 
 """
@@ -260,6 +306,7 @@ class HtmlReport:
         eyebrow: str = "DataBank Analytics",
         active_phase: Optional[int] = None,
         nav_key: Optional[str] = None,
+        page_kind: Optional[str] = None,
     ):
         self.title = title
         self.subtitle = subtitle
@@ -268,6 +315,7 @@ class HtmlReport:
         self.eyebrow = eyebrow
         self.active_phase = active_phase
         self.nav_key = nav_key
+        self.page_kind = page_kind
         self.kpis: List[dict] = []
         self.toc: List[tuple] = []
         self.blocks: List[str] = []
@@ -368,9 +416,44 @@ class HtmlReport:
                 f'<div class="fig-explain" data-fig="{_esc(p.name)}"><strong>この図の読み方</strong>'
                 f"{_esc(text)}</div>"
             )
+        badge = ""
+        if p.name in MODEL_FIGURES:
+            badge = '<span class="model-badge">全期間・全患者で推定</span>'
         self.blocks.append(
-            f'<div class="figure"><img src="{src}" alt="{_esc(caption or p.name)}"/></div>{cap}{exp}'
+            f'<div class="figure">{badge}<img src="{src}" alt="{_esc(caption or p.name)}"/></div>{cap}{exp}'
         )
+
+    def chart(
+        self,
+        chart_id: str,
+        kind: str,
+        options: Optional[dict] = None,
+        *,
+        point: str = "",
+        explain: str = "",
+        fallback: Optional[PathLike] = None,
+        caption: str = "",
+    ) -> None:
+        """探索層の対話チャート。PNG は印刷・noscript 用に残す。"""
+        if point:
+            self.blocks.append(f'<p class="fig-point">{_esc(point)}</p>')
+        fallback_html = ""
+        if fallback:
+            fp = Path(fallback)
+            if fp.exists():
+                src = img_to_data_uri(fp)
+                fallback_html = (
+                    f'<div class="figure chart-print-fallback">'
+                    f'<img src="{src}" alt="{_esc(caption or fp.name)}"/></div>'
+                    f'<noscript><div class="figure"><img src="{src}" alt="{_esc(caption or fp.name)}"/></div></noscript>'
+                )
+        self.blocks.append(chart_markup(chart_id, kind, options, fallback_html=fallback_html))
+        if caption:
+            self.blocks.append(f'<p class="caption">{_esc(caption)}</p>')
+        if explain:
+            self.blocks.append(
+                f'<div class="fig-explain"><strong>この図の読み方</strong>{_esc(explain)}</div>'
+            )
 
     def table(self, headers: Sequence[str], rows: Iterable[Sequence[object]], numeric_cols: Optional[Sequence[int]] = None) -> None:
         numeric_cols = set(numeric_cols or [])
@@ -439,6 +522,8 @@ class HtmlReport:
             breadcrumb=self.eyebrow,
             period=self.period or PERIOD_LABEL,
         )
+        body_attr = f' data-explore="1"' if self.page_kind == "explore" else ""
+        extra_js = explore_script_tags(explore_page=self.page_kind == "explore")
         return f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -449,7 +534,7 @@ class HtmlReport:
 {sidebar_css()}</style>
 {FONTS_LINK}
 </head>
-<body>
+<body{body_attr}>
 {sidebar}
 <main class="wrap" id="main">
   <header class="hero">
@@ -467,6 +552,7 @@ class HtmlReport:
 <script data-shell="sidebar">
 {sidebar_js()}
 </script>
+{extra_js}
 </body>
 </html>
 """

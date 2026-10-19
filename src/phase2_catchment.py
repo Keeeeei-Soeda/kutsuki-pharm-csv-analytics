@@ -776,8 +776,10 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     )
 
     rep.section("distance", "距離と来局")
-    rep.figure(
-        FIGURES / "phase2_distance_plain.png",
+    rep.chart(
+        "p2-dist",
+        "distance",
+        fallback=FIGURES / "phase2_distance_plain.png",
         point=(
             f"1km以内の地域では人口の{plain['rate_1km']:.0%}前後が来ていますが、"
             "1kmを超えると急に少なくなります。"

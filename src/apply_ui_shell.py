@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from src.snapshot_academic import remove_main_banner
+from src.viz.explore_assets import copy_explore_assets
 from src.viz.sidebar import FONTS_LINK, apply_shell
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +30,7 @@ PAGE_KEYS: Dict[str, str] = {
     "integrated_model.html": "p6",
     "pathways.html": "pathways",
     "map.html": "map",
+    "explore.html": "explore",
 }
 
 
@@ -55,6 +57,7 @@ def apply_all() -> List[Path]:
                 touched.append(path)
     # 学術版への導線はサイドバー下部のリンクに移したので、旧バナーが残っていれば外す（冪等）
     remove_main_banner()
+    copy_explore_assets()
     return touched
 
 

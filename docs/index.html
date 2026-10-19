@@ -304,18 +304,51 @@ body > .skip-link, body > .topbar, body > .nav-overlay { grid-column: 1 / -1; }
 .sb-toc:empty, .sb-toc ul:empty { display: none; }
 
 .sb-filters { margin-top: 18px; padding-top: 4px; border-top: 1px solid var(--sb-line); }
-.sb-filter-slot {
-  margin: 0 4px 6px;
-  padding: 8px 12px;
-  border: 1px dashed #2c4460;
+.sb-filter-block { margin: 10px 4px 14px; }
+.sb-filter-label { margin: 0 0 6px; font-size: 11px; color: var(--sb-muted); font-weight: 700; }
+.sb-filter-row { display: flex; align-items: center; gap: 6px; }
+.sb-filter-row select, .sb-field input, .sb-filters input[type="search"] {
+  width: 100%; min-width: 0;
+  background: var(--sb-hover-bg);
+  color: var(--sb-ink);
+  border: 1px solid var(--sb-line);
   border-radius: 8px;
-  color: var(--sb-muted);
-  font-size: 11px;
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
 }
-.sb-filter-slot span { font-size: 10px; opacity: .8; }
+.sb-presets, .sb-chip-row, .sb-radio-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.sb-presets button, .sb-reset {
+  background: var(--sb-hover-bg);
+  color: var(--sb-ink);
+  border: 1px solid var(--sb-line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sb-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--sb-line);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sb-chip.is-on { background: var(--sb-active-bg); border-color: var(--sb-accent); }
+.sb-chip input { margin: 0; }
+.sb-clinic-list {
+  max-height: 140px; overflow: auto;
+  margin-top: 6px; padding: 4px;
+  border: 1px solid var(--sb-line);
+  border-radius: 8px;
+}
+.sb-check { display: flex; gap: 6px; align-items: flex-start; font-size: 11px; padding: 3px 0; }
+.sb-check span { overflow-wrap: anywhere; }
+.sb-toggle { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.sb-assumptions { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--sb-line); }
+.sb-field { display: block; margin: 8px 4px; font-size: 11px; color: var(--sb-muted); }
+.sb-field input { margin-top: 4px; }
+.sb-filter-error { color: var(--sb-muted); font-size: 12px; padding: 8px; }
 
 .sb-footer { margin: 18px 8px 0; padding-top: 12px; border-top: 1px solid var(--sb-line); }
 .sb-generated { margin: 0 0 6px; color: var(--sb-muted); font-size: 11px; }
@@ -617,6 +650,9 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
   <p class="sb-period" title="全ページ共通のデータ期間">受診 2024-09-02 〜 2026-07-31</p>
 
   <nav class="sb-nav" aria-label="Phase ナビゲーション">
+    <ul class="sb-explore-nav">
+      <li><a href="explore.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16 16l5 5"/></svg><span class="sb-item-text"><span class="sb-item-title">データ探索</span><span class="sb-item-desc">枚数・推移・クリニック・距離・再来</span></span></a></li>
+    </ul>
     <p class="sb-heading" id="sb-h-phase">Phase</p>
     <ul aria-labelledby="sb-h-phase">
       <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">処方箋の流れ</span><span class="sb-item-desc">Phase 1 · 門前と門前以外</span></span></a></li>
@@ -640,15 +676,14 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
     </ul>
   </nav>
 
-  <!-- フィルタ領域: 枠のみ確保。機能は未実装。 -->
-  <div class="sb-filters" aria-label="フィルタ（準備中）">
+  <div class="sb-filters" id="sb-filters" aria-label="フィルタ">
     <p class="sb-heading">フィルタ</p>
-    <div class="sb-filter-slot" data-filter-slot="period">期間フィルタ<span>準備中</span></div>
-    <div class="sb-filter-slot" data-filter-slot="segment">区分フィルタ<span>準備中</span></div>
+    <div id="sb-filters-root"></div>
+    <div class="sb-assumptions" id="sb-assumptions"></div>
   </div>
 
   <div class="sb-footer">
-    <p class="sb-generated" title="サイドバー・デザインを適用した日時。分析の生成日時は各ページ上部に表示">UI更新 2026-09-30</p>
+    <p class="sb-generated" title="サイドバー・デザインを適用した日時。分析の生成日時は各ページ上部に表示">UI更新 2026-10-19</p>
     <a class="sb-notes-link" href="#notes">注意事項</a>
     <a class="sb-academic-link" href="academic/index.html">学術用の旧版はこちら</a>
   </div>
@@ -668,6 +703,7 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
     <!-- exec-summary:begin -->
     <section class="exec-summary" aria-labelledby="summary">
       <h2 id="summary">経営サマリー</h2>
+      <p class="caption">数字は既定値での計算です。画面の前提値を変えても、この欄は変わりません。</p>
       <div class="exec-grid">
         <div class="exec-block"><h3>いまの状況</h3><ul><li>処方箋 <strong>1,768枚/月</strong>（2026年5〜7月の平均）｜目標 3,000枚/月まで あと<strong>1,232枚</strong></li><li>処方箋の<strong>1%</strong>が門前（クリニックから40m以内）、上位2院に73%が集中</li><li>初めて来た人のうち、90日以内にまた来るのは<strong>41%</strong></li></ul></div>
         <div class="exec-block"><h3>わかったこと</h3><ol><li>上位2院への依存度が高い（上位2院で処方箋の73%）</li><li>患者の多くは徒歩圏に住み、少し離れると来なくなる（薬局から1km以内に52%）</li><li>耳鼻科・皮膚科の患者が、内科など他の科へ広がっていない（内科系へ移ったのは11%）</li></ol></div>
@@ -881,5 +917,9 @@ th.num { text-align: right; font-family: inherit; font-size: 12px; }
 }());
 
 </script>
+<script data-shell="has-js">document.documentElement.classList.add("has-js");</script>
+<script data-shell="echarts" src="vendor/echarts.min.js"></script>
+<script data-shell="explore" type="module" src="js/filters-ui.js"></script>
+<script data-shell="inline-charts" type="module" src="js/pages/inline-charts.js"></script>
 </body>
 </html>

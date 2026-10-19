@@ -767,7 +767,12 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
             f"モデル標本 N={ret['n']:,}（道路距離30km以内）／定着率 {ret['rate']:.1%}／"
             f"McFadden擬似R²={ret['prsquared']:.3f}／AIC={ret['aic']:.1f}"
         )
-        rep.figure(FIGURES / "phase4_retention90.png", "90日定着率の層別とオッズ比（相関）")
+        rep.chart(
+            "p4-ret",
+            "retention90",
+            fallback=FIGURES / "phase4_retention90.png",
+            caption="90日定着率の層別とオッズ比（相関）",
+        )
 
         rep.section("survival", "来局間隔（生存分析）")
         rep.paragraph(
