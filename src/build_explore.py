@@ -19,12 +19,28 @@ def build_explore() -> Path:
     (DOCS / "js").mkdir(parents=True, exist_ok=True)
     rep = HtmlReport(
         title="データを絞り込んで見る",
-        subtitle="期間や区分を変えると、下の数字とグラフが連動します。モデルの推定結果は変わりません。",
+        subtitle="期間や区分を変えると、下の数字とグラフが連動します。Phase 3〜6 の見込みの数字は、ここで絞り込んでも変わりません。",
         pharmacy=PHARMACY_NAME,
         period=PERIOD_LABEL,
         eyebrow="Kutsuki DataBank / データ探索",
         nav_key="explore",
         page_kind="explore",
+    )
+    rep.takeaway(
+        finding="期間・医院・診療科を絞ると、枚数と推移がすぐに変わります。",
+        judgment="ここは「何枚あったか」を見る画面で、効いたかどうかの判定ではありません。",
+        action="下の「よくある見方」から、はせがわ・平山を除く／内科だけ／直近の初回、を試す。",
+        measure="判定は Phase 5。見込みは Phase 3。",
+        link="phase5_causal.html",
+        tone="good",
+    )
+    rep.add_html(
+        '<div class="toolbar-row" id="explore-presets">'
+        '<span class="sim-label">よくある見方</span>'
+        '<button type="button" data-preset="other">はせがわ・平山を除いて見る</button>'
+        '<button type="button" data-preset="intern">内科だけ見る</button>'
+        '<button type="button" data-preset="first6">直近6か月の初めて来た人</button>'
+        "</div>"
     )
     rep.add_html('<p id="explore-suppress-note" class="caption" hidden></p>')
     rep.add_html('<div id="explore-kpis" class="grid"></div>')

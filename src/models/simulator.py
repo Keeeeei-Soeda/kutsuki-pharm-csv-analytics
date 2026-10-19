@@ -17,22 +17,26 @@ class GrowthInputs:
     unique_patients: float = 8885.0
     months: float = 23.0
     mean_visits_per_patient: float = 3.59
-    # 既定値は門前判定 300m 時代の比率。現行（40m）では growth_inputs_from_current() を使う。
-    gate_share: float = 0.893
-    nongate_share: float = 0.096
+    # gate_share = 隣の2院（はせがわ・平山）、nongate_share = それ以外
+    gate_share: float = 0.67
+    nongate_share: float = 0.33
+    hasegawa_share: float = 0.39
+    hirayama_share: float = 0.28
+    retention90: float = 0.41
 
 
 def axis_visit_shares(vt: Optional[pd.DataFrame] = None) -> Dict[str, float]:
-    """受診件数ベースの門前／非門前／不明シェア（Phase 1 と同じ ``_axis_label``）。"""
+    """受診件数ベースの隣の2院／それ以外シェア。"""
+    from src.axis import AXIS_OTHER, AXIS_TOP2, HASEGAWA_ID, HIRAYAMA_ID, axis_from_clinic_id
     from src.io import read_csv
-    from src.phase1_flow import _axis_label
 
     if vt is None:
         vt = read_csv("visit_triangle")
-    axis = _axis_label(vt["立地パターン"])
+    axis = axis_from_clinic_id(vt["クリニックID"])
     n = max(len(axis), 1)
-    gate = float((axis == "門前型").sum() / n)
-    nongate = float((axis == "非門前型").sum() / n)
+    ids = vt["クリニックID"].astype(str)
+    gate = float((axis == AXIS_TOP2).sum() / n)
+    nongate = float((axis == AXIS_OTHER).sum() / n)
     n_patients = int(vt["患者ID"].nunique()) if "患者ID" in vt.columns else 0
     n_months = (
         int(pd.to_datetime(vt["受診日"]).dt.to_period("M").nunique())
@@ -42,6 +46,8 @@ def axis_visit_shares(vt: Optional[pd.DataFrame] = None) -> Dict[str, float]:
     return {
         "gate_share": gate,
         "nongate_share": nongate,
+        "hasegawa_share": float((ids == HASEGAWA_ID).sum() / n),
+        "hirayama_share": float((ids == HIRAYAMA_ID).sum() / n),
         "unknown_share": float(max(0.0, 1.0 - gate - nongate)),
         "n_visits": int(len(axis)),
         "unique_patients": float(n_patients),
@@ -55,7 +61,7 @@ def growth_inputs_from_current(
     target_monthly: float = 3000.0,
     vt: Optional[pd.DataFrame] = None,
 ) -> GrowthInputs:
-    """現行データ（40m門前判定）からシミュレータ入力を組む。"""
+    """現行データからシミュレータ入力を組む（隣の2院／それ以外）。"""
     shares = axis_visit_shares(vt)
     return GrowthInputs(
         monthly_visits=monthly_visits,
@@ -65,6 +71,8 @@ def growth_inputs_from_current(
         mean_visits_per_patient=shares["mean_visits_per_patient"],
         gate_share=shares["gate_share"],
         nongate_share=shares["nongate_share"],
+        hasegawa_share=shares["hasegawa_share"],
+        hirayama_share=shares["hirayama_share"],
     )
 
 
@@ -108,53 +116,17 @@ def simulate_scenarios(inp: GrowthInputs) -> pd.DataFrame:
             }
         )
 
-    add("現状ベース", base, "直近3か月平均")
-
-    # 門前+5%（クリニック流量増の代理）
-    add(
-        "門前需要+10%",
-        base * (1 + 0.10 * inp.gate_share),
-        "軸A: 直近クリニック流量増。薬局施策の寄与は限定的",
-    )
-    add(
-        "門前需要+20%",
-        base * (1 + 0.20 * inp.gate_share),
-        "軸A",
-    )
-
-    # 非門前を倍・3倍
-    add(
-        "非門前×2",
-        base * (inp.gate_share + inp.nongate_share * 2 + (1 - inp.gate_share - inp.nongate_share)),
-        "軸B: 面獲得の拡大",
-    )
-    add(
-        "非門前×3",
-        base * (inp.gate_share + inp.nongate_share * 3 + (1 - inp.gate_share - inp.nongate_share)),
-        "軸B",
-    )
-
-    # 来局頻度（継続）+10/+20%
-    add("来局頻度+10%", base * 1.10, "継続率・処方間隔の改善代理")
-    add("来局頻度+20%", base * 1.20, "継続")
-
-    # 新規流入（ストック増）
-    add("活動患者+15%", base * 1.15, "新規獲得（門前+非門前合算）")
-    add("活動患者+30%", base * 1.30, "新規獲得")
-
-    # 組み合わせ例
-    combo = base * (inp.gate_share * 1.05 + inp.nongate_share * 2.5 + (1 - inp.gate_share - inp.nongate_share)) * 1.10
-    add("複合:門前+5%×非門前×2.5×頻度+10%", combo, "同時施策の粗い積")
-
-    # 目標到達に必要な非門前倍率（他固定）
-    # base * (g + n*m + u) = target  => m = (target/base - g - u) / n
-    u = 1 - inp.gate_share - inp.nongate_share
-    need_m = (inp.target_monthly / base - inp.gate_share - u) / max(inp.nongate_share, 1e-9)
-    add(
-        f"参考:非門前のみで目標→×{need_m:.1f}が必要",
-        inp.target_monthly,
-        "他条件一定のときの必要条件（実現可能性の目安）",
-    )
+    add("現状", base, "直近3か月平均")
+    h = inp.hasegawa_share
+    n = inp.nongate_share
+    add("はせがわが1割減る", base * (1 - 0.10 * h), "2院依存のリスク。1院の1割で店全体が動く")
+    add("はせがわが3割減る", base * (1 - 0.30 * h), "医師交代・移転などの最悪ケース")
+    add("面が1.5倍になる", base * (1 + 0.50 * n), "2院以外の医院からの処方箋")
+    # 再来 41%→50% の粗い増分（初回の約1割が余分に戻り、その後も通う）
+    ret_lift = base * 0.06
+    add("再来が41%から50%になる", base + ret_lift, "初回患者のうち戻る人が増える概算")
+    combo = base * (1 + 0.50 * n) + ret_lift + 200
+    add("面1.5倍＋再来50%＋内科2院（各100枚）", combo, "全部やっても目標との差が残る")
 
     return pd.DataFrame(rows)
 
@@ -163,17 +135,17 @@ def tornado_sensitivities(inp: GrowthInputs, pct: float = 0.1) -> pd.DataFrame:
     """各レバー ±pct の影響幅（トルネード用）。"""
     base = inp.monthly_visits
     levers = {
-        "門前需要": inp.gate_share,
-        "非門前需要": inp.nongate_share,
+        "隣の2院": inp.gate_share,
+        "それ以外": inp.nongate_share,
         "来局頻度": 1.0,
         "活動患者ストック": 1.0,
     }
     rows = []
     for name, w in levers.items():
-        if name == "門前需要":
+        if name == "隣の2院":
             low = base * (1 - pct * inp.gate_share)
             high = base * (1 + pct * inp.gate_share)
-        elif name == "非門前需要":
+        elif name == "それ以外":
             low = base * (1 - pct * inp.nongate_share)
             high = base * (1 + pct * inp.nongate_share)
         else:

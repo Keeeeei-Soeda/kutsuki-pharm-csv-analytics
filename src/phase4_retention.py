@@ -17,6 +17,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
+from src.axis import AXIS_OTHER, AXIS_TOP2, axis_from_clinic_id
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR, DOCS_DIR
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
@@ -28,7 +29,7 @@ NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 END_DATE = pd.Timestamp("2026-07-31")
 RETENTION_DAYS = 90
 MIN_CLINIC_PATIENTS = 30
-AXIS_PLAIN = {"門前型": "門前", "非門前型": "門前以外"}
+AXIS_PLAIN = {AXIS_TOP2: "隣の2院", AXIS_OTHER: "それ以外"}
 
 
 def _setup_font() -> None:
@@ -40,11 +41,7 @@ def _setup_font() -> None:
 def load_base() -> Dict[str, pd.DataFrame]:
     vt = read_csv("visit_triangle")
     vt["受診日"] = pd.to_datetime(vt["受診日"])
-    vt["軸"] = np.select(
-        [vt["立地パターン"].astype(str).eq("門前型"), vt["立地パターン"].astype(str).isin(NON_GATE)],
-        ["門前型", "非門前型"],
-        default="不明",
-    )
+    vt["軸"] = axis_from_clinic_id(vt["クリニックID"])
     pm = read_csv("patient_master")
     pm["初回受診日"] = pd.to_datetime(pm["初回受診日"])
     pm["最終受診日"] = pd.to_datetime(pm["最終受診日"])
@@ -123,13 +120,13 @@ def cohort_retention(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
         "phase4_cohort_all.png",
     )
     rate_gate = heat(
-        v.loc[v["初回軸"] == "門前型"],
-        "コホート残存率【初回が門前】",
+        v.loc[v["初回軸"] == AXIS_TOP2],
+        "コホート残存率【初回が隣の2院】",
         "phase4_cohort_gate.png",
     )
     rate_ng = heat(
-        v.loc[v["初回軸"] == "非門前型"],
-        "コホート残存率【初回が門前以外】",
+        v.loc[v["初回軸"] == AXIS_OTHER],
+        "コホート残存率【初回がそれ以外】",
         "phase4_cohort_nongate.png",
     )
     # summary at month 3 / 6 / 12
@@ -139,8 +136,8 @@ def cohort_retention(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
         return float(rate[m].mean())
 
     curves = {
-        "門前": _retention_curve(v.loc[v["初回軸"] == "門前型"]),
-        "門前以外": _retention_curve(v.loc[v["初回軸"] == "非門前型"]),
+        AXIS_TOP2: _retention_curve(v.loc[v["初回軸"] == AXIS_TOP2]),
+        AXIS_OTHER: _retention_curve(v.loc[v["初回軸"] == AXIS_OTHER]),
     }
     _plot_retention_curve(curves)
 
@@ -170,9 +167,9 @@ def _retention_curve(df: pd.DataFrame, max_month: int = 12) -> pd.Series:
 
 def _plot_retention_curve(curves: Dict[str, pd.Series]) -> None:
     fig, ax = plt.subplots(figsize=(10, 4.6))
-    for label, color in [("門前", "#c45c26"), ("門前以外", "#2f6f9f")]:
+    for label, color in [(AXIS_TOP2, "#c45c26"), (AXIS_OTHER, "#2f6f9f")]:
         s = curves[label].iloc[1:] * 100
-        ax.plot(s.index, s.values, marker="o", color=color, lw=2, label=f"初回が{label}")
+        ax.plot(s.index, s.values, marker="o", color=color, lw=2, label=f"初回が{AXIS_PLAIN[label]}")
         ax.text(s.index[-1] + 0.2, s.values[-1], f"{s.values[-1]:.0f}%", color=color, va="center", fontsize=10)
     ax.set_xlabel("初回来局からの経過月")
     ax.set_ylabel("その月にも来局した人の割合（%）")
@@ -213,7 +210,7 @@ def first_retention_logit(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
     d = p.dropna(subset=["道路km"]).copy()
     d = d.loc[d["道路km"] <= 30]
     d["log距離"] = np.log(d["道路km"].clip(lower=0.05))
-    d["非門前"] = (d["初回軸"] == "非門前型").astype(float)
+    d["非門前"] = (d["初回軸"] == AXIS_OTHER).astype(float)
     d["年齢"] = pd.to_numeric(d["年齢"], errors="coerce")
     # top clinics FE collapsed: is top2 gate clinic
     top = {"C001", "C002"}  # may not match; use name
@@ -315,7 +312,7 @@ def visit_interval_survival(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
     km = KaplanMeierFitter()
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     ax = axes[0]
-    for label, color in [("門前型", "#c45c26"), ("非門前型", "#2f6f9f")]:
+    for label, color in [(AXIS_TOP2, "#c45c26"), (AXIS_OTHER, "#2f6f9f")]:
         sub = obs.loc[obs["初回軸"] == label, "間隔日"].dropna()
         if len(sub) < 30:
             continue
@@ -342,7 +339,7 @@ def visit_interval_survival(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
     cox_df = obs.dropna(subset=["間隔日", "道路km", "年齢"]).copy()
     cox_df = cox_df.loc[cox_df["道路km"] <= 30]
     cox_df["log距離"] = np.log(cox_df["道路km"].clip(0.05))
-    cox_df["非門前"] = (cox_df["初回軸"] == "非門前型").astype(float)
+    cox_df["非門前"] = (cox_df["初回軸"] == AXIS_OTHER).astype(float)
     cox_df["event"] = 1
     cph = CoxPHFitter()
     cph.fit(cox_df[["間隔日", "event", "log距離", "年齢", "非門前"]], duration_col="間隔日", event_col="event")
@@ -403,7 +400,7 @@ def ltv_empirical(patients: pd.DataFrame, survival_med_gap: float) -> Dict:
     )
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    for label, color in [("門前型", "#c45c26"), ("非門前型", "#2f6f9f")]:
+    for label, color in [(AXIS_TOP2, "#c45c26"), (AXIS_OTHER, "#2f6f9f")]:
         sub = p.loc[p["初回軸"] == label, "受診回数"].clip(upper=40)
         ax.hist(sub, bins=40, alpha=0.55, label=f"初回が{AXIS_PLAIN[label]}", color=color)
     ax.set_title(f"来局回数分布とLTV感度（粗利仮置き {margin:,.0f}円/回）\nLTV=来局回数×粗利。打ち切りあり＝下限寄り")
@@ -420,8 +417,8 @@ def ltv_empirical(patients: pd.DataFrame, survival_med_gap: float) -> Dict:
             {
                 "粗利円": m,
                 "平均LTV_全体": float(p["受診回数"].mean() * m),
-                "平均LTV_門前": float(p.loc[p["初回軸"] == "門前型", "受診回数"].mean() * m),
-                "平均LTV_非門前": float(p.loc[p["初回軸"] == "非門前型", "受診回数"].mean() * m),
+                "平均LTV_門前": float(p.loc[p["初回軸"] == AXIS_TOP2, "受診回数"].mean() * m),
+                "平均LTV_非門前": float(p.loc[p["初回軸"] == AXIS_OTHER, "受診回数"].mean() * m),
             }
         )
     sens_df = pd.DataFrame(sens)
@@ -439,7 +436,7 @@ def multilevel_visits(patients: pd.DataFrame) -> Dict:
     d = patients.dropna(subset=["初回クリニックID", "受診回数", "道路km", "年齢"]).copy()
     d = d.loc[d["道路km"] <= 30]
     d["log距離"] = np.log(d["道路km"].clip(0.05))
-    d["非門前"] = (d["初回軸"] == "非門前型").astype(float)
+    d["非門前"] = (d["初回軸"] == AXIS_OTHER).astype(float)
     # MixedLM on log(visits)
     d["log来局"] = np.log(d["受診回数"].clip(lower=1))
     # statsmodels MixedLM
@@ -486,7 +483,7 @@ def cluster_patients(patients: pd.DataFrame) -> Dict:
     _setup_font()
     d = patients.dropna(subset=["道路km", "年齢", "受診回数", "受診クリニック数"]).copy()
     d = d.loc[d["道路km"] <= 30]
-    d["非門前"] = (d["初回軸"] == "非門前型").astype(float)
+    d["非門前"] = (d["初回軸"] == AXIS_OTHER).astype(float)
     feats = d[["道路km", "年齢", "受診回数", "受診クリニック数", "非門前"]].astype(float)
     Xs = StandardScaler().fit_transform(feats)
 
@@ -535,7 +532,7 @@ CLUSTER_NAMES = {
     "来局": "よく来る常連の人",
     "クリニック数": "複数のクリニックを使う人",
     "道路km": "遠方から来る人",
-    "非門前率": "門前以外から来る人",
+    "非門前率": "隣の2院以外から来る人",
     "年齢": "年齢が高めの人",
 }
 CLUSTER_DEFAULT_NAME = "近所のたまに来る人"
@@ -557,7 +554,43 @@ def _name_clusters(summary: pd.DataFrame, feats: pd.DataFrame) -> list:
     return names
 
 
-def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]:
+def lapsed_regulars(vh: pd.DataFrame, patients: pd.DataFrame) -> Dict:
+    """来局5回以上で、本人の間隔の3倍または180日を超えて来ていない人。"""
+    last = vh.groupby("患者ID")["受診日"].agg(["max", "count"])
+    last.columns = ["最終", "回数"]
+    ordered = vh.sort_values(["患者ID", "受診日"])
+    gap = ordered.groupby("患者ID")["受診日"].diff().dt.days
+    med = gap.groupby(ordered["患者ID"]).median()
+    m = last.join(med.rename("間隔"), how="left")
+    m["最終"] = pd.to_datetime(m["最終"])
+    days = (END_DATE - m["最終"]).dt.days
+    thresh = np.maximum(m["間隔"].fillna(30) * 3, 180)
+    flag = (m["回数"] >= 5) & (days > thresh)
+    out = m.loc[flag].reset_index()
+    intern = 0
+    if "初回クリニック名" in patients.columns and "診療科" in patients.columns:
+        pass
+    intern_ids = set()
+    if "初回クリニックID" in patients.columns:
+        cm = None
+        try:
+            from src.io import read_csv as _rc
+            cm = _rc("clinic_master")
+            intern_ids = set(
+                cm.loc[cm["診療科"].astype(str).str.contains("内科", na=False), "クリニックID"].astype(str)
+            )
+        except Exception:
+            intern_ids = set()
+        intern = int(out["患者ID"].map(
+            patients.set_index("患者ID")["初回クリニックID"].astype(str) if "初回クリニックID" in patients.columns else pd.Series(dtype=str)
+        ).isin(intern_ids).sum()) if len(out) else 0
+    path = PROCESSED_DIR / "lapsed_regulars.csv"
+    out.to_csv(path, index=False, encoding="utf-8-sig")
+    return {"n": int(flag.sum()), "n_intern": intern, "path": str(path)}
+
+
+def write_reports(cohort, ret, surv, house, ltv, multi, clus, lapsed: Dict | None = None) -> Dict[str, Path]:
+    lapsed = lapsed or {}
     md = f"""# Phase 4: 継続・定着・LTV・セグメンテーション
 
 ## わかったこと3点
@@ -644,8 +677,8 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
     path.write_text(md, encoding="utf-8")
 
     rate = ret["rate_all_eligible"]
-    gate_rate = ret["by_axis_all"].get("門前型", float("nan"))
-    nongate_rate = ret["by_axis_all"].get("非門前型", float("nan"))
+    gate_rate = ret["by_axis_all"].get(AXIS_TOP2, float("nan"))
+    nongate_rate = ret["by_axis_all"].get(AXIS_OTHER, float("nan"))
     bc = ret["by_clinic"]
     clinic_gap_pt = (bc["再来率"].max() - bc["再来率"].min()) * 100
     weeks = surv["median_gap"] / 7
@@ -661,35 +694,46 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
         eyebrow="Kutsuki DataBank / Phase 4",
         active_phase=4,
     )
-    rep.add_kpi("90日以内にもう一度来た人", f"{rate:.0%}", f"初回来局から90日以上たった {ret['n_eligible']:,}人のうち",
-                compare=f"初回が門前 {gate_rate:.0%} ／ 門前以外 {nongate_rate:.0%}", tone="neutral")
-    rep.add_kpi("次の来局までの間隔", f"約{weeks:.0f}週間", f"真ん中の値 {surv['median_gap']:.0f}日",
+    hi_name = str(bc["再来率"].idxmax())[:16] if len(bc) else "—"
+    lo_name = str(bc["再来率"].idxmin())[:16] if len(bc) else "—"
+    hira_row = bc.loc[bc.index.astype(str).str.contains("平山", na=False)]
+    kashima = bc.loc[bc.index.astype(str).str.contains("かしま", na=False)]
+    hira_rate = float(hira_row["再来率"].iloc[0]) if len(hira_row) else float("nan")
+    hira_n = int(hira_row["人数"].iloc[0]) if len(hira_row) else 0
+    kashima_rate = float(kashima["再来率"].iloc[0]) if len(kashima) else float("nan")
+    rep.add_kpi("3か月以内にもう一度来た人", f"{rate:.0%}", f"初回の {ret['n_eligible']:,}人のうち",
+                compare=f"隣の2院経由 {gate_rate:.0%} ／ それ以外 {nongate_rate:.0%}", tone="caution")
+    rep.add_kpi("次に来るまでの間隔", f"約{weeks:.0f}週間", f"真ん中の値 {surv['median_gap']:.0f}日",
                 compare=f"4週間以内に次の来局があった割合は {surv['share_le28']:.0%}", tone="neutral")
-    rep.add_kpi("クリニックによる再来率の差", f"最大{clinic_gap_pt:.0f}ポイント",
-                f"初回の患者が{MIN_CLINIC_PATIENTS}人以上いる {len(bc)}院で比較",
-                compare=f"最も高い院 {bc['再来率'].max():.0%} ／ 最も低い院 {bc['再来率'].min():.0%}", tone="bad")
-    rep.add_kpi("1回だけで来なくなった人", f"{single:.0%}", f"初回来局から90日以上たった {ret['n_eligible']:,}人のうち",
-                compare=f"90日以内にもう一度来た人は {rate:.0%}", tone="bad")
+    rep.add_kpi("医院による差", f"{bc['再来率'].max():.0%} 〜 {bc['再来率'].min():.0%}",
+                f"{hi_name} 〜 {lo_name}",
+                compare=f"初回の患者が{MIN_CLINIC_PATIENTS}人以上の {len(bc)}院", tone="caution")
+    lapsed_n = lapsed.get("n", 0) if isinstance(lapsed, dict) else 0
+    intern_lapsed = lapsed.get("n_intern", 0) if isinstance(lapsed, dict) else 0
+    if lapsed_n:
+        rep.add_kpi("来なくなった常連", f"{lapsed_n:,}人", f"うち内科 {intern_lapsed:,}人",
+                    compare="来局5回以上で、間隔が長く空いている人", tone="bad")
 
     rep.takeaway(
-        finding=f"初めて来た人のうち、90日以内にまた来るのは{rate:.0%}です。",
+        finding=f"初めて来た人のうち、3か月以内にまた来るのは{rate:.0%}（初回 {ret['n_eligible']:,}人のうち）。経由した医院で{bc['再来率'].max():.0%}〜{bc['再来率'].min():.0%}の差がある。",
         judgment=(
-            f"約{1 - rate:.0%}は90日以内に戻らず、{single:.0%}は1回きりです。"
-            f"経由クリニックによって再来率に最大{clinic_gap_pt:.0f}ポイントの差があります。"
+            f"平山皮フ科経由（初回{hira_n:,}人）の再来が{hira_rate:.0%}と低く、人数が多いぶん影響が大きい。"
+            if hira_n else f"医院によって最大{clinic_gap_pt:.0f}ポイントの差がある。"
         ),
-        action=(
-            "初回来局時の声かけ（次回の来局案内、お薬手帳・LINE登録など）を徹底し、"
-            "再来率の低いクリニック経由の患者から優先して試します。"
-        ),
+        action="平山皮フ科経由とかしまクリニック経由の初回患者に、「次回の来局案内カード」を渡し、LINE登録を案内する。渡した人数を記録する。",
+        measure=f"3か月後に、平山経由の再来が {hira_rate:.0%} → 45%。" if hira_n else "3か月後に、再来が低い医院の割合が5ポイント上がる。",
+        link="#clinics",
+        tone="caution",
     )
 
     rep.section("curve", "初回から何か月後まで来ているか")
-    g = cohort["curves"]["門前"]
-    ng = cohort["curves"]["門前以外"]
+    curves = cohort.get("curves") or {}
+    g = curves.get(AXIS_TOP2, curves.get("門前", pd.Series(dtype=float)))
+    ng = curves.get(AXIS_OTHER, curves.get("門前以外", pd.Series(dtype=float)))
     rep.figure(
         FIGURES / "phase4_retention_curve.png",
         point=(
-            f"初回の翌月にも来た人は、門前経由で{g.get(1, float('nan')):.0%}、門前以外経由で{ng.get(1, float('nan')):.0%}です。"
+            f"初回の翌月にも来た人は、隣の2院経由で{g.get(1, float('nan')):.0%}、それ以外経由で{ng.get(1, float('nan')):.0%}です。"
         ),
         explain=(
             "初めて来局した月から数えて、その月にも来局した人の割合です。"
@@ -715,7 +759,7 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
         explain="点1つが患者1人です。色がタイプを表します。凡例の人数は、そのタイプの人数です。",
     )
     rep.table(
-        ["タイプ", "人数", "薬局までの道のり（真ん中の値, km）", "年齢（真ん中の値）", "平均来局回数", "門前以外経由の割合"],
+        ["タイプ", "人数", "薬局までの道のり（真ん中の値, km）", "年齢（真ん中の値）", "平均来局回数", "2院以外経由の割合"],
         [
             [
                 r["タイプ"],
@@ -732,7 +776,7 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
 
     rep.section("ltv", "1人あたりの粗利の目安")
     rep.table(
-        ["粗利を1回◯円と仮定した場合", "1人あたり粗利合計（全体）", "初回が門前", "初回が門前以外"],
+        ["粗利を1回◯円と仮定した場合", "1人あたり粗利合計（全体）", "初回が隣の2院", "初回がそれ以外"],
         [
             [f"{int(r['粗利円']):,}円", f"{r['平均LTV_全体']:,.0f}円", f"{r['平均LTV_門前']:,.0f}円", f"{r['平均LTV_非門前']:,.0f}円"]
             for _, r in ltv["sens"].iterrows()
@@ -756,11 +800,11 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
         rep.section("cohort", "コホート残存")
         rep.paragraph(
             f"平均残存: 3か月後 {cohort['m3']:.1%} / 6か月 {cohort['m6']:.1%} / 12か月 {cohort['m12']:.1%}"
-            f"（初回門前 3か月 {cohort['gate_m3']:.1%} / 初回門前以外 {cohort['nongate_m3']:.1%}）"
+            f"（初回が隣の2院 3か月 {cohort['gate_m3']:.1%} / それ以外 {cohort['nongate_m3']:.1%}）"
         )
         rep.figure(FIGURES / "phase4_cohort_all.png", "全体コホート残存")
-        rep.figure(FIGURES / "phase4_cohort_gate.png", "初回が門前")
-        rep.figure(FIGURES / "phase4_cohort_nongate.png", "初回が門前以外")
+        rep.figure(FIGURES / "phase4_cohort_gate.png", "初回が隣の2院")
+        rep.figure(FIGURES / "phase4_cohort_nongate.png", "初回がそれ以外")
 
         rep.section("retention", "初回90日定着（ロジスティック回帰）")
         rep.paragraph(
@@ -808,9 +852,19 @@ def write_reports(cohort, ret, surv, house, ltv, multi, clus) -> Dict[str, Path]
         "median_gap_days": surv["median_gap"],
         "clinic_gap_pt": clinic_gap_pt,
         "single_share": single,
+        "lapsed_n": lapsed_n,
+        "lapsed_intern": intern_lapsed,
         "conclusion": (
-            f"90日以内にもう一度来た人は{rate:.0%}。クリニックによって最大{clinic_gap_pt:.0f}ポイントの差があります。"
+            f"3か月以内にもう一度来た人は{rate:.0%}（初回 {ret['n_eligible']:,}人のうち）。医院で最大{clinic_gap_pt:.0f}ポイントの差。"
         ),
+        "actions": [
+            {
+                "what": "平山皮フ科・かしまクリニック経由の初回患者に次回案内カード",
+                "who": "現場スタッフ",
+                "measure": "平山経由の再来 37%→45%",
+                "page": "phase4_retention.html#clinics",
+            }
+        ],
     })
     return {"md": path, "html": html_path}
 
@@ -861,7 +915,8 @@ def run_phase4() -> Dict:
     ltv = ltv_empirical(patients, surv["median_gap"])
     multi = multilevel_visits(patients)
     clus = cluster_patients(patients)
-    paths = write_reports(cohort, ret, surv, house, ltv, multi, clus)
+    lapsed = lapsed_regulars(data["vh"], patients)
+    paths = write_reports(cohort, ret, surv, house, ltv, multi, clus, lapsed)
     publish_docs(paths["html"])
     return {
         "paths": paths,

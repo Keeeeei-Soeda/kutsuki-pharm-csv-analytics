@@ -1,9 +1,19 @@
 {
   "retention90": 0.4067027844273655,
-  "gate_retention90": 0.9230769230769231,
-  "nongate_retention90": 0.4073741007194245,
+  "gate_retention90": 0.39297218155197655,
+  "nongate_retention90": 0.4909584086799277,
   "median_gap_days": 28.0,
   "clinic_gap_pt": 25.783972125435533,
   "single_share": 0.4112385032128008,
-  "conclusion": "90日以内にもう一度来た人は41%。クリニックによって最大26ポイントの差があります。"
+  "lapsed_n": 308,
+  "lapsed_intern": 39,
+  "conclusion": "3か月以内にもう一度来た人は41%（初回 7,937人のうち）。医院で最大26ポイントの差。",
+  "actions": [
+    {
+      "what": "平山皮フ科・かしまクリニック経由の初回患者に次回案内カード",
+      "who": "現場スタッフ",
+      "measure": "平山経由の再来 37%→45%",
+      "page": "phase4_retention.html#clinics"
+    }
+  ]
 }

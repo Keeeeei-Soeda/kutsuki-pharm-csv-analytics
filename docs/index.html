@@ -942,10 +942,15 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline-color: va
   background: var(--mint);
   color: var(--mint-ink);
 }
-.takeaway .tk-row:nth-child(2) dt { background: var(--butter); color: var(--butter-ink); }
-.takeaway .tk-row:nth-child(3) dt { background: var(--accent); color: #ffffff; }
+.takeaway .tk-row.tone-good dt { background: var(--mint); color: var(--mint-ink); }
+.takeaway .tk-row.tone-caution dt { background: var(--butter); color: var(--butter-ink); }
+.takeaway .tk-row.tone-bad dt { background: var(--peach); color: var(--peach-ink); }
+.takeaway .tk-row.tone-chance dt { background: var(--lilac); color: var(--lilac-ink); }
+.takeaway .tk-row.tk-action dt { background: var(--accent); color: #ffffff; }
 .takeaway dd { margin: 0; font-size: 15.5px; line-height: 1.75; padding-top: 2px; }
-.takeaway .tk-row:nth-child(3) dd { font-weight: 700; }
+.takeaway .tk-row.tk-action dd { font-weight: 700; white-space: pre-line; }
+.kpi.tone-caution .compare::before { content: "△ "; color: var(--butter-ink); font-weight: 700; }
+.kpi.tone-chance .compare::before { content: "◇ "; color: var(--lilac-ink); font-weight: 700; }
 @media (max-width: 599px) {
   .takeaway { padding: 8px 18px; }
   .takeaway .tk-row { grid-template-columns: 1fr; gap: 8px; }
@@ -1146,12 +1151,38 @@ details.expert h3 { margin-top: 24px; }
   .kpi .value { font-size: 28px; }
 }
 
+.sb-print, .print-actions .btn {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 8px 8px 0;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.print-actions .btn { width: auto; margin: 12px 0 0; display: inline-block; }
+.todo-list { display: grid; gap: 8px; }
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.todo-item input { margin-top: 5px; }
+
 @media print {
   body { background: #fff; }
   .wrap { max-width: 100%; padding: 0; }
   .card, .hero, .takeaway, .figure { box-shadow: none; border: 1px solid var(--line); }
   details.expert > * { display: block; }
   details.expert > summary::before { content: none; }
+  .sb-print, .print-actions { display: none; }
 }
 /* === サイドバーシェル END === */
 </style>
@@ -1188,10 +1219,10 @@ details.expert h3 { margin-top: 24px; }
     </ul>
     <p class="sb-heading" id="sb-h-phase">Phase</p>
     <ul aria-labelledby="sb-h-phase">
-      <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">処方箋の流れ</span><span class="sb-item-desc">Phase 1 · 門前と門前以外</span></span></a></li>
+      <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">処方箋の流れ</span><span class="sb-item-desc">Phase 1 · 隣の2院とそれ以外</span></span></a></li>
       <li><a href="phase2_catchment.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span class="sb-item-text"><span class="sb-item-title">商圏とクリニック</span><span class="sb-item-desc">Phase 2 · 患者の住所と通院先</span></span></a></li>
-      <li><a href="phase3_model.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="sb-item-text"><span class="sb-item-title">来局率と成長余地</span><span class="sb-item-desc">Phase 3 · 来局の決め手と目標試算</span></span></a></li>
-      <li><a href="phase4_retention.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8"/></svg><span class="sb-item-text"><span class="sb-item-title">患者の定着</span><span class="sb-item-desc">Phase 4 · 再来・来局間隔・患者タイプ</span></span></a></li>
+      <li><a href="phase3_model.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="sb-item-text"><span class="sb-item-title">来局率と成長余地</span><span class="sb-item-desc">Phase 3 · どこまで伸ばせるか</span></span></a></li>
+      <li><a href="phase4_retention.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8"/></svg><span class="sb-item-text"><span class="sb-item-title">患者の定着</span><span class="sb-item-desc">Phase 4 · また来てくれているか</span></span></a></li>
       <li><a href="phase5_causal.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h12M13 7l5 5-5 5"/></svg><span class="sb-item-text"><span class="sb-item-title">施策の効果</span><span class="sb-item-desc">Phase 5 · チラシと継続施策</span></span></a></li>
       <li><a href="phase6_integrated.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="sb-item-text"><span class="sb-item-title">今後の見込み</span><span class="sb-item-desc">Phase 6 · 来月の見込みと目標</span></span></a></li>
     </ul>
@@ -1205,7 +1236,7 @@ details.expert h3 { margin-top: 24px; }
   <nav class="sb-toc" aria-label="ページ内目次">
     <p class="sb-heading" id="sb-h-toc">このページの内容</p>
     <ul aria-labelledby="sb-h-toc">
-      <li><a href="#summary">経営サマリー</a></li>
+      <li><a href="#summary">今月の1枚</a></li>
     </ul>
   </nav>
 
@@ -1216,9 +1247,8 @@ details.expert h3 { margin-top: 24px; }
   </div>
 
   <div class="sb-footer">
-    <p class="sb-generated" title="サイドバー・デザインを適用した日時。分析の生成日時は各ページ上部に表示">UI更新 2026-10-19</p>
+    <button type="button" class="sb-print" data-print="1">このページをPDFで保存</button>
     <a class="sb-notes-link" href="#notes">注意事項</a>
-    <a class="sb-academic-link" href="academic/index.html">学術用の旧版はこちら</a>
   </div>
 </aside>
 
@@ -1245,13 +1275,13 @@ details.expert h3 { margin-top: 24px; }
 
     <!-- exec-summary:begin -->
     <section class="exec-summary" aria-labelledby="summary">
-      <h2 id="summary">経営サマリー</h2>
-      <p class="caption">数字は既定値での計算です。画面の前提値を変えても、この欄は変わりません。</p>
+      <h2 id="summary">今月の1枚</h2>
       <div class="exec-grid">
-        <div class="exec-block"><h3>いまの状況</h3><ul><li>処方箋 <strong>1,768枚/月</strong>（2026年5〜7月の平均）｜目標 3,000枚/月まで あと<strong>1,232枚</strong></li><li>処方箋の<strong>1%</strong>が門前（クリニックから40m以内）、上位2院に73%が集中</li><li>初めて来た人のうち、90日以内にまた来るのは<strong>41%</strong></li></ul></div>
-        <div class="exec-block"><h3>わかったこと</h3><ol><li>上位2院への依存度が高い（上位2院で処方箋の73%）</li><li>患者の多くは徒歩圏に住み、少し離れると来なくなる（薬局から1km以内に52%）</li><li>耳鼻科・皮膚科の患者が、内科など他の科へ広がっていない（内科系へ移ったのは11%）</li></ol></div>
-        <div class="exec-block exec-action"><h3>次にやること</h3><ol><li>門前以外のクリニック（特に内科）との関係づくり</li><li>初回来局時の再来の働きかけ（声かけ・LINE登録など）</li><li>次の施策から「効果を測れる形」で実施する（配布記録・QRコード）</li></ol></div>
+        <div class="exec-block"><h3>いまの状況</h3><ul><li>処方箋 <strong>1,768枚/月</strong>（2026年5〜7月の平均）｜目標 3,000枚/月まで あと<strong>1,232枚</strong></li><li>はせがわ・平山の2院で <strong>67%</strong>（1,185枚）、それ以外 <strong>33%</strong>（583枚）</li><li>初めて来た人のうち、3か月以内にまた来る人は<strong>41%</strong>（初回の人数は各ページに記載）</li></ul></div>
+        <div class="exec-block"><h3>判断</h3><ol><li>注意：2院に頼りすぎ。はせがわが1割減ると店全体で約69枚/月減る</li><li>良い：近所（1km以内）には強い（患者の52%）</li><li>チャンス：耳鼻科・皮膚科で来た人は、内科の処方箋をうちに持ってきていない（11%）</li></ol></div>
+        <div class="exec-block exec-action"><h3>今月やること</h3><div class='todo-list'><label class="todo-item"><input type="checkbox" data-todo="0"/> 藤井クリニック、医療法人創康会岸本クリニック、医療法人 恵仁会　田中病院へ挨拶 <a href="phase1_flow.html#targets">くわしく</a></label><label class="todo-item"><input type="checkbox" data-todo="1"/> 吹田市千里丘西・西駅前町に各2,000枚、QRコード付きチラシ <a href="phase2_catchment.html#targets">くわしく</a></label><label class="todo-item"><input type="checkbox" data-todo="2"/> 平山皮フ科・かしまクリニック経由の初回患者に次回案内カード <a href="phase4_retention.html#clinics">くわしく</a></label><label class="todo-item"><input type="checkbox" data-todo="3"/> 施策の日付・枚数を記録表に書く <a href="phase5_causal.html#record">くわしく</a></label></div><p class="caption">来月、ここを見る：それ以外の医院 582→620枚/月</p></div>
       </div>
+      <p class="print-actions"><button type="button" class="btn" data-print="1">今月のやることリストを印刷</button></p>
     </section>
     <!-- exec-summary:end -->
 
@@ -1259,7 +1289,7 @@ details.expert h3 { margin-top: 24px; }
       <article class="card">
         <p class="card-kicker">Phase 1 · 処方箋の流れ</p>
         <h2>処方箋はどこから来ているか</h2>
-        <p>門前（クリニックから40m以内）は処方箋の1%。上位2院だけで73%を占めています。</p>
+        <p>隣の2院（はせがわ・平山）で処方箋の67%。残り428院から少しずつ。</p>
         <a class="btn" href="phase1_flow.html">レポートを開く</a>
         <a class="btn ghost" href="figures/phase1_sankey.html">Sankey</a>
       </article>
@@ -1275,21 +1305,21 @@ details.expert h3 { margin-top: 24px; }
       <article class="card">
         <p class="card-kicker">Phase 3 · 来局率と成長余地</p>
         <h2>何が来局率を左右し、どこまで伸ばせるか</h2>
-        <p>今の施策の延長では3,000枚に届きません（最大でも約2,312枚）。新しい処方元が必要です。</p>
+        <p>全部うまくいっても約2,312枚。新しい処方元が必要です。</p>
         <a class="btn" href="phase3_model.html">レポートを開く</a>
       </article>
 
       <article class="card">
         <p class="card-kicker">Phase 4 · 患者の定着</p>
         <h2>患者は定着しているか</h2>
-        <p>90日以内にもう一度来た人は41%。クリニックによって最大26ポイントの差があります。</p>
+        <p>3か月以内にもう一度来た人は41%（初回 7,937人のうち）。医院で最大26ポイントの差。</p>
         <a class="btn secondary" href="phase4_retention.html">レポートを開く</a>
       </article>
 
       <article class="card">
         <p class="card-kicker">Phase 5 · 施策の効果</p>
         <h2>チラシや施策は効いたか</h2>
-        <p>評価した施策5件のうち、効果を確認できたのは0件。次の施策は効果を測れる形で行う必要があります。</p>
+        <p>効いたか判定できた施策は0件/5件。次は記録を残して測れる形で。</p>
         <a class="btn" href="phase5_causal.html">レポートを開く</a>
       </article>
 
@@ -1304,7 +1334,7 @@ details.expert h3 { margin-top: 24px; }
       <article class="card">
         <p class="card-kicker">追加分析 · 来院経路</p>
         <h2>来院経路の時系列追跡</h2>
-        <p>耳鼻科・皮膚科で来た患者は、内科など他の科へほとんど広がっていません。</p>
+        <p>耳鼻科・皮膚科で来た人は、内科の処方箋をうちに持ってきていない。</p>
         <a class="btn" href="pathways.html">レポートを開く</a>
         <a class="btn ghost" href="figures/pathways_sankey.html">Sankey</a>
       </article>
@@ -1472,6 +1502,22 @@ details.expert h3 { margin-top: 24px; }
     nodes[i].classList.toggle("is-xlong", w > 10);
     nodes[i].classList.toggle("is-long", w > 6.5 && w <= 10);
   }
+}());
+
+(function () {
+  document.querySelectorAll("[data-print]").forEach(function (btn) {
+    btn.addEventListener("click", function () { window.print(); });
+  });
+  try {
+    var boxes = document.querySelectorAll("input[data-todo]");
+    for (var i = 0; i < boxes.length; i++) {
+      var key = "kutsuki-todo-" + boxes[i].getAttribute("data-todo");
+      boxes[i].checked = localStorage.getItem(key) === "1";
+      boxes[i].addEventListener("change", function (ev) {
+        localStorage.setItem("kutsuki-todo-" + ev.target.getAttribute("data-todo"), ev.target.checked ? "1" : "0");
+      });
+    }
+  } catch (_e) {}
 }());
 
 </script>

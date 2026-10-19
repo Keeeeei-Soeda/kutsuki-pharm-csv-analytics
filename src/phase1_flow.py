@@ -17,7 +17,8 @@ import pandas as pd
 import statsmodels.api as sm
 from statsmodels.tsa.seasonal import STL
 
-from src.corrections import gate_distance_km
+from src.axis import AXIS_OTHER, AXIS_PLAIN, AXIS_TOP2, AXIS_UNKNOWN, axis_from_clinic_id
+from src.corrections import gate_distance_km, is_gate_flag
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR
 
 GATE_KM = gate_distance_km()
@@ -25,8 +26,6 @@ GATE_KM = gate_distance_km()
 FIGURES = FIGURES_DIR
 REPORTS = REPORTS_DIR
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
-# 図の表記（分析上の区分名 → 薬局長向けの言い方）
-AXIS_PLAIN = {"門前型": "門前", "非門前型": "門前以外"}
 COLOR_GATE = "#c45c26"
 COLOR_NONGATE = "#2f6f9f"
 
@@ -37,28 +36,22 @@ def _setup_font() -> None:
     plt.rcParams["axes.unicode_minus"] = False
 
 
-def _axis_label(pattern: pd.Series) -> pd.Series:
-    out = pd.Series(np.where(pattern.astype(str).eq("門前型"), "門前型", "非門前型"), index=pattern.index)
-    out = out.where(pattern.notna(), "不明")
-    out = out.where(~pattern.astype(str).isin(NON_GATE), "非門前型")
-    out = pd.Series(
-        np.select(
-            [
-                pattern.astype(str).eq("門前型"),
-                pattern.astype(str).isin(NON_GATE),
-            ],
-            ["門前型", "非門前型"],
-            default="不明",
-        ),
-        index=pattern.index,
-    )
-    return out
+def _axis_label(clinic_id: pd.Series) -> pd.Series:
+    """クリニックIDから表示軸（隣の2院／それ以外／不明）。"""
+    return axis_from_clinic_id(clinic_id)
+
+
+def _gate_clinic_ids(vt: pd.DataFrame) -> set:
+    """門前フラグ TRUE のクリニックID（距離列の 0.3km 補正後も門前の院を含む）。"""
+    if "門前フラグ" not in vt.columns:
+        return set()
+    return set(vt.loc[is_gate_flag(vt["門前フラグ"]), "クリニックID"].astype(str))
 
 
 def load_base() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     vt = read_csv("visit_triangle")
     vt["受診日"] = pd.to_datetime(vt["受診日"])
-    vt["軸"] = _axis_label(vt["立地パターン"])
+    vt["軸"] = _axis_label(vt["クリニックID"])
     vt["年月"] = vt["受診日"].dt.to_period("M").astype(str)
     vt["週"] = vt["受診日"].dt.to_period("W-SUN").astype(str)
     vt["曜日番号"] = vt["受診日"].dt.dayofweek  # Mon=0
@@ -78,7 +71,7 @@ def abc_pareto(vt: pd.DataFrame, cm: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     results = {}
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    for ax, axis_name in zip(axes, ["門前型", "非門前型"]):
+    for ax, axis_name in zip(axes, [AXIS_TOP2, AXIS_OTHER]):
         sub = vt.loc[vt["軸"] == axis_name].dropna(subset=["クリニックID"])
         g = (
             sub.groupby(["クリニックID", "クリニック名"], dropna=False)
@@ -97,7 +90,7 @@ def abc_pareto(vt: pd.DataFrame, cm: pd.DataFrame) -> Dict[str, pd.DataFrame]:
             on="クリニックID",
             how="left",
         )
-        g["門前判定"] = pd.to_numeric(g["クリニック→薬局_直線km"], errors="coerce") <= GATE_KM + 1e-9
+        g["門前判定"] = g["クリニックID"].astype(str).isin(_gate_clinic_ids(vt))
         n80 = int((g["累積構成比"] <= 0.8).sum()) + 1
         n80 = min(n80, len(g))
         top1_share = float(g.iloc[0]["構成比"]) if len(g) else np.nan
@@ -106,7 +99,7 @@ def abc_pareto(vt: pd.DataFrame, cm: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         g.to_csv(PROCESSED_DIR / f"abc_clinics_{axis_name}.csv", index=False, encoding="utf-8-sig")
 
         top = g.head(20)
-        ax.bar(range(len(top)), top["件数"], color="#F58518" if axis_name == "門前型" else "#4C78A8")
+        ax.bar(range(len(top)), top["件数"], color="#F58518" if axis_name == AXIS_TOP2 else "#4C78A8")
         ax2 = ax.twinx()
         ax2.plot(range(len(top)), top["累積構成比"], color="#E45756", marker="o", ms=3)
         ax2.axhline(0.8, ls="--", color="gray", lw=1)
@@ -145,7 +138,7 @@ def abc_pareto(vt: pd.DataFrame, cm: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         on="クリニックID",
         how="left",
     )
-    g["門前判定"] = pd.to_numeric(g["クリニック→薬局_直線km"], errors="coerce") <= GATE_KM + 1e-9
+    g["門前判定"] = g["クリニックID"].astype(str).isin(_gate_clinic_ids(vt))
     n80 = int((g["累積構成比"] <= 0.8).sum()) + 1
     g.attrs = {
         "n80": min(n80, len(g)),
@@ -188,8 +181,9 @@ def time_series_analysis(vt: pd.DataFrame) -> Dict:
         vt.groupby(["年月", "軸"])
         .size()
         .unstack(fill_value=0)
-        .reindex(columns=["門前型", "非門前型", "不明"], fill_value=0)
+        .reindex(columns=[AXIS_TOP2, AXIS_OTHER, AXIS_UNKNOWN], fill_value=0)
     )
+    monthly_axis.to_csv(PROCESSED_DIR / "monthly_by_gate.csv", encoding="utf-8-sig")
 
     # national index
     nat = read_csv("prescriptions_monthly")
@@ -395,10 +389,10 @@ def patient_portfolio(vt: pd.DataFrame, pm: pd.DataFrame) -> Dict:
     port["面利用候補"] = port["受診クリニック数"] >= 2
 
     age_ct = pd.crosstab(port["年齢階級"], port["初回軸"], normalize="columns")
-    for col in ["門前型", "非門前型"]:
+    for col in [AXIS_TOP2, AXIS_OTHER]:
         if col not in age_ct.columns:
             age_ct[col] = 0.0
-    age_ct = age_ct[["門前型", "非門前型"]]
+    age_ct = age_ct[[AXIS_TOP2, AXIS_OTHER]]
 
     city_top = port["市区町村"].value_counts().head(15)
     visit_hist = port["受診回数"].clip(upper=30)
@@ -441,7 +435,7 @@ def patient_portfolio(vt: pd.DataFrame, pm: pd.DataFrame) -> Dict:
         "share": float(multi.shape[0] / len(port)),
         "mean_visits": float(multi["受診回数"].mean()),
         "median_age": float(multi["年齢"].median()),
-        "non_gate_first_share": float((multi["初回軸"] == "非門前型").mean()) if len(multi) else np.nan,
+        "non_gate_first_share": float((multi["初回軸"] == AXIS_OTHER).mean()) if len(multi) else np.nan,
         "top_cities": multi["市区町村"].value_counts().head(5).to_dict(),
     }
     port.to_csv(PROCESSED_DIR / "patient_portfolio.csv", index=False, encoding="utf-8-sig")
@@ -462,7 +456,7 @@ def patient_portfolio(vt: pd.DataFrame, pm: pd.DataFrame) -> Dict:
 # ---------------------------------------------------------------------------
 
 def plain_monthly_figure(vt: pd.DataFrame) -> Path:
-    """月別の処方箋枚数を「門前／門前以外」の2本の線で示す。"""
+    """月別の処方箋枚数を「隣の2院／それ以外」の2本の線で示す。"""
     ensure_dirs()
     _setup_font()
     monthly = (
@@ -474,7 +468,7 @@ def plain_monthly_figure(vt: pd.DataFrame) -> Path:
     )
     x = pd.PeriodIndex(monthly.index, freq="M").to_timestamp()
     fig, ax = plt.subplots(figsize=(11, 4.4))
-    for axis_name, color in [("門前型", COLOR_GATE), ("非門前型", COLOR_NONGATE)]:
+    for axis_name, color in [(AXIS_TOP2, COLOR_GATE), (AXIS_OTHER, COLOR_NONGATE)]:
         y = monthly[axis_name].values
         ax.plot(x, y, color=color, lw=2.2, marker="o", ms=3.5, label=AXIS_PLAIN[axis_name])
         ax.annotate(f"{AXIS_PLAIN[axis_name]} {y[-1]:,}枚", (x[-1], y[-1]), xytext=(8, 0),
@@ -485,7 +479,7 @@ def plain_monthly_figure(vt: pd.DataFrame) -> Path:
     ax.grid(axis="y", alpha=0.3)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(loc="upper left", frameon=False)
-    ax.set_title("月別の処方箋枚数（門前／門前以外）", loc="left")
+    ax.set_title("月別の処方箋枚数（隣の2院／それ以外の医院）", loc="left")
     fig.tight_layout()
     out = FIGURES / "phase1_monthly_plain.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
@@ -494,11 +488,16 @@ def plain_monthly_figure(vt: pd.DataFrame) -> Path:
 
 
 def top_clinics_figure(abc_all: pd.DataFrame, k: int = 10) -> Path:
-    """処方箋の多いクリニック上位 k 件の横棒（門前は橙、門前以外は青）。"""
+    """処方箋の多いクリニック上位 k 件の横棒（隣の2院は橙、それ以外は青）。"""
+    from src.axis import TOP2_IDS
+
     ensure_dirs()
     _setup_font()
     top = abc_all.head(k).iloc[::-1]
-    colors = [COLOR_GATE if bool(g) else COLOR_NONGATE for g in top["門前判定"]]
+    if "クリニックID" in top.columns:
+        colors = [COLOR_GATE if str(cid) in TOP2_IDS else COLOR_NONGATE for cid in top["クリニックID"]]
+    else:
+        colors = [COLOR_GATE if bool(g) else COLOR_NONGATE for g in top.get("門前判定", [False] * len(top))]
     fig, ax = plt.subplots(figsize=(10, 5.2))
     ax.barh(top["クリニック名"].astype(str).str[:18], top["件数"], color=colors)
     for i, (n, share) in enumerate(zip(top["件数"], top["構成比"])):
@@ -507,7 +506,7 @@ def top_clinics_figure(abc_all: pd.DataFrame, k: int = 10) -> Path:
     ax.set_xlabel("期間中の処方箋（枚）")
     ax.spines[["top", "right"]].set_visible(False)
     handles = [plt.Rectangle((0, 0), 1, 1, color=COLOR_GATE), plt.Rectangle((0, 0), 1, 1, color=COLOR_NONGATE)]
-    ax.legend(handles, [f"門前（薬局から{GATE_KM * 1000:.0f}m以内）", "門前以外"], loc="lower right", frameon=False)
+    ax.legend(handles, ["隣の2院（はせがわ・平山）", "それ以外の医院"], loc="lower right", frameon=False)
     ax.set_title(f"処方箋の多いクリニック 上位{k}件", loc="left")
     fig.tight_layout()
     out = FIGURES / "phase1_top_clinics.png"
@@ -553,7 +552,7 @@ def sankey_flow(vt: pd.DataFrame) -> Path:
         values.append(int(r["value"]))
 
     # also stratified non-gate only version
-    df_ng = df.loc[df["軸"] == "非門前型"]
+    df_ng = df.loc[df["軸"] == AXIS_OTHER]
     # simplify: save counts table
     l1.to_csv(PROCESSED_DIR / "sankey_city_clinic_all.csv", index=False, encoding="utf-8-sig")
 
@@ -627,12 +626,13 @@ Plotly.newPlot("sankey", [{{
 # ---------------------------------------------------------------------------
 
 def write_report(abc, ts, exo, port, sankey_path: Path, vt: pd.DataFrame) -> Path:
-    gate_n = int((vt["軸"] == "門前型").sum())
-    nongate_n = int((vt["軸"] == "非門前型").sum())
+    gate_n = int((vt["軸"] == AXIS_TOP2).sum())
+    nongate_n = int((vt["軸"] == AXIS_OTHER).sum())
+    flag_n = int(is_gate_flag(vt["門前フラグ"]).sum()) if "門前フラグ" in vt.columns else 0
     n = len(vt)
     abc_all = abc["全体"]
-    abc_g = abc["門前型"]
-    abc_ng = abc["非門前型"]
+    abc_g = abc[AXIS_TOP2]
+    abc_ng = abc[AXIS_OTHER]
 
     def top_table(g: pd.DataFrame, k: int = 10) -> str:
         cols = ["クリニック名", "件数", "構成比", "クリニック→薬局_直線km", "診療科", "門前判定"]
@@ -680,12 +680,12 @@ def write_report(abc, ts, exo, port, sankey_path: Path, vt: pd.DataFrame) -> Pat
 
 ## この薬局は面薬局か門前薬局か（数値回答）
 
-**結論: {'門前薬局' if gate_n / n >= 0.5 else '門前依存ではない'}（門前型＝クリニックから{GATE_KM * 1000:.0f}m以内 {gate_n/n:.1%}）。** 非門前 {nongate_n/n:.1%}（{nongate_n:,}件）。
+**結論: {'門前薬局' if flag_n / n >= 0.5 else '門前依存ではない'}（門前フラグ＝直線{GATE_KM * 1000:.0f}m以内 {flag_n/n:.1%}）。** 表示軸の隣の2院は {gate_n/n:.1%}（{gate_n:,}件）、それ以外 {nongate_n/n:.1%}（{nongate_n:,}件）。
 
 | 区分 | 受診件数 | 構成比 | ユニーク患者 |
 |---|---:|---:|---:|
-| 門前型 | {gate_n:,} | {gate_n/n:.1%} | {(vt.loc[vt['軸']=='門前型','患者ID'].nunique()):,} |
-| 非門前型 | {nongate_n:,} | {nongate_n/n:.1%} | {(vt.loc[vt['軸']=='非門前型','患者ID'].nunique()):,} |
+| {AXIS_TOP2} | {gate_n:,} | {gate_n/n:.1%} | {(vt.loc[vt['軸']==AXIS_TOP2,'患者ID'].nunique()):,} |
+| {AXIS_OTHER} | {nongate_n:,} | {nongate_n/n:.1%} | {(vt.loc[vt['軸']==AXIS_OTHER,'患者ID'].nunique()):,} |
 | 不明 | {(vt['軸']=='不明').sum():,} | {(vt['軸']=='不明').mean():.1%} | — |
 
 ![月別](figures/phase1_monthly_gate.png)

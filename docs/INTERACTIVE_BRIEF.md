@@ -35,7 +35,7 @@
 | 成長シナリオ | `src/models/simulator.py: GrowthInputs / simulate_scenarios` |
 
 ### 見つかった不整合（先に直す）
-`GrowthInputs` の既定値 `gate_share=0.893 / nongate_share=0.096` は**門前判定を40mに変える前の値**。現在の Phase 1 では門前1%・非門前98%（`page_summaries/p1.json`）。Phase 3 の「最大でも約2,312枚」はこの古い比率で計算されている。
+表示軸は隣の2院（はせがわ・平山）。門前フラグは直線40m（はせがわ・平山・髙岡、約74%）。シミュレータの構成比は `growth_inputs_from_current` が現行データから取る。
 → ステップ1で `run_growth_sim()` が `p1.json` 相当の現行比率を渡すよう修正し、結論文がどう変わるかを報告すること（勝手に結論文を書き換えず、数値の差分を報告する）。
 
 ---

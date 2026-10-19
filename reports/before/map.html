@@ -843,10 +843,15 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline-color: va
   background: var(--mint);
   color: var(--mint-ink);
 }
-.takeaway .tk-row:nth-child(2) dt { background: var(--butter); color: var(--butter-ink); }
-.takeaway .tk-row:nth-child(3) dt { background: var(--accent); color: #ffffff; }
+.takeaway .tk-row.tone-good dt { background: var(--mint); color: var(--mint-ink); }
+.takeaway .tk-row.tone-caution dt { background: var(--butter); color: var(--butter-ink); }
+.takeaway .tk-row.tone-bad dt { background: var(--peach); color: var(--peach-ink); }
+.takeaway .tk-row.tone-chance dt { background: var(--lilac); color: var(--lilac-ink); }
+.takeaway .tk-row.tk-action dt { background: var(--accent); color: #ffffff; }
 .takeaway dd { margin: 0; font-size: 15.5px; line-height: 1.75; padding-top: 2px; }
-.takeaway .tk-row:nth-child(3) dd { font-weight: 700; }
+.takeaway .tk-row.tk-action dd { font-weight: 700; white-space: pre-line; }
+.kpi.tone-caution .compare::before { content: "△ "; color: var(--butter-ink); font-weight: 700; }
+.kpi.tone-chance .compare::before { content: "◇ "; color: var(--lilac-ink); font-weight: 700; }
 @media (max-width: 599px) {
   .takeaway { padding: 8px 18px; }
   .takeaway .tk-row { grid-template-columns: 1fr; gap: 8px; }
@@ -1047,12 +1052,38 @@ details.expert h3 { margin-top: 24px; }
   .kpi .value { font-size: 28px; }
 }
 
+.sb-print, .print-actions .btn {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 8px 8px 0;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.print-actions .btn { width: auto; margin: 12px 0 0; display: inline-block; }
+.todo-list { display: grid; gap: 8px; }
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.todo-item input { margin-top: 5px; }
+
 @media print {
   body { background: #fff; }
   .wrap { max-width: 100%; padding: 0; }
   .card, .hero, .takeaway, .figure { box-shadow: none; border: 1px solid var(--line); }
   details.expert > * { display: block; }
   details.expert > summary::before { content: none; }
+  .sb-print, .print-actions { display: none; }
 }
 /* === サイドバーシェル END === */
 </style>
@@ -1089,10 +1120,10 @@ details.expert h3 { margin-top: 24px; }
     </ul>
     <p class="sb-heading" id="sb-h-phase">Phase</p>
     <ul aria-labelledby="sb-h-phase">
-      <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">処方箋の流れ</span><span class="sb-item-desc">Phase 1 · 門前と門前以外</span></span></a></li>
+      <li><a href="phase1_flow.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/></svg><span class="sb-item-text"><span class="sb-item-title">処方箋の流れ</span><span class="sb-item-desc">Phase 1 · 隣の2院とそれ以外</span></span></a></li>
       <li><a href="phase2_catchment.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span class="sb-item-text"><span class="sb-item-title">商圏とクリニック</span><span class="sb-item-desc">Phase 2 · 患者の住所と通院先</span></span></a></li>
-      <li><a href="phase3_model.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="sb-item-text"><span class="sb-item-title">来局率と成長余地</span><span class="sb-item-desc">Phase 3 · 来局の決め手と目標試算</span></span></a></li>
-      <li><a href="phase4_retention.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8"/></svg><span class="sb-item-text"><span class="sb-item-title">患者の定着</span><span class="sb-item-desc">Phase 4 · 再来・来局間隔・患者タイプ</span></span></a></li>
+      <li><a href="phase3_model.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M11 20V5M17 20v-6M3 20h18"/></svg><span class="sb-item-text"><span class="sb-item-title">来局率と成長余地</span><span class="sb-item-desc">Phase 3 · どこまで伸ばせるか</span></span></a></li>
+      <li><a href="phase4_retention.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8"/></svg><span class="sb-item-text"><span class="sb-item-title">患者の定着</span><span class="sb-item-desc">Phase 4 · また来てくれているか</span></span></a></li>
       <li><a href="phase5_causal.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12h12M13 7l5 5-5 5"/></svg><span class="sb-item-text"><span class="sb-item-title">施策の効果</span><span class="sb-item-desc">Phase 5 · チラシと継続施策</span></span></a></li>
       <li><a href="phase6_integrated.html"><svg class="sb-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="sb-item-text"><span class="sb-item-title">今後の見込み</span><span class="sb-item-desc">Phase 6 · 来月の見込みと目標</span></span></a></li>
     </ul>
@@ -1119,9 +1150,8 @@ details.expert h3 { margin-top: 24px; }
   </div>
 
   <div class="sb-footer">
-    <p class="sb-generated" title="サイドバー・デザインを適用した日時。分析の生成日時は各ページ上部に表示">UI更新 2026-10-19</p>
+    <button type="button" class="sb-print" data-print="1">このページをPDFで保存</button>
     <a class="sb-notes-link" href="#notes">注意事項</a>
-    <a class="sb-academic-link" href="../academic/index.html">学術用の旧版はこちら</a>
   </div>
 </aside>
 
@@ -1358,6 +1388,22 @@ details.expert h3 { margin-top: 24px; }
     nodes[i].classList.toggle("is-xlong", w > 10);
     nodes[i].classList.toggle("is-long", w > 6.5 && w <= 10);
   }
+}());
+
+(function () {
+  document.querySelectorAll("[data-print]").forEach(function (btn) {
+    btn.addEventListener("click", function () { window.print(); });
+  });
+  try {
+    var boxes = document.querySelectorAll("input[data-todo]");
+    for (var i = 0; i < boxes.length; i++) {
+      var key = "kutsuki-todo-" + boxes[i].getAttribute("data-todo");
+      boxes[i].checked = localStorage.getItem(key) === "1";
+      boxes[i].addEventListener("change", function (ev) {
+        localStorage.setItem("kutsuki-todo-" + ev.target.getAttribute("data-todo"), ev.target.checked ? "1" : "0");
+      });
+    }
+  } catch (_e) {}
 }());
 
 </script>

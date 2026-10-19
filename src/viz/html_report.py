@@ -21,7 +21,13 @@ from src.viz.sidebar import (
 )
 
 FOOTER_NOTE = "自店のデータにもとづく分析です。地域全体の数字ではありません。"
-KPI_TONES = ("good", "bad", "neutral")
+KPI_TONES = ("good", "bad", "neutral", "caution", "chance")
+TAKEAWAY_TONES = {
+    "good": "良い",
+    "caution": "注意",
+    "bad": "危ない",
+    "chance": "チャンス",
+}
 
 PathLike = Union[str, Path]
 
@@ -375,6 +381,7 @@ class HtmlReport:
         self.nav_key = nav_key
         self.page_kind = page_kind
         self.kpis: List[dict] = []
+        self._takeaway_html = ""
         self.toc: List[tuple] = []
         self.blocks: List[str] = []
         self._expert_depth = 0
@@ -407,13 +414,36 @@ class HtmlReport:
         self.add_toc(anchor, title)
         self.blocks.append(f'<h2 id="{_esc(anchor)}">{_esc(title)}</h2>{note_html}')
 
-    def takeaway(self, finding: str, judgment: str, action: str) -> None:
-        """ページ冒頭の結論ボックス（わかったこと／良い？悪い？／次にやること）。"""
-        rows = [("わかったこと", finding), ("良い？悪い？", judgment), ("次にやること", action)]
+    def takeaway(
+        self,
+        finding: str,
+        judgment: str,
+        action: str,
+        measure: str = "",
+        link: str = "",
+        tone: str = "caution",
+    ) -> None:
+        """ページ冒頭の結論ボックス（5行型）。KPIより上に出す。"""
+        if tone not in TAKEAWAY_TONES:
+            tone = "caution"
+        label = TAKEAWAY_TONES[tone]
+        judgment_text = judgment if judgment.startswith(tuple(TAKEAWAY_TONES.values())) else f"{label}。{judgment}"
+        parts = [
+            ("わかったこと", _esc(finding), ""),
+            ("判断", _esc(judgment_text), f" tone-{tone}"),
+            ("今月やること", _esc(action).replace("\n", "<br>"), " tk-action"),
+        ]
+        if measure:
+            parts.append(("効いたかの見方", _esc(measure), ""))
+        if link:
+            href = _esc(link)
+            link_html = f'<a href="{href}">根拠の表・図</a>'
+            parts.append(("くわしくは", link_html, " tk-link"))
         body = "".join(
-            f'<div class="tk-row"><dt>{_esc(head)}</dt><dd>{_esc(text)}</dd></div>' for head, text in rows
+            f'<div class="tk-row{extra}"><dt>{_esc(head)}</dt><dd>{text}</dd></div>'
+            for head, text, extra in parts
         )
-        self.blocks.append(f'<section class="takeaway" aria-label="このページのまとめ"><dl>{body}</dl></section>')
+        self._takeaway_html = f'<section class="takeaway" aria-label="このページのまとめ"><dl>{body}</dl></section>'
 
     @contextmanager
     def expert_details(
@@ -569,7 +599,7 @@ class HtmlReport:
             chips.append(f'<span class="chip">{_esc(self.pharmacy)}</span>')
         if self.period:
             chips.append(f'<span class="chip">{_esc(self.period)}</span>')
-        chips.append(f'<span class="chip">生成 {datetime.now().strftime("%Y-%m-%d %H:%M")}</span>')
+        chips.append('<span class="chip">データ：2026-07-31まで</span>')
 
         nav_key = self.nav_key or key_for_phase(self.active_phase)
         headline = headline_for(nav_key) or self.title
@@ -601,6 +631,7 @@ class HtmlReport:
     <p>{_esc(self.subtitle)}</p>
     <div class="meta">{''.join(chips)}</div>
   </header>
+  {self._takeaway_html}
   {kpi_html}
   {''.join(self.blocks)}
   <footer class="footer" id="notes">

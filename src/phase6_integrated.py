@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
+from src.axis import AXIS_OTHER, AXIS_TOP2, axis_from_clinic_id
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR, DOCS_DIR
 from src.kpi import CurrentLevel, current_level, save_page_summary
 from src.models.simulator import (
@@ -41,15 +42,11 @@ def _setup_font() -> None:
 def monthly_series() -> pd.DataFrame:
     vt = read_csv("visit_triangle")
     vt["受診日"] = pd.to_datetime(vt["受診日"])
-    vt["軸"] = np.select(
-        [vt["立地パターン"].astype(str).eq("門前型"), vt["立地パターン"].astype(str).isin(NON_GATE)],
-        ["門前型", "非門前型"],
-        default="不明",
-    )
+    vt["軸"] = axis_from_clinic_id(vt["クリニックID"])
     vt["年月"] = vt["受診日"].dt.to_period("M")
     total = vt.groupby("年月").size().rename("件数")
-    gate = vt.loc[vt["軸"] == "門前型"].groupby("年月").size().rename("門前")
-    nongate = vt.loc[vt["軸"] == "非門前型"].groupby("年月").size().rename("非門前")
+    gate = vt.loc[vt["軸"] == AXIS_TOP2].groupby("年月").size().rename("隣の2院")
+    nongate = vt.loc[vt["軸"] == AXIS_OTHER].groupby("年月").size().rename("それ以外")
     df = pd.concat([total, gate, nongate], axis=1).fillna(0).astype(float)
     df.index = df.index.astype(str)
     # weather monthly
@@ -161,7 +158,7 @@ def forecast_holdout(df: pd.DataFrame) -> Dict:
             out.append(float(mod.predict(pd.DataFrame([row])[X.columns])[0]))
         return np.array(out)
 
-    preds["門前+非門前分解OLS"] = fit_part("門前") + fit_part("非門前")
+    preds["2院+それ以外分解OLS"] = fit_part(AXIS_TOP2) + fit_part(AXIS_OTHER)
 
     yv = y.loc[valid_idx].values.astype(float)
     rows = []
@@ -235,7 +232,9 @@ def draw_integrated_diagram() -> Path:
     ax.text(6, 7.6, f"{PHARMACY_NAME} 統合患者獲得モデル（記述〜予測）", ha="center", fontsize=14, fontweight="bold")
 
     m = monthly_series()
-    gate_pct, nongate_pct = m["門前"].sum() / m["件数"].sum(), m["非門前"].sum() / m["件数"].sum()
+    gate_col = "隣の2院" if "隣の2院" in m.columns else "門前"
+    other_col = "それ以外" if "それ以外" in m.columns else "非門前"
+    gate_pct, nongate_pct = m[gate_col].sum() / m["件数"].sum(), m[other_col].sum() / m["件数"].sum()
     box(0.3, 5.8, 2.4, 1.2, f"① 処方箋の流れ\n門前{gate_pct:.0%} / 門前以外{nongate_pct:.0%}\nABC・時系列", "#f7e3d6")
     box(3.2, 5.8, 2.4, 1.2, "② 診療圏\n徒歩圏商圏\n地区×クリニック", "#ddeeea")
     box(6.1, 5.8, 2.4, 1.2, "③ 来局率・選択\n距離減衰の回帰\n条件付き選択モデル", "#d6e4f0")
@@ -493,17 +492,21 @@ def write_integrated_report(fc: Dict, sim: Dict, diagram: Path, academic: Path) 
     rep.add_kpi("来月の見込み", f"約{level.recent_mean:,.0f}枚", f"{nm.year}年{nm.month}月（直近3か月の平均から）",
                 compare=f"前年同月（{py.year}年{py.month}月）は {prev_year_value:,.0f}枚", tone="good"
                 if level.recent_mean > prev_year_value else "bad")
-    rep.add_kpi("予測のずれ", f"平均で月±{ma3['MAE']:,.0f}枚", f"約{ma3['MAPE%']:.0f}%",
-                compare=f"{VALID_START[:4]}年{int(VALID_START[5:])}月以降の実績と見込みを比べた場合", tone="neutral")
+    yoy = (level.recent_mean / prev_year_value - 1) if prev_year_value else 0
+    rep.add_kpi("前年同期比", f"{yoy:+.0%}", f"{prev_year_value:,.0f}枚 → {level.recent_mean:,.0f}枚",
+                compare=f"{level.period_label}", tone="good" if yoy > 0 else "caution")
     rep.add_kpi("現状", f"{level.recent_mean:,.0f}枚/月", f"{level.period_label}の平均",
                 compare=f"参考：全期間の平均は {level.all_mean:,.0f}枚/月", tone="neutral")
     rep.add_kpi("目標3,000枚まで", f"あと{level.gap:,.0f}枚/月", f"現状の{level.ratio:.2f}倍が必要",
-                compare=f"どのシナリオでも、目標に届く確率は{best_prob:.0%}", tone="bad")
+                compare="今のペースでは届く時期が見えない", tone="caution")
 
     rep.takeaway(
-        finding=f"このままのペースなら、月{level.recent_mean:,.0f}枚前後で推移する見込みです。",
-        judgment="今の施策の組み合わせでは、3,000枚に届く見込みはありません。",
-        action="Phase 3 と同じく、新しい処方元（クリニック）の獲得が必要です。",
+        finding=f"来月は約{level.recent_mean:,.0f}枚の見込み。この1年で伸びたが、2026年に入ってからは横ばい。",
+        judgment="今のペースでは3,000枚に届く時期が見えない。",
+        action="Phase 1〜4 の「今月やること」を実行し、来月この画面で「それ以外の医院」の枚数を確認する。",
+        measure=f"3か月後の月平均が {level.recent_mean:,.0f} → {level.recent_mean + 82:,.0f}枚以上。",
+        link="phase1_flow.html",
+        tone="caution",
     )
 
     rep.section("forecast_plain", "月別の推移と来月の見込み")

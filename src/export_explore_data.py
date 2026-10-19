@@ -13,12 +13,12 @@ from typing import Dict, List, Optional, Sequence
 import pandas as pd
 import yaml
 
-from src.corrections import gate_distance_km
+from src.corrections import gate_distance_km, is_gate_flag
 from src.io import ROOT, read_csv, DOCS_DIR
 from src.kpi import RECENT_MONTHS, TARGET_MONTHLY, current_level, monthly_prescriptions
 from src.models.simulator import growth_inputs_from_current, simulate_scenarios
 from src.pathways import load_sequences
-from src.phase1_flow import _axis_label
+from src.axis import AXES, TOP2_IDS, axis_from_clinic_id
 from src.phase4_retention import END_DATE, RETENTION_DAYS, attach_first_attrs
 from src.specialty_taxonomy import STANDARD_LABELS, build_specialty_map
 
@@ -36,7 +36,6 @@ DIST_DISPLAY = {
     "2+": "2km以上",
     "unknown": "不明",
 }
-AXES = ["門前型", "非門前型", "不明"]
 TOP_N_CLINICS = 20
 UNKNOWN = "不明"
 OTHER = "OTHER"
@@ -62,7 +61,7 @@ def _load_visits() -> pd.DataFrame:
     seq = load_sequences()
     visits = seq["visits"].copy()
     visits["ym"] = pd.to_datetime(visits["受診日"]).dt.to_period("M").astype(str)
-    visits["axis"] = _axis_label(visits["立地パターン"])
+    visits["axis"] = axis_from_clinic_id(visits["クリニックID"])
     visits["dept"] = visits["主科"].fillna(UNKNOWN).replace("", UNKNOWN)
     visits["visit_type"] = visits["受診順"].eq(1).map({True: "初回", False: "再来"})
     pm = read_csv("patient_master")[["患者ID", "患者→薬局_道路km"]]
@@ -129,7 +128,7 @@ def build_totals_weekly(visits: pd.DataFrame) -> Dict:
 def build_retention(visits: pd.DataFrame) -> Dict:
     """Phase 4 と同じ定義: 初回受診日 ≤ END_DATE-90 の患者の 90 日再来。"""
     vt = read_csv("visit_triangle")
-    vt["軸"] = _axis_label(vt["立地パターン"])
+    vt["軸"] = axis_from_clinic_id(vt["クリニックID"])
     pm = read_csv("patient_master")
     vh = read_csv("visit_history")
     patients = attach_first_attrs(pm, vt)
@@ -195,9 +194,12 @@ def build_dims(visits: pd.DataFrame) -> Dict:
     gate_km = gate_distance_km()
     top = list(visits.attrs.get("top_clinics") or [])
     clinics_src = cm.merge(smap[["クリニックID", "主科"]], on="クリニックID", how="left")
-    clinics_src["門前判定"] = (
-        pd.to_numeric(clinics_src["クリニック→薬局_直線km"], errors="coerce") <= gate_km + 1e-9
+    gate_ids = (
+        set(visits.loc[is_gate_flag(visits["門前フラグ"]), "クリニックID"].astype(str))
+        if "門前フラグ" in visits.columns
+        else set()
     )
+    clinics_src["門前判定"] = clinics_src["クリニックID"].astype(str).isin(gate_ids)
     clinics: Dict[str, dict] = {}
     for cid in top:
         row = clinics_src.loc[clinics_src["クリニックID"].astype(str).eq(cid)]
@@ -208,7 +210,7 @@ def build_dims(visits: pd.DataFrame) -> Dict:
         clinics[cid] = {
             "name": None if pd.isna(r.get("クリニック名")) else str(r["クリニック名"]),
             "dept": UNKNOWN if pd.isna(r.get("主科")) or str(r.get("主科")) == "" else str(r["主科"]),
-            "gate": bool(r["門前判定"]) if pd.notna(r["門前判定"]) else False,
+            "gate": str(cid) in TOP2_IDS,
         }
     clinics[OTHER] = {"name": "その他", "dept": None, "gate": None}
 
@@ -259,6 +261,8 @@ def build_params(visits: pd.DataFrame) -> Dict:
             "monthly_visits": float(inp.monthly_visits),
             "gate_share": float(inp.gate_share),
             "nongate_share": float(inp.nongate_share),
+            "hasegawa_share": float(inp.hasegawa_share),
+            "hirayama_share": float(inp.hirayama_share),
             "unknown_share": float(unknown),
             "unique_patients": float(inp.unique_patients),
             "mean_visits_per_patient": float(inp.mean_visits_per_patient),

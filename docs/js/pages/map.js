@@ -35,7 +35,7 @@ function clinicPopup(c, totalN) {
   return (
     `<b>${c.name}</b><br>処方箋 ${c.n.toLocaleString()} 枚` +
     `<br>処方箋に占める割合 ${share}%` +
-    `<br>${c.sp || "-"} / ${c.gate ? "門前" : "門前以外"}` +
+    `<br>${c.sp || "-"} / ${c.gate ? "隣の2院" : "それ以外の医院"}` +
     (c.km != null ? `<br>薬局からの距離 ${c.km.toFixed(2)} km` : "")
   );
 }
@@ -131,6 +131,28 @@ function createLeafletEngine(D) {
     clinicLayer.addLayer(m);
   });
 
+  const targetLayer = L.layerGroup().addTo(map);
+  (D.targets || []).forEach((m) => {
+    L.rectangle(
+      [
+        [m.lat - D.meshHalf.lat, m.lon - D.meshHalf.lon],
+        [m.lat + D.meshHalf.lat, m.lon + D.meshHalf.lon],
+      ],
+      {
+        color: "#c4472b",
+        weight: 2.5,
+        fillColor: "transparent",
+        fillOpacity: 0,
+      }
+    )
+      .bindPopup(
+        `<b>配布候補</b>${m.town ? "（" + m.town + "）" : ""}` +
+          `<br>人口 ${m.pop.toLocaleString()} 人` +
+          `<br>自店に来た人 ${m.uniq.toLocaleString()} 人`
+      )
+      .addTo(targetLayer);
+  });
+
   const meshLayer = L.layerGroup();
   D.meshes.forEach((m) => {
     L.rectangle(
@@ -181,7 +203,8 @@ function createLeafletEngine(D) {
   }
 
   const bases = { "地理院 淡色": gsi, "地理院 標準": gsiStd, OpenStreetMap: osm };
-  let densityMode = "none"; // none | mesh | heat
+  let densityMode = heatLayer ? "heat" : "none"; // none | mesh | heat
+  if (heatLayer) map.addLayer(heatLayer);
 
   function setDensity(mode) {
     densityMode = mode;
@@ -244,7 +267,8 @@ function createLeafletEngine(D) {
       const on =
         (key === "store" && map.hasLayer(storeLayer)) ||
         (key === "clinic" && map.hasLayer(clinicLayer)) ||
-        (key === "comp" && map.hasLayer(compLayer));
+        (key === "comp" && map.hasLayer(compLayer)) ||
+        (key === "target" && map.hasLayer(targetLayer));
       input.checked = !!on;
     });
   }
@@ -271,11 +295,12 @@ function createLeafletEngine(D) {
           <label class="map-check"><input type="checkbox" data-overlay="store" checked/>自店</label>
           <label class="map-check"><input type="checkbox" data-overlay="clinic" checked/>クリニック</label>
           <label class="map-check"><input type="checkbox" data-overlay="comp"/>競合薬局（${D.competitors.length}軒）</label>
+          <label class="map-check"><input type="checkbox" data-overlay="target" ${D.targets && D.targets.length ? "checked" : ""}/>配布候補</label>
           <p class="map-panel-label">地域の色（どれか1つ）</p>
           <div class="map-radio-row">
-            <button type="button" class="map-chip is-on" data-density="none" aria-pressed="true">なし</button>
+            <button type="button" class="map-chip" data-density="none" aria-pressed="false">なし</button>
             <button type="button" class="map-chip" data-density="mesh" aria-pressed="false">来局の割合</button>
-            <button type="button" class="map-chip" data-density="heat" aria-pressed="false"${heatLayer ? "" : " disabled"}>患者が多い範囲</button>
+            <button type="button" class="map-chip${heatLayer ? " is-on" : ""}" data-density="heat" aria-pressed="${heatLayer ? "true" : "false"}"${heatLayer ? "" : " disabled"}>患者が多い範囲</button>
           </div>
         </div>
       </div>
@@ -308,7 +333,8 @@ function createLeafletEngine(D) {
     chrome.querySelectorAll("[data-overlay]").forEach((input) => {
       input.addEventListener("change", () => {
         const key = input.getAttribute("data-overlay");
-        const layer = key === "store" ? storeLayer : key === "clinic" ? clinicLayer : compLayer;
+        const layer =
+          key === "store" ? storeLayer : key === "clinic" ? clinicLayer : key === "target" ? targetLayer : compLayer;
         if (input.checked) map.addLayer(layer);
         else map.removeLayer(layer);
       });
@@ -329,8 +355,9 @@ function createLeafletEngine(D) {
             return `<div class="legend-row"><span class="bubble bubble-size" style="width:${2 * r}px;height:${2 * r}px"></span><span class="num">${n.toLocaleString()}</span> 枚</div>`;
           })
           .join("") +
-        `<div class="legend-row"><span class="swatch-dot" style="background:${GATE}"></span>門前</div>` +
-        `<div class="legend-row"><span class="swatch-dot" style="background:${NONGATE}"></span>門前以外</div>` +
+        `<div class="legend-row"><span class="swatch-dot" style="background:${GATE}"></span>隣の2院</div>` +
+        `<div class="legend-row"><span class="swatch-dot" style="background:${NONGATE}"></span>それ以外の医院</div>` +
+        `<div class="legend-row"><span class="swatch" style="border:2px solid #c4472b;background:transparent"></span>配布候補</div>` +
         `<div class="legend-row"><span class="swatch dot" style="background:#1f6e4d;width:14px;height:14px;border:2px solid #fff;box-shadow:0 0 0 1px #1f6e4d"></span>自店</div>` +
         `<div class="legend-row"><span class="swatch ring"></span>競合薬局</div>`;
     }
@@ -351,15 +378,13 @@ function createLeafletEngine(D) {
     if (ml) {
       const maxPct = (D.meshRateMax * 100).toFixed(2);
       const rows = [
-        `<div class="legend-row"><span class="swatch" style="background:#eeeae0"></span><span class="num">0%</span>（来局なし）</div>`,
+        `<div class="legend-row"><span class="swatch" style="background:#eeeae0"></span><span class="num">来局なし</span></div>`,
       ];
+      const words = D.meshWords || ["ほぼ来ていない", "少ない", "ふつう", "多い", "とても多い"];
       D.meshBands.forEach((b, i) => {
-        let label;
-        if (i === 0) label = `${(b.hi * 100).toFixed(2)}% 以下`;
-        else if (i === D.meshBands.length - 1) label = `${(b.lo * 100).toFixed(2)}% 以上`;
-        else label = `${(b.lo * 100).toFixed(2)}〜${(b.hi * 100).toFixed(2)}%`;
+        const word = words[i] || "";
         rows.push(
-          `<div class="legend-row"><span class="swatch" style="background:${b.color}"></span><span class="num">${label}</span></div>`
+          `<div class="legend-row"><span class="swatch" style="background:${b.color}"></span><span class="num">${word}</span></div>`
         );
       });
       rows.push(
@@ -372,6 +397,7 @@ function createLeafletEngine(D) {
       other.innerHTML =
         `<div class="legend-row"><span class="swatch dot" style="background:#1f6e4d;width:14px;height:14px;border:2px solid #fff;box-shadow:0 0 0 1px #1f6e4d"></span>自店（くつき薬局南茨木店）</div>` +
         `<div class="legend-row"><span class="swatch ring"></span>競合薬局（${D.competitors.length}軒）</div>` +
+        `<div class="legend-row"><span class="swatch" style="border:2px solid #c4472b;background:transparent"></span>配布候補</div>` +
         `<div class="legend-row"><span class="swatch" style="background:linear-gradient(90deg,#ffeda0,#feb24c,#fc4e2a,#bd0026)"></span>患者が多く住んでいる範囲</div>`;
     }
   }

@@ -441,24 +441,27 @@ def write_report(ctx: Dict[str, object]) -> Path:
                     + ("とほぼ同じ" if weak else f"の{spread['second_lift']:.1f}倍")
                 ),
                 tone="bad" if weak else "good")
-    rep.add_kpi("次の来局も同じ科", f"{same:.0%}",
-                f"ある来局から次の来局への移り変わり {ctx['n_transitions']:,}件のうち",
-                compare=f"別の科へ移ったのは {1 - same:.0%}", tone="neutral")
-
+    intern_action = "Phase 1 の内科3院（藤井・岸本・田中病院）への挨拶。"
     if weak:
         rep.takeaway(
-            finding=f"耳鼻科・皮膚科で来た患者のうち、その後内科系へ移ったのは{spread['acute_rate']:.0%}です。",
-            judgment=(
-                f"初回が内科以外の患者全体（{spread['second_chronic_rate']:.1%}）とほぼ同じで、"
-                "内科へ自然には広がっていません。"
+            finding=(
+                f"耳鼻科・皮膚科で来た人のうち、その後に内科の処方箋を持ってきた人は{spread['acute_rate']:.0%}。"
+                "風邪やかゆみで来た人は、血圧や糖尿病の薬をうちで受け取るようにはなっていない。"
             ),
-            action="内科系クリニックとの接点づくり（処方箋の直接獲得）を最優先にします。",
+            judgment="長く通う内科の患者は、待っていても増えない。",
+            action=intern_action,
+            measure="内科の処方箋が、翌月から増えているか。",
+            link="phase1_flow.html#targets",
+            tone="caution",
         )
     else:
         rep.takeaway(
-            finding=f"耳鼻科・皮膚科で来た患者のうち、その後内科系へ移ったのは{spread['acute_rate']:.0%}です。",
-            judgment=f"初回が内科以外の患者全体の{spread['second_lift']:.1f}倍で、内科への広がりが見られます。",
-            action="耳鼻科・皮膚科の初回接点を維持しつつ、2回目以降の継続を強化します。",
+            finding=f"耳鼻科・皮膚科で来た人のうち、その後に内科の処方箋を持ってきた人は{spread['acute_rate']:.0%}。",
+            judgment="内科への広がりが見られる。",
+            action=intern_action,
+            measure="内科の処方箋が、翌月から増えているか。",
+            link="phase1_flow.html#targets",
+            tone="good",
         )
 
     rep.section("spread", "耳鼻科・皮膚科の患者は内科系へ広がっているか")
@@ -491,9 +494,17 @@ def write_report(ctx: Dict[str, object]) -> Path:
         "spread_weak": bool(weak),
         "same_rate": same,
         "conclusion": (
-            "耳鼻科・皮膚科で来た患者は、内科など他の科へほとんど広がっていません。"
-            if weak else "耳鼻科・皮膚科で来た患者が、内科など他の科へ広がっています。"
+            "耳鼻科・皮膚科で来た人は、内科の処方箋をうちに持ってきていない。"
+            if weak else "耳鼻科・皮膚科で来た人が、内科の処方箋も持ってくるようになっている。"
         ),
+        "actions": [
+            {
+                "what": "Phase 1 の内科3院（藤井・岸本・田中病院）へ挨拶",
+                "who": "薬局長",
+                "measure": "内科の処方箋が増えているか",
+                "page": "phase1_flow.html#targets",
+            }
+        ],
     })
     return out
 

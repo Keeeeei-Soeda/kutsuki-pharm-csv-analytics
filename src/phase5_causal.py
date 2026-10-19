@@ -26,6 +26,7 @@ import statsmodels.api as sm
 import yaml
 
 from src.corrections import gate_distance_km
+from src.axis import AXIS_OTHER, AXIS_TOP2, axis_from_clinic_id
 from src.io import PHARMACY_NAME, PROCESSED_DIR, RAW_DIR, ROOT, SEED, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR, DOCS_DIR
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
@@ -87,11 +88,7 @@ def read_excel_monthly(filename: str) -> pd.DataFrame:
 def load_visits() -> pd.DataFrame:
     vt = read_csv("visit_triangle")
     vt["受診日"] = pd.to_datetime(vt["受診日"])
-    vt["軸"] = np.select(
-        [vt["立地パターン"].astype(str).eq("門前型"), vt["立地パターン"].astype(str).isin(NON_GATE)],
-        ["門前型", "非門前型"],
-        default="不明",
-    )
+    vt["軸"] = axis_from_clinic_id(vt["クリニックID"])
     vt["週"] = vt["受診日"].dt.to_period("W-SUN")
     return vt
 
@@ -275,8 +272,8 @@ def comparative_its(vt: pd.DataFrame, ev: pd.DataFrame, weeks: pd.PeriodIndex,
     weeks = weeks[weeks.start_time >= start]
     vt = vt.loc[vt["受診日"] >= weeks.start_time[0]]
     counts = {
-        "非門前": vt.loc[vt["軸"] == "非門前型"].groupby("週").size(),
-        "門前": vt.loc[vt["軸"] == "門前型"].groupby("週").size(),
+        "非門前": vt.loc[vt["軸"] == AXIS_OTHER].groupby("週").size(),
+        "門前": vt.loc[vt["軸"] == AXIS_TOP2].groupby("週").size(),
     }
     panel = stacked_panel(counts, weeks, "非門前")
     evi = ev.set_index("id")
@@ -619,7 +616,7 @@ def write_report(ev: pd.DataFrame, did: Dict, its: Dict, figs: Dict[str, Path],
         _plain_row(evi_by_id.loc[r["id"]], r["判定"], r["効果%"], "近くの新患")
         for _, r in flyer.iterrows()
     ] + [
-        _plain_row(evi_by_id.loc[eid], its_row(term)["判定"], its_row(term)["効果%"], "門前以外の処方箋")
+        _plain_row(evi_by_id.loc[eid], its_row(term)["判定"], its_row(term)["効果%"], "上位2院以外の処方箋")
         for eid, term in [("meo_consult", "MEO_水準"), ("autumn_bundle", "秋施策_水準")]
     ]
     n_eval = len(plain_rows)
@@ -636,10 +633,10 @@ def write_report(ev: pd.DataFrame, did: Dict, its: Dict, figs: Dict[str, Path],
     )
     rep.add_kpi("評価した施策", f"{n_eval}件", f"チラシ{len(flyer)}・継続施策{n_eval - len(flyer)}",
                 compare=f"年表の{len(ev)}件のうち、効果を測れる時期と期間があったもの", tone="neutral")
-    rep.add_kpi("効果を確認できた施策", f"{n_confirmed}件", f"評価{n_eval}件のうち",
-                compare=f"残り{n_eval - n_confirmed}件は、増えたとも減ったとも言えなかった",
-                tone="good" if n_confirmed else "bad")
-    rep.add_kpi("分析した新規患者", f"{n_new:,}人", "初めて来局した日で数えた人数",
+    rep.add_kpi("効いたか判定できた施策", f"{n_confirmed}件 / {n_eval}件",
+                compare="判定するには記録が足りなかった",
+                tone="good" if n_confirmed else "caution")
+    rep.add_kpi("分析した患者", f"{n_new:,}人", "初めて来局した日で数えた人数",
                 compare=f"1か月あたり平均 約{n_new / months:,.0f}人", tone="neutral")
 
     if n_confirmed:
@@ -651,16 +648,31 @@ def write_report(ev: pd.DataFrame, did: Dict, its: Dict, figs: Dict[str, Path],
         )
     else:
         rep.takeaway(
-            finding="今回のデータでは、どの施策も「患者が増えた」とも「減った」とも言い切れませんでした。",
-            judgment=("効果がなかったという意味ではありません。施策の時期が重なっていたり、"
-                      "期間が短かったりして、効果を切り分けられませんでした。"),
-            action=("次の施策では、①配布エリアと配布日を記録する、②同じ時期に別の施策を重ねない、"
-                    "③チラシにQRコードなど「チラシを見て来た」ことがわかる仕掛けを入れます。"
-                    "これで効果を測れるようになります。"),
+            finding="5つの取り組みは、効いたとも効かなかったとも言えない（時期が重なり、記録が足りない）。",
+            judgment="次も同じやり方だと、また判定できない。",
+            action="Phase 2 の配布を、次の3つを守ってやる。\n①配布日・町名・枚数を記録表に書く ②同じ月に別の取り組みを始めない ③チラシにQRコード",
+            measure="配布後8週で、その町からの初回患者が月5人以上。QRの読み取り数。",
+            link="#record",
+            tone="caution",
         )
 
+    short_rows = []
+    for row in plain_rows:
+        note = str(row[3]) if len(row) > 3 else ""
+        short_rows.append(list(row[:3]) + [note[:20] + ("…" if len(note) > 20 else "")])
     rep.section("results", "施策ごとの結果")
-    rep.table(["施策名", "時期", "結果", "ひとこと"], plain_rows)
+    rep.table(["施策名", "時期", "結果", "ひとこと"], short_rows)
+
+    rep.section("record", "施策の記録のしかた")
+    rep.paragraph("GitHub Pages からは書き込めません。配布したら、次の3つをメモし、config/events.yaml に転記します。")
+    rep.table(
+        ["書くこと", "例"],
+        [
+            ["配布日", "2026-10-20"],
+            ["町名と枚数", "千里丘西 2,000枚"],
+            ["QRコードの有無", "あり"],
+        ],
+    )
 
     rep.section("timeline", "月別の推移と施策の時期")
     rep.figure(
@@ -732,9 +744,16 @@ def write_report(ev: pd.DataFrame, did: Dict, its: Dict, figs: Dict[str, Path],
         "n_confirmed": n_confirmed,
         "n_new": n_new,
         "conclusion": (
-            f"評価した施策{n_eval}件のうち、効果を確認できたのは{n_confirmed}件。"
-            "次の施策は効果を測れる形で行う必要があります。"
+            f"効いたか判定できた施策は{n_confirmed}件/{n_eval}件。次は記録を残して測れる形で。"
         ),
+        "actions": [
+            {
+                "what": "施策の日付・枚数を記録表に書く",
+                "who": "現場スタッフ",
+                "measure": "配布後8週で対象町の初回が月5人以上",
+                "page": "phase5_causal.html#record",
+            }
+        ],
     })
     return {"md": md_path, "html": html_path}
 

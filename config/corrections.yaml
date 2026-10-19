@@ -15,8 +15,9 @@
 #   クリニック→薬局の距離は clinic_master 以外にも実体として入っており、
 #   1ファイルだけ直すと分析間で数値が食い違う。
 #
-# 距離を補正すると visit_triangle の門前フラグ・立地パターンは読み込み時に再判定される
-# （基準は config/economics.yaml の gate_distance_km、実装は src/corrections.py）。
+# 門前フラグは直線 40m 以内（config/economics.yaml の gate_distance_km）。
+# はせがわ・平山は「門前のまま距離だけ直す」ので preserve_gate: true。
+# 高原・芝歯科は距離を直したうえで門前から外す。
 
 _all_distance_files: &all_distance_files
   - clinic_master_from_prescriptions
@@ -45,40 +46,44 @@ corrections:
     key: {クリニックID: C001}
     column: クリニック→薬局_道路km
     to: 0.3
-    reason: 北川氏 LINE 指示（2026-09-30）
+    reason: 北川氏 LINE 指示（2026-09-30）。門前のまま距離列だけ直す
     expect_name: 医療法人はせがわ耳鼻咽喉科
     enabled: true
     applied_at: 2026-09-30
+    preserve_gate: true
   - id: kitagawa_line_c001_line
     target: clinic_master
     propagate_to: *all_distance_files
     key: {クリニックID: C001}
     column: クリニック→薬局_直線km
     to: 0.3
-    reason: 北川氏 LINE 指示（2026-09-30）
+    reason: 北川氏 LINE 指示（2026-09-30）。門前のまま距離列だけ直す
     expect_name: 医療法人はせがわ耳鼻咽喉科
     enabled: true
     applied_at: 2026-09-30
+    preserve_gate: true
   - id: kitagawa_line_c002_road
     target: clinic_master
     propagate_to: *all_distance_files
     key: {クリニックID: C002}
     column: クリニック→薬局_道路km
     to: 0.3
-    reason: 北川氏 LINE 指示（2026-09-30）
+    reason: 北川氏 LINE 指示（2026-09-30）。門前のまま距離列だけ直す
     expect_name: 平山皮フ科クリニック
     enabled: true
     applied_at: 2026-09-30
+    preserve_gate: true
   - id: kitagawa_line_c002_line
     target: clinic_master
     propagate_to: *all_distance_files
     key: {クリニックID: C002}
     column: クリニック→薬局_直線km
     to: 0.3
-    reason: 北川氏 LINE 指示（2026-09-30）
+    reason: 北川氏 LINE 指示（2026-09-30）。門前のまま距離列だけ直す
     expect_name: 平山皮フ科クリニック
     enabled: true
     applied_at: 2026-09-30
+    preserve_gate: true
   - id: kitagawa_line_c018_road
     target: clinic_master
     propagate_to: *all_distance_files

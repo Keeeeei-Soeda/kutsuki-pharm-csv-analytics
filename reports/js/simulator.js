@@ -12,41 +12,32 @@ function add(rows, name, visits, base, target, note) {
 
 export function simulateScenarios(inp) {
   const base = inp.monthly_visits;
-  const g = inp.gate_share;
+  const h = inp.hasegawa_share || 0.39;
   const n = inp.nongate_share;
-  const u = 1 - g - n;
   const target = inp.target_monthly;
   const rows = [];
-
-  add(rows, "現状ベース", base, base, target, "直近3か月平均");
-  add(rows, "門前需要+10%", base * (1 + 0.1 * g), base, target, "軸A: 直近クリニック流量増。薬局施策の寄与は限定的");
-  add(rows, "門前需要+20%", base * (1 + 0.2 * g), base, target, "軸A");
-  add(rows, "非門前×2", base * (g + n * 2 + u), base, target, "軸B: 面獲得の拡大");
-  add(rows, "非門前×3", base * (g + n * 3 + u), base, target, "軸B");
-  add(rows, "来局頻度+10%", base * 1.1, base, target, "継続率・処方間隔の改善代理");
-  add(rows, "来局頻度+20%", base * 1.2, base, target, "継続");
-  add(rows, "活動患者+15%", base * 1.15, base, target, "新規獲得（門前+非門前合算）");
-  add(rows, "活動患者+30%", base * 1.3, base, target, "新規獲得");
-  const combo = base * (g * 1.05 + n * 2.5 + u) * 1.1;
-  add(rows, "複合:門前+5%×非門前×2.5×頻度+10%", combo, base, target, "同時施策の粗い積");
-  const needM = (target / base - g - u) / Math.max(n, 1e-9);
-  add(rows, `参考:非門前のみで目標→×${needM.toFixed(1)}が必要`, target, base, target, "他条件一定のときの必要条件（実現可能性の目安）");
+  const retLift = base * 0.06;
+  add(rows, "現状", base, base, target, "直近3か月平均");
+  add(rows, "はせがわが1割減る", base * (1 - 0.1 * h), base, target, "2院依存のリスク");
+  add(rows, "はせがわが3割減る", base * (1 - 0.3 * h), base, target, "最悪ケース");
+  add(rows, "面が1.5倍になる", base * (1 + 0.5 * n), base, target, "2院以外");
+  add(rows, "再来が41%から50%になる", base + retLift, base, target, "概算");
+  add(rows, "面1.5倍＋再来50%＋内科2院（各100枚）", base * (1 + 0.5 * n) + retLift + 200, base, target, "全部やっても差が残る");
   return rows;
 }
 
 export function simulateLevers(inp, levers) {
-  const g = inp.gate_share;
+  const h = inp.hasegawa_share || 0.39;
   const n = inp.nongate_share;
-  const u = 1 - g - n;
-  const gate = 1 + Number(levers.gateGrowth || 0);
-  const nongateMult = Number(levers.nongateMult ?? 1);
-  const freq = 1 + Number(levers.freqGrowth || 0);
-  const stock = 1 + Number(levers.stockGrowth || 0);
-  const visits = inp.monthly_visits * (g * gate + n * nongateMult + u) * freq * stock;
-  const needNongateMult = (inp.target_monthly / inp.monthly_visits - g - u) / Math.max(n, 1e-9);
+  const hDelta = Number(levers.hasegawaDelta || 0);
+  const otherMult = Number(levers.otherMult ?? 1);
+  const newVisits = Number(levers.newVisits || 0);
+  const retPts = Number(levers.retentionPts || 0);
+  const retLift = inp.monthly_visits * 0.06 * (retPts / 9);
+  const visits = inp.monthly_visits * (1 + h * hDelta + n * (otherMult - 1)) + newVisits + retLift;
   return {
     visits,
     reachRatio: visits / inp.target_monthly,
-    needNongateMult,
+    needNongateMult: (inp.target_monthly / inp.monthly_visits - (1 - n)) / Math.max(n, 1e-9),
   };
 }

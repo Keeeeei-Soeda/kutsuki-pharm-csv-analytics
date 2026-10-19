@@ -15,7 +15,7 @@ import {
 } from "../charts.js";
 import { simulateLevers, simulateScenarios } from "../simulator.js";
 
-const AXIS_PLAIN = { 門前型: "門前", 非門前型: "門前以外", 不明: "不明" };
+const AXIS_PLAIN = { 隣の2院: "隣の2院", それ以外: "それ以外の医院", 不明: "不明", 門前型: "隣の2院", 非門前型: "それ以外の医院" };
 
 let DATA = null;
 
@@ -262,6 +262,8 @@ function currentInputs() {
     target_monthly: a.targetMonthly,
     gate_share: c.gate_share,
     nongate_share: c.nongate_share,
+    hasegawa_share: c.hasegawa_share || 0.39,
+    hirayama_share: c.hirayama_share || 0.28,
   };
 }
 
@@ -274,24 +276,24 @@ function mountSimulator() {
       <p class="section-note">今の処方箋の内訳を、スライダーで変えたときの到達枚数です。施策の効果ではありません。</p>
       <div class="sim-sliders">
         <div class="sim-row">
-          <span class="sim-label">門前の増加率</span>
-          <input type="range" min="0" max="50" value="0" data-sim="gateGrowth" aria-label="門前の増加率"/>
-          <span class="sim-val" data-out="gateGrowth">0%</span>
+          <span class="sim-label">はせがわの増減</span>
+          <input type="range" min="-30" max="10" value="0" data-sim="hasegawaDelta" aria-label="はせがわの増減"/>
+          <span class="sim-val" data-out="hasegawaDelta">0%</span>
         </div>
         <div class="sim-row">
-          <span class="sim-label">門前以外の倍率</span>
-          <input type="range" min="10" max="50" value="10" data-sim="nongateMult" aria-label="門前以外の倍率"/>
-          <span class="sim-val" data-out="nongateMult">×1.0</span>
+          <span class="sim-label">それ以外の医院の倍率</span>
+          <input type="range" min="10" max="30" value="10" data-sim="otherMult" aria-label="それ以外の医院の倍率"/>
+          <span class="sim-val" data-out="otherMult">×1.0</span>
         </div>
         <div class="sim-row">
-          <span class="sim-label">来局頻度の増加率</span>
-          <input type="range" min="0" max="50" value="0" data-sim="freqGrowth" aria-label="来局頻度の増加率"/>
-          <span class="sim-val" data-out="freqGrowth">0%</span>
+          <span class="sim-label">3か月以内にまた来る人</span>
+          <input type="range" min="0" max="9" value="0" data-sim="retentionPts" aria-label="再来の上乗せポイント"/>
+          <span class="sim-val" data-out="retentionPts">41%</span>
         </div>
         <div class="sim-row">
-          <span class="sim-label">活動患者の増加率</span>
-          <input type="range" min="0" max="50" value="0" data-sim="stockGrowth" aria-label="活動患者の増加率"/>
-          <span class="sim-val" data-out="stockGrowth">0%</span>
+          <span class="sim-label">新しい医院（枚/月）</span>
+          <input type="range" min="0" max="400" step="50" value="0" data-sim="newVisits" aria-label="新しい医院の枚数"/>
+          <span class="sim-val" data-out="newVisits">0枚</span>
         </div>
       </div>
       <div class="sim-out">
@@ -317,15 +319,16 @@ function mountSimulator() {
 }
 
 function leversFromDom(root) {
-  const gate = Number(root.querySelector('[data-sim="gateGrowth"]').value) / 100;
-  const nongateMult = Number(root.querySelector('[data-sim="nongateMult"]').value) / 10;
-  const freq = Number(root.querySelector('[data-sim="freqGrowth"]').value) / 100;
-  const stock = Number(root.querySelector('[data-sim="stockGrowth"]').value) / 100;
-  root.querySelector('[data-out="gateGrowth"]').textContent = `${Math.round(gate * 100)}%`;
-  root.querySelector('[data-out="nongateMult"]').textContent = `×${nongateMult.toFixed(1)}`;
-  root.querySelector('[data-out="freqGrowth"]').textContent = `${Math.round(freq * 100)}%`;
-  root.querySelector('[data-out="stockGrowth"]').textContent = `${Math.round(stock * 100)}%`;
-  return { gateGrowth: gate, nongateMult, freqGrowth: freq, stockGrowth: stock };
+  const hasegawaDelta = Number(root.querySelector('[data-sim="hasegawaDelta"]').value) / 100;
+  const otherMult = Number(root.querySelector('[data-sim="otherMult"]').value) / 10;
+  const retentionPts = Number(root.querySelector('[data-sim="retentionPts"]').value);
+  const newVisits = Number(root.querySelector('[data-sim="newVisits"]').value);
+  const hLabel = `${hasegawaDelta >= 0 ? "+" : ""}${Math.round(hasegawaDelta * 100)}%`;
+  root.querySelector('[data-out="hasegawaDelta"]').textContent = hLabel;
+  root.querySelector('[data-out="otherMult"]').textContent = `×${otherMult.toFixed(1)}`;
+  root.querySelector('[data-out="retentionPts"]').textContent = `${41 + retentionPts}%`;
+  root.querySelector('[data-out="newVisits"]').textContent = `${newVisits}枚`;
+  return { hasegawaDelta, otherMult, retentionPts, newVisits };
 }
 
 function updateSimulator() {
@@ -346,7 +349,7 @@ function updateSimulator() {
   }
   const need = document.getElementById("sim-need");
   if (need) {
-    need.textContent = `門前以外だけで目標（${fmt(inp.target_monthly)}枚）に届くには ×${out.needNongateMult.toFixed(1)} が必要です。`;
+    need.textContent = `それ以外の医院だけで目標（${fmt(inp.target_monthly)}枚）に届くには ×${out.needNongateMult.toFixed(1)} が必要です。`;
   }
   void simulateScenarios(inp);
 }

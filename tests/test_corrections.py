@@ -8,6 +8,7 @@ from src.corrections import (
     Correction,
     CorrectionError,
     apply_corrections,
+    is_gate_flag,
     load_corrections,
     rederive_gate,
     verify_key,
@@ -69,22 +70,47 @@ def test_missing_key_raises():
 
 
 def test_rederive_gate_reproduces_raw_with_raw_threshold():
-    """補正なし・生データの閾値なら、門前フラグと立地パターンは生データと一致する。"""
+    """補正なし・生データの 0.3km 閾値なら、立地パターンは生データと一致する。
+
+    生データの門前フラグは 0.3km ではなくはせがわ・平山のみなので、フラグは直線km から引き直した結果と照合する。
+    """
     raw = read_csv("visit_triangle", corrections=False)
     out = rederive_gate(raw, GATE_LINE_KM)
-    assert out["立地パターン"].fillna("NA").equals(raw["立地パターン"].fillna("NA"))
-    assert (out["門前フラグ"].astype(str).str.upper() == raw["門前フラグ"].astype(str).str.upper()).all()
+    km = pd.to_numeric(raw["クリニック→薬局_直線km"], errors="coerce")
+    known = km.notna()
+    expected_flag = km <= GATE_LINE_KM + 1e-9
+    expected_pattern = raw["立地パターン"].copy()
+    expected_pattern.loc[known & expected_flag] = "門前型"
+    assert out["立地パターン"].fillna("NA").equals(expected_pattern.fillna("NA"))
+    assert is_gate_flag(out["門前フラグ"]).loc[known].equals(expected_flag.loc[known])
 
 
 def test_rederive_gate_moves_only_rows_beyond_threshold():
     raw = read_csv("visit_triangle", corrections=False)
     out = rederive_gate(raw, 0.04)
     km = pd.to_numeric(raw["クリニック→薬局_直線km"], errors="coerce")
-    assert out.loc[km <= 0.04, "立地パターン"].dropna().eq("門前型").all()
+    assert out.loc[km <= 0.04, "立地パターン"].eq("門前型").all()
     assert not out.loc[km > 0.04, "立地パターン"].eq("門前型").any()
     # もともと非門前の行は生データのまま
     was_non_gate = raw["立地パターン"].notna() & raw["立地パターン"].ne("門前型")
     assert out.loc[was_non_gate, "立地パターン"].equals(raw.loc[was_non_gate, "立地パターン"])
+
+
+def test_preserve_gate_keeps_hasegawa_hirayama_as_gate():
+    """はせがわ・平山は距離を 0.3km に直しても、門前フラグは 40m 判定のまま。"""
+    vt = read_csv("visit_triangle")
+    flag = vt["門前フラグ"].astype(str).str.upper().eq("TRUE") | vt["門前フラグ"].eq(True)
+    clinics = set(vt.loc[flag, "クリニックID"].astype(str).unique())
+    assert {"C001", "C002", "C009"} <= clinics
+    assert "C018" not in clinics
+    assert "C019" not in clinics
+    km = pd.to_numeric(vt["クリニック→薬局_直線km"], errors="coerce")
+    assert (km[vt["クリニックID"].astype(str).eq("C001")] == 0.3).all()
+    assert (km[vt["クリニックID"].astype(str).eq("C002")] == 0.3).all()
+    cm = read_csv("clinic_master")
+    cm_km = pd.to_numeric(cm["クリニック→薬局_直線km"], errors="coerce")
+    assert float(cm_km[cm["クリニックID"].astype(str).eq("C001")].iloc[0]) == 0.3
+    assert float(cm_km[cm["クリニックID"].astype(str).eq("C018")].iloc[0]) == 0.6
 
 
 def test_config_keys_resolve_to_expected_clinics():

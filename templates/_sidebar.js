@@ -144,3 +144,19 @@
     nodes[i].classList.toggle("is-long", w > 6.5 && w <= 10);
   }
 }());
+
+(function () {
+  document.querySelectorAll("[data-print]").forEach(function (btn) {
+    btn.addEventListener("click", function () { window.print(); });
+  });
+  try {
+    var boxes = document.querySelectorAll("input[data-todo]");
+    for (var i = 0; i < boxes.length; i++) {
+      var key = "kutsuki-todo-" + boxes[i].getAttribute("data-todo");
+      boxes[i].checked = localStorage.getItem(key) === "1";
+      boxes[i].addEventListener("change", function (ev) {
+        localStorage.setItem("kutsuki-todo-" + ev.target.getAttribute("data-todo"), ev.target.checked ? "1" : "0");
+      });
+    }
+  } catch (_e) {}
+}());

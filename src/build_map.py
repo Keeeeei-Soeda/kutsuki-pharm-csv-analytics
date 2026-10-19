@@ -21,10 +21,13 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
-from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, ROOT, ensure_dirs, read_csv, REPORTS_DIR, DOCS_DIR
+from src.axis import TOP2_IDS
+from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs, read_csv, REPORTS_DIR, DOCS_DIR
 from src.specialty_taxonomy import build_specialty_map
 from src.viz.html_report import FOOTER_NOTE
 from src.viz.sidebar import FONTS_LINK, PERIOD_LABEL, render_sidebar, sidebar_css, sidebar_js
+
+TARGET_TOWNS = ("千里丘西", "西駅前町", "摂津市千里丘", "新芦屋上", "下穂積")
 
 REPORTS = REPORTS_DIR
 DOCS = DOCS_DIR
@@ -46,10 +49,10 @@ def clinic_layer() -> List[dict]:
 
     counts = vt.groupby("クリニックID").size().rename("件数").reset_index()
     gate = (
-        vt.assign(門前=vt["立地パターン"].astype(str).eq("門前型"))
-        .groupby("クリニックID")["門前"]
+        vt.assign(隣の2院=vt["クリニックID"].astype(str).isin(TOP2_IDS))
+        .groupby("クリニックID")["隣の2院"]
         .mean()
-        .rename("門前比")
+        .rename("隣の2院比")
         .reset_index()
     )
     df = (
@@ -69,18 +72,19 @@ def clinic_layer() -> List[dict]:
             "n": int(r["件数"]),
             "km": None if pd.isna(r["クリニック→薬局_直線km"]) else float(r["クリニック→薬局_直線km"]),
             "sp": r["主科"] if isinstance(r["主科"], str) else "不明",
-            "gate": bool((r["門前比"] or 0) >= 0.5),
+            "gate": bool((r["隣の2院比"] or 0) >= 0.5),
         }
         for _, r in df.iterrows()
     ]
 
 
 def mesh_layer() -> List[dict]:
-    path = ROOT / "data" / "processed" / "mesh_visit_rate.csv"
+    path = PROCESSED_DIR / "mesh_visit_rate.csv"
     if not path.exists():
         return []
     m = pd.read_csv(path, encoding="utf-8-sig")
     m = m.dropna(subset=["中心緯度", "中心経度"])
+    has_town = "町名" in m.columns
     return [
         {
             "code": str(r["メッシュコード"]),
@@ -89,9 +93,20 @@ def mesh_layer() -> List[dict]:
             "pop": int(r["総人口"]) if pd.notna(r["総人口"]) else 0,
             "uniq": int(r["来局ユニーク"]) if pd.notna(r["来局ユニーク"]) else 0,
             "rate": float(r["来局率"]) if pd.notna(r["来局率"]) else 0.0,
+            "town": (str(r["町名"]) if has_town and pd.notna(r["町名"]) else ""),
         }
         for _, r in m.iterrows()
     ]
+
+
+def target_layer(meshes: List[dict]) -> List[dict]:
+    """Phase 2 の配布候補地域に当たるメッシュ。"""
+    out = []
+    for m in meshes:
+        town = m.get("town") or ""
+        if any(t in town for t in TARGET_TOWNS):
+            out.append(m)
+    return out
 
 
 def competitor_layer() -> List[dict]:
@@ -190,6 +205,8 @@ def build(out_path: Path = REPORTS / "map.html") -> Path:
         "meshCuts": cuts,
         "meshBands": mesh_bands,
         "meshRateMax": mesh_rate_max,
+        "targets": target_layer(meshes),
+        "meshWords": ["ほぼ来ていない", "少ない", "ふつう", "多い", "とても多い"],
     }
 
     toc = [
@@ -279,9 +296,16 @@ ul {{ padding-left: 1.2rem; }}
     <div class="meta">
       <span class="chip">{PHARMACY_NAME}</span>
       <span class="chip">{PERIOD_LABEL}</span>
-      <span class="chip">タイル: 国土地理院 / OSM</span>
+      <span class="chip">データ：2026-07-31まで</span>
     </div>
   </header>
+  <section class="takeaway" aria-label="このページのまとめ"><dl>
+    <div class="tk-row"><dt>わかったこと</dt><dd>患者の半分以上は薬局から1km以内に住んでいる。1kmを超えると急に来なくなる。</dd></div>
+    <div class="tk-row tone-chance"><dt>判断</dt><dd>チャンス。近所には強い。1.5〜2kmに、まだ来ていない人が多い地域がある。</dd></div>
+    <div class="tk-row tk-action"><dt>今月やること</dt><dd>千里丘西と西駅前町に、QRコード付きチラシを各2,000枚。配布日と枚数を Phase 5 の記録表に書く。</dd></div>
+    <div class="tk-row"><dt>効いたかの見方</dt><dd>配布後8週間で、この2町からの初めての患者が月5人以上（今は月0〜1人）。</dd></div>
+    <div class="tk-row tk-link"><dt>くわしくは</dt><dd><a href="phase2_catchment.html#targets">根拠の表・図</a></dd></div>
+  </dl></section>
 
   <h2 id="map-sec">地図</h2>
   <div class="map-shell" id="map-shell" data-map="1">
@@ -298,11 +322,11 @@ ul {{ padding-left: 1.2rem; }}
       <div>
         <strong style="font-size:13px">クリニック（処方箋の枚数）</strong>
         <div id="bubble-legend"></div>
-        <div class="legend-row"><span class="swatch-dot" style="background:#c45c26"></span>門前のクリニック（40m以内）</div>
-        <div class="legend-row"><span class="swatch-dot" style="background:#2f6f9f"></span>門前以外のクリニック</div>
+        <div class="legend-row"><span class="swatch-dot" style="background:#c45c26"></span>隣の2院（はせがわ・平山）</div>
+        <div class="legend-row"><span class="swatch-dot" style="background:#2f6f9f"></span>それ以外の医院</div>
         <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
           円が大きいほど処方箋が多い（大きさは実際の差より控えめに表示）。
-          グレーの輪は大きさの目安、色は門前／門前以外です。
+          グレーの輪は大きさの目安、色は隣の2院／それ以外です。
         </p>
       </div>
       <div>

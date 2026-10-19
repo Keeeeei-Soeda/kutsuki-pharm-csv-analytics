@@ -1,13 +1,8 @@
-"""トップページ（docs/index.html）に経営サマリーを置く。
-
-各ページが ``data/processed/page_summaries/`` に保存した要約値だけを使い、数字は直書きしない。
-サマリー欄はマーカーで囲んで差し替えるので、何度実行しても結果は同じ。
-
-``python3 -m src.build_summary``
-"""
+"""トップページ（docs/index.html）に経営サマリーを置く。"""
 
 from __future__ import annotations
 
+import json
 import re
 from html import escape
 from pathlib import Path
@@ -23,12 +18,6 @@ INDEX = DOCS_DIR / "index.html"
 SUMMARY_BEGIN = "<!-- exec-summary:begin -->"
 SUMMARY_END = "<!-- exec-summary:end -->"
 
-NEXT_ACTIONS = [
-    "門前以外のクリニック（特に内科）との関係づくり",
-    "初回来局時の再来の働きかけ（声かけ・LINE登録など）",
-    "次の施策から「効果を測れる形」で実施する（配布記録・QRコード）",
-]
-
 HERO_TEXT = (
     "自店の処方箋データから、処方箋の出どころ・患者の住まい・定着・施策の効果を見るレポートです。"
     "生の患者CSVは公開していません。"
@@ -36,7 +25,6 @@ HERO_TEXT = (
 
 MAP_CARD_TEXT = "患者の住まい・クリニック・競合薬局を地図に重ねて見られます。"
 
-# カードのボタンのリンク先 → ページ要約のキー
 CARD_SUMMARY_KEYS = {
     "phase1_flow.html": "p1",
     "phase2_catchment.html": "p2",
@@ -52,40 +40,75 @@ def _pct(v: float) -> str:
     return f"{v:.0%}"
 
 
+def _collect_actions(s: Dict[str, Dict[str, object]]) -> List[dict]:
+    out: List[dict] = []
+    for key in ("p1", "p2", "p4", "p5", "p3", "pw"):
+        for a in s.get(key, {}).get("actions") or []:
+            if isinstance(a, dict):
+                out.append(a)
+            elif isinstance(a, str):
+                out.append({"what": a, "page": ""})
+        if len(out) >= 4:
+            break
+    return out[:4]
+
+
 def summary_html(s: Dict[str, Dict[str, object]]) -> str:
     p1, p2, p4, p6, pw = s["p1"], s["p2"], s["p4"], s["p6"], s["pw"]
+    hase = float(p1.get("hase_monthly") or 0)
+    hira = float(p1.get("hira_monthly") or 0)
+    other = float(p1.get("other_monthly") or 0)
+    recent = float(p6["recent_mean"])
+    top2 = hase + hira if hase else recent * float(p1.get("top2_share") or 0)
+    other = other or recent * (1 - float(p1.get("top2_share") or 0))
+    period = p1.get("period_label") or p6.get("period_label") or ""
     status = [
-        f"処方箋 <strong>{p6['recent_mean']:,.0f}枚/月</strong>（{p6['period_label']}の平均）"
+        f"処方箋 <strong>{recent:,.0f}枚/月</strong>（{period}の平均）"
         f"｜目標 {p6['target']:,.0f}枚/月まで あと<strong>{p6['gap']:,.0f}枚</strong>",
-        f"処方箋の<strong>{_pct(p1['gate_share'])}</strong>が門前（{p1.get('gate_def', '')}）、上位2院に{_pct(p1['top2_share'])}が集中",
-        f"初めて来た人のうち、90日以内にまた来るのは<strong>{_pct(p4['retention90'])}</strong>",
+        f"はせがわ・平山の2院で <strong>{top2 / recent:.0%}</strong>（{top2:,.0f}枚）、"
+        f"それ以外 <strong>{other / recent:.0%}</strong>（{other:,.0f}枚）",
+        f"初めて来た人のうち、3か月以内にまた来る人は<strong>{_pct(p4['retention90'])}</strong>"
+        f"（初回の人数は各ページに記載）",
     ]
     spread = (
-        f"耳鼻科・皮膚科の患者が、内科など他の科へ広がっていない（内科系へ移ったのは{_pct(pw['acute_rate'])}）"
+        f"耳鼻科・皮膚科で来た人は、内科の処方箋をうちに持ってきていない（{_pct(pw['acute_rate'])}）"
         if pw["spread_weak"]
-        else f"耳鼻科・皮膚科の患者が、内科など他の科へ広がっている（内科系へ移ったのは{_pct(pw['acute_rate'])}）"
+        else f"耳鼻科・皮膚科で来た人が、内科の処方箋も持ってくるようになっている（{_pct(pw['acute_rate'])}）"
     )
     findings = [
-        f"上位2院への依存度が高い（上位2院で処方箋の{_pct(p1['top2_share'])}）",
-        f"患者の多くは徒歩圏に住み、少し離れると来なくなる（薬局から1km以内に{_pct(p2['share_1km'])}）",
-        spread,
+        f"注意：2院に頼りすぎ。はせがわが1割減ると店全体で約{hase * 0.1:,.0f}枚/月減る"
+        if hase else f"注意：上位2院で処方箋の{_pct(p1['top2_share'])}",
+        f"良い：近所（1km以内）には強い（患者の{_pct(p2['share_1km'])}）",
+        f"チャンス：{spread}",
     ]
+    actions = _collect_actions(s)
+    action_items = []
+    for i, a in enumerate(actions):
+        what = escape(str(a.get("what", "")))
+        href = escape(str(a.get("page") or ""))
+        link = f' <a href="{href}">くわしく</a>' if href else ""
+        action_items.append(
+            f'<label class="todo-item"><input type="checkbox" data-todo="{i}"/> {what}{link}</label>'
+        )
+    measure = escape(str((actions[0] or {}).get("measure") or "2院以外の枚数が増えているか")) if actions else ""
 
     def ul(items: List[str], ordered: bool = False) -> str:
         tag = "ol" if ordered else "ul"
         return f"<{tag}>" + "".join(f"<li>{i}</li>" for i in items) + f"</{tag}>"
 
+    todos = "<div class='todo-list'>" + "".join(action_items) + "</div>" if action_items else ul(["各ページの今月やることを実行する"], True)
+
     return (
         f"{SUMMARY_BEGIN}\n"
         '    <section class="exec-summary" aria-labelledby="summary">\n'
-        '      <h2 id="summary">経営サマリー</h2>\n'
-        '      <p class="caption">数字は既定値での計算です。画面の前提値を変えても、この欄は変わりません。</p>\n'
+        '      <h2 id="summary">今月の1枚</h2>\n'
         '      <div class="exec-grid">\n'
         f'        <div class="exec-block"><h3>いまの状況</h3>{ul(status)}</div>\n'
-        f'        <div class="exec-block"><h3>わかったこと</h3>{ul(findings, ordered=True)}</div>\n'
-        f'        <div class="exec-block exec-action"><h3>次にやること</h3>'
-        f"{ul([escape(a) for a in NEXT_ACTIONS], ordered=True)}</div>\n"
+        f'        <div class="exec-block"><h3>判断</h3>{ul(findings, ordered=True)}</div>\n'
+        f'        <div class="exec-block exec-action"><h3>今月やること</h3>{todos}'
+        f'<p class="caption">来月、ここを見る：{measure}</p></div>\n'
         "      </div>\n"
+        '      <p class="print-actions"><button type="button" class="btn" data-print="1">今月のやることリストを印刷</button></p>\n'
         "    </section>\n"
         f"    {SUMMARY_END}"
     )

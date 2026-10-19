@@ -1,11 +1,25 @@
 {
-  "gate_share": 0.011057511590026313,
-  "nongate_share": 0.9781042475880215,
-  "top2_share": 0.7304655680180463,
+  "gate_share": 0.6704374057315233,
+  "nongate_share": 0.3295625942684766,
+  "top2_share": 0.6704374057315233,
   "top2_names": "医療法人はせがわ耳鼻咽喉・平山皮フ科クリニック",
-  "n_nongate_clinics": 413,
+  "n_nongate_clinics": 428,
+  "hase_monthly": 686.6666666666666,
+  "hira_monthly": 498.6666666666667,
+  "other_monthly": 582.6666666666666,
+  "intern_monthly": 451.3333333333333,
+  "recent_mean": 1768.0,
+  "period_label": "2026年5〜7月",
   "multi_patients": 1844,
   "multi_share": 0.20754079909960607,
-  "conclusion": "門前（クリニックから40m以内）は処方箋の1%。上位2院だけで73%を占めています。",
-  "gate_def": "クリニックから40m以内"
+  "conclusion": "隣の2院（はせがわ・平山）で処方箋の67%。残り428院から少しずつ。",
+  "gate_def": "隣の2院（はせがわ・平山）",
+  "actions": [
+    {
+      "what": "藤井クリニック、医療法人創康会岸本クリニック、医療法人 恵仁会　田中病院へ挨拶",
+      "who": "薬局長",
+      "measure": "それ以外の医院 582→620枚/月",
+      "page": "phase1_flow.html#targets"
+    }
+  ]
 }

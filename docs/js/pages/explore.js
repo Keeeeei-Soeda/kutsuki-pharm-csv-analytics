@@ -22,7 +22,7 @@ import {
   themeColors,
 } from "../charts.js";
 
-const AXIS_PLAIN = { 門前型: "門前", 非門前型: "門前以外", 不明: "不明" };
+const AXIS_PLAIN = { 隣の2院: "隣の2院", それ以外: "それ以外の医院", 不明: "不明", 門前型: "隣の2院", 非門前型: "それ以外の医院" };
 
 let DATA = null;
 let stackBy = "axis";
@@ -111,7 +111,7 @@ function renderKpis() {
     .join("");
   const n = document.getElementById("explore-suppress-note");
   if (n) n.hidden = !k.suppressed;
-  if (n && k.suppressed) n.textContent = "一部5件未満のセルを除いて集計しています。";
+  if (n && k.suppressed) n.textContent = "人数が5人未満の組み合わせは、個人を特定できないよう表示していません。";
 }
 
 let eventsVisible = true;
@@ -386,7 +386,7 @@ function renderEvents() {
   }
   const ev = events.find((e) => e.id === eventId);
   if (!ev) {
-    out.innerHTML = "<p>施策を選ぶと、開始前と開始後の週あたり枚数を並べます（記述のみ）。</p>";
+    out.innerHTML = "<p>施策を選ぶと、開始前と開始後の週あたり枚数を並べます。前後を並べただけで、効いたかどうかの判定ではありません（判定は Phase 5）。</p>";
     return;
   }
   const f = getFilters();
@@ -404,7 +404,7 @@ function renderEvents() {
   out.innerHTML = `<p><strong>${ev.name}</strong>（${ev.start}${ev.end ? "〜" + ev.end : ""}）</p>
     <p>開始前${eventWeeks}週の週あたり ${w?.beforeMean != null ? fmt(w.beforeMean, 1) : "—"}枚 ／ 開始後${eventWeeks}週の週あたり ${w?.afterMean != null ? fmt(w.afterMean, 1) : "—"}枚。</p>
     <p>${delta}。</p>${link}
-    <p class="caption">前後の差は記述です。施策の効果ではありません。</p>`;
+    <p class="caption">前後を並べただけで、効いたかどうかの判定ではありません（判定は Phase 5）。</p>`;
 }
 
 function renderAll() {
@@ -442,6 +442,23 @@ function wireControls() {
   bindSave(document.getElementById("save-clinics"), document.getElementById("chart-clinics"), "clinics.png");
   bindSave(document.getElementById("save-depts"), document.getElementById("chart-depts"), "depts.png");
   bindSave(document.getElementById("save-distance"), document.getElementById("chart-distance"), "distance.png");
+  document.querySelectorAll("[data-preset]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const kind = btn.getAttribute("data-preset");
+      const max = DATA?.dims?.period?.max?.slice(0, 7) || "";
+      const min = DATA?.dims?.period?.min?.slice(0, 7) || "";
+      let from6 = min;
+      if (max) {
+        const y = Number(max.slice(0, 4));
+        const m = Number(max.slice(5, 7));
+        const d = new Date(y, m - 6, 1);
+        from6 = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      }
+      if (kind === "other") setFilters({ axis: ["それ以外"], dept: [], clinic: [], visitType: "all", from: min, to: max });
+      if (kind === "intern") setFilters({ axis: [], dept: ["内科"], clinic: [], visitType: "all", from: min, to: max });
+      if (kind === "first6") setFilters({ axis: [], dept: [], clinic: [], visitType: "初回", from: from6, to: max });
+    });
+  });
 }
 
 async function boot() {

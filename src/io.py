@@ -106,9 +106,12 @@ def read_csv(
     if corrections:
         from src.corrections import apply_corrections, rederive_gate
 
-        df = apply_corrections(df, logical_name)
+        # 門前フラグは直線40m。C018/C019 など門前から外す距離補正を先に当て、
+        # 判定したあと、はせがわ・平山の 0.3km 補正（距離列のみ）を当てる。
+        df = apply_corrections(df, logical_name, preserve_gate=False)
         if logical_name == "visit_triangle":
             df = rederive_gate(df)
+        df = apply_corrections(df, logical_name, preserve_gate=True)
     return df
 
 

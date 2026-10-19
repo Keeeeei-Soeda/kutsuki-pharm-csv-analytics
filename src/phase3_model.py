@@ -14,6 +14,7 @@ import pandas as pd
 import statsmodels.api as sm
 from scipy.optimize import minimize
 
+from src.axis import axis_from_clinic_id
 from src.io import (
     PHARMACY_LAT,
     PHARMACY_LON,
@@ -58,16 +59,12 @@ def _age_key(a: str) -> int:
 
 # 成長シナリオの表示名（simulator のシナリオ名 → 薬局長向けの言い方）
 SCENARIO_PLAIN = {
-    "現状ベース": "現状（直近3か月平均）",
-    "門前需要+10%": "門前の処方箋が1割増える",
-    "門前需要+20%": "門前の処方箋が2割増える",
-    "非門前×2": "門前以外の処方箋が2倍になる",
-    "非門前×3": "門前以外の処方箋が3倍になる",
-    "来局頻度+10%": "1人あたりの来局回数が1割増える",
-    "来局頻度+20%": "1人あたりの来局回数が2割増える",
-    "活動患者+15%": "通院中の患者が15%増える",
-    "活動患者+30%": "通院中の患者が30%増える",
-    "複合:門前+5%×非門前×2.5×頻度+10%": "組み合わせ（門前+5%・門前以外2.5倍・来局回数+1割）",
+    "現状": "現状（直近3か月平均）",
+    "はせがわが1割減る": "はせがわ耳鼻科が1割減る",
+    "はせがわが3割減る": "はせがわ耳鼻科が3割減る",
+    "面が1.5倍になる": "2院以外が1.5倍になる",
+    "再来が41%から50%になる": "3か月以内にまた来る人が41%→50%",
+    "面1.5倍＋再来50%＋内科2院（各100枚）": "面1.5倍・再来50%・内科2院を新規",
 }
 
 
@@ -327,7 +324,11 @@ def clinic_choice_clogit(vt: pd.DataFrame, cm: pd.DataFrame, radius_km: float = 
         first = first.sample(max_patients, random_state=SEED)
 
     clinics = cm.dropna(subset=["緯度", "経度"]).copy()
-    clinics["門前"] = (pd.to_numeric(clinics["クリニック→薬局_直線km"], errors="coerce") <= 0.3).astype(float)
+    gate_ids = set(
+        vt.loc[vt["門前フラグ"].astype(str).str.upper().eq("TRUE") | vt["門前フラグ"].eq(True), "クリニックID"]
+        .astype(str)
+    )
+    clinics["門前"] = clinics["クリニックID"].astype(str).isin(gate_ids).astype(float)
     # specialty count proxy
     clinics["標榜数"] = clinics["診療科"].fillna("").astype(str).apply(lambda s: max(len([x for x in s.split("・") if x]), 1))
 
@@ -641,22 +642,23 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
         eyebrow="Kutsuki DataBank / Phase 3",
         active_phase=3,
     )
-    rep.add_kpi("距離の影響", f"1km遠いと約{decay_1km * 10:.0f}割減る",
-                f"薬局から{vr['median_km']:.1f}km付近の地域で比べた場合",
-                compare=f"距離が2倍になると、来局は約{decay_double * 10:.0f}割減る", tone="bad")
+    combo_row = growth["scenarios"].loc[growth["scenarios"]["シナリオ"].astype(str).str.contains("面1.5", na=False)]
+    combo_val = float(combo_row["予測月間件数"].iloc[0]) if len(combo_row) else growth["best_value"]
+    rep.add_kpi("全部うまくいった場合", f"約{combo_val:,.0f}枚/月", "面1.5倍・再来50%・内科2院",
+                compare=f"目標まで、まだ {level.target - combo_val:,.0f}枚/月 足りない", tone="caution")
     rep.add_kpi("目標までの距離", f"{level.ratio:.2f}倍",
                 f"現状 {level.recent_mean:,.0f}枚/月（{level.period_label}平均）→ 目標 {level.target:,.0f}枚",
                 compare=f"参考：全期間の平均は {level.all_mean:,.0f}枚/月", tone="bad")
-    rep.add_kpi("今の施策の延長での最大", f"約{growth['best_value']:,.0f}枚/月", best_plain,
-                compare=f"目標まで、まだ {level.target - growth['best_value']:,.0f}枚/月 足りない", tone="bad")
+    rep.add_kpi("1km遠いと", f"約{decay_1km * 10:.0f}割減る", "近所ほど来やすい",
+                compare="くわしい距離の話は下の折りたたみへ", tone="neutral")
 
     rep.takeaway(
-        finding="来局をいちばん左右しているのは、薬局からの距離です。遠い地域ほど来局は大きく減ります。",
-        judgment=(
-            f"今の施策をどれだけ強めても、この延長では3,000枚に届きません"
-            f"（最大でも約{growth['best_value']:,.0f}枚）。"
-        ),
-        action="目標達成には、新しい処方元（クリニック）の獲得や新たな商圏づくりが必要です。",
+        finding=f"今の医院だけで伸ばせるのは、全部うまくいっても月{combo_val:,.0f}枚まで。目標3,000枚には足りない。",
+        judgment="目標は今の商圏の延長では届かない。",
+        action="新しい処方元の候補を3院決める。条件：半径1km以内、内科、うちへの処方箋が月10枚未満。",
+        measure="候補3院からの枚数が、半年後に月100枚以上。",
+        link="#scenarios",
+        tone="caution",
     )
 
     rep.section("scenarios", "施策ごとの到達見込み")
@@ -665,8 +667,8 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
         FIGURES / "phase3_scenarios_plain.png",
         point=f"どの施策を強めても、目標の3,000枚には届きません（最大は約{growth['best_value']:,.0f}枚）。",
         explain=(
-            "今の処方箋の内訳（門前・門前以外・来局回数）を、施策ごとに一定の割合だけ増やしたときの"
-            "月の処方箋枚数です。点線が現状、橙の破線が目標3,000枚です。"
+            "隣の2院が減った場合・それ以外の医院が増えた場合・再来が増えた場合の月の処方箋枚数です。"
+            "点線が現状、橙の破線が目標3,000枚です。"
         ),
     )
 
@@ -678,7 +680,7 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
                 "Huffは記述ベンチマークのみ。",
                 "係数は因果ではない。",
                 f"「1km遠いと約{decay_1km * 10:.0f}割減る」は、中央距離 {vr['median_km']:.1f}km で +1km したときのオッズ比 "
-                f"×{vr['odds_mult_1km']:.3f} を来局の減り方として読み替えたもの（来局率が小さいので近似）。",
+                f"×{vr['odds_mult_1km']:.3f} を来局の減り方として読み替えたもの。本文では18km地点の話は出さない。",
             ],
             kind="warn",
         )
@@ -739,9 +741,16 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
         "best_name": best_plain,
         "any_reach": growth["any_reach"],
         "conclusion": (
-            f"今の施策の延長では3,000枚に届きません（最大でも約{growth['best_value']:,.0f}枚）。"
-            "新しい処方元が必要です。"
+            f"全部うまくいっても約{combo_val:,.0f}枚。新しい処方元が必要です。"
         ),
+        "actions": [
+            {
+                "what": "半径1km以内の内科で、処方箋が月10枚未満の医院を3院決める",
+                "who": "薬局長",
+                "measure": "半年後に候補3院から月100枚以上",
+                "page": "phase3_model.html#scenarios",
+            }
+        ],
     })
     return {"md": md_path, "html": html_path}
 
@@ -805,11 +814,7 @@ def run_phase3() -> Dict:
     vr = fit_visit_rate_glm(pv)
     mesh_m = fit_mesh_model()
     vt = read_csv("visit_triangle")
-    vt["軸"] = np.select(
-        [vt["立地パターン"].astype(str).eq("門前型"), vt["立地パターン"].astype(str).isin(NON_GATE)],
-        ["門前型", "非門前型"],
-        default="不明",
-    )
+    vt["軸"] = axis_from_clinic_id(vt["クリニックID"])
     cm = read_csv("clinic_master")
     clogit = clinic_choice_clogit(vt, cm, radius_km=5.0, max_patients=800)
     mesh_rate = pd.read_csv(PROCESSED_DIR / "mesh_visit_rate.csv") if (PROCESSED_DIR / "mesh_visit_rate.csv").exists() else pv

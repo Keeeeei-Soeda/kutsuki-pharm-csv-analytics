@@ -4,5 +4,13 @@
   "second_rate": 0.05804274465691789,
   "spread_weak": true,
   "same_rate": 0.7985558229957416,
-  "conclusion": "耳鼻科・皮膚科で来た患者は、内科など他の科へほとんど広がっていません。"
+  "conclusion": "耳鼻科・皮膚科で来た人は、内科の処方箋をうちに持ってきていない。",
+  "actions": [
+    {
+      "what": "Phase 1 の内科3院（藤井・岸本・田中病院）へ挨拶",
+      "who": "薬局長",
+      "measure": "内科の処方箋が増えているか",
+      "page": "phase1_flow.html#targets"
+    }
+  ]
 }

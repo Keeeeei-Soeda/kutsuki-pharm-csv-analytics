@@ -45,6 +45,8 @@ class Correction:
     enabled: bool = False
     applied_at: Optional[str] = None
     propagate_to: List[str] = field(default_factory=list)
+    # True: 距離列は直すが、門前フラグの判定には使わない（はせがわ・平山）
+    preserve_gate: bool = False
 
     @property
     def targets(self) -> List[str]:
@@ -117,15 +119,21 @@ def apply_corrections(
     *,
     log: Optional[List[AppliedChange]] = None,
     force: bool = False,
+    preserve_gate: Optional[bool] = None,
 ) -> pd.DataFrame:
     """``logical_name`` に対する有効な補正を当てた **コピー** を返す。
 
     ``force=True`` のときは enabled が false の定義も当てる（影響試算用）。
+    ``preserve_gate`` を True/False にすると、門前判定を残す補正だけ／それ以外だけを当てる。
     """
     corrections = load_corrections() if corrections is None else corrections
     relevant = [
         c for c in corrections if logical_name in c.targets and (c.enabled or force)
     ]
+    if preserve_gate is True:
+        relevant = [c for c in relevant if c.preserve_gate]
+    elif preserve_gate is False:
+        relevant = [c for c in relevant if not c.preserve_gate]
     if not relevant:
         return df
 
@@ -171,6 +179,12 @@ def gate_distance_km() -> float:
     return float(cfg["gate_distance_km"])
 
 
+def is_gate_flag(s: pd.Series) -> pd.Series:
+    """門前フラグ列を bool Series にする（TRUE / True / 1 を真）。"""
+    text = s.astype(str).str.strip().str.upper()
+    return text.isin(["TRUE", "1"]) | s.eq(True)
+
+
 def _non_gate_pattern(df: pd.DataFrame) -> pd.Series:
     angle = pd.to_numeric(df["角度_クリニック_度"], errors="coerce")
     to_pharmacy = pd.to_numeric(df["患者→薬局_直線km"], errors="coerce")
@@ -182,7 +196,10 @@ def _non_gate_pattern(df: pd.DataFrame) -> pd.Series:
 
 
 def rederive_gate(vt: pd.DataFrame, gate_km: Optional[float] = None) -> pd.DataFrame:
-    """補正後の直線km と閾値から門前フラグ・立地パターンを引き直した **コピー** を返す。
+    """直線km と閾値から門前フラグ・立地パターンを引き直した **コピー** を返す。
+
+    読み込み時は、門前から外す距離補正（高原・芝歯科）のあと・門前を残す距離補正
+    （はせがわ・平山の 0.3km）の前に呼ぶ。そうしないと 0.3km が 40m 判定を上書きする。
 
     - 門前フラグ: 直線km が閾値以内なら TRUE（距離欠損は元の値のまま）。
     - 立地パターン: 閾値以内になった行は門前型。門前型から外れた行だけ非門前3型に振り直し、
@@ -199,7 +216,7 @@ def rederive_gate(vt: pd.DataFrame, gate_km: Optional[float] = None) -> pd.DataF
     pattern = out["立地パターン"]
     has_pattern = pattern.notna()
     left_gate = has_pattern & pattern.eq(GATE) & known & ~is_gate
-    out.loc[has_pattern & known & is_gate, "立地パターン"] = GATE
+    out.loc[known & is_gate, "立地パターン"] = GATE
     out.loc[left_gate, "立地パターン"] = _non_gate_pattern(out.loc[left_gate])
     return out
 
@@ -307,10 +324,20 @@ def build_impact_report(path: Path = IMPACT_PATH, *, force: bool = False) -> Pat
     changes: List[AppliedChange] = []
     vt_before = read_csv("visit_triangle", corrections=False)
     cm_before = read_csv("clinic_master", corrections=False)
-    vt_after = rederive_gate(
-        apply_corrections(vt_before, "visit_triangle", corrections, log=changes, force=force)
+    vt_mid = apply_corrections(
+        vt_before, "visit_triangle", corrections, log=changes, force=force, preserve_gate=False
     )
-    cm_after = apply_corrections(cm_before, "clinic_master", corrections, log=changes, force=force)
+    vt_after = apply_corrections(
+        rederive_gate(vt_mid), "visit_triangle", corrections, log=changes, force=force, preserve_gate=True
+    )
+    cm_after = apply_corrections(
+        apply_corrections(cm_before, "clinic_master", corrections, log=changes, force=force, preserve_gate=False),
+        "clinic_master",
+        corrections,
+        log=changes,
+        force=force,
+        preserve_gate=True,
+    )
 
     lines += ["## 2. 書き換わったレコード", "", "| 補正ID | ファイル | 列 | 前 | 後 | 行数 |", "|---|---|---|---|---|---|"]
     for ch in changes:
@@ -325,8 +352,8 @@ def build_impact_report(path: Path = IMPACT_PATH, *, force: bool = False) -> Pat
     lines += [
         "## 3. 門前フラグ・立地パターンの件数変化",
         "",
-        f"門前の基準: 補正前＝生データ（直線 {GATE_LINE_KM:g}km 以内）、"
-        f"補正後＝`config/economics.yaml` の gate_distance_km（直線 {gate_km:g}km 以内）。",
+        f"門前の基準: 補正前＝生データの門前フラグ、"
+        f"補正後＝直線 {gate_km * 1000:.0f}m 以内（はせがわ・平山は距離列の 0.3km 補正後も門前のまま）。",
         "",
     ]
     before_counts = _gate_counts(vt_before) | _road_gate_counts(vt_before, "クリニック→薬局_直線km", GATE_LINE_KM)
@@ -340,6 +367,34 @@ def build_impact_report(path: Path = IMPACT_PATH, *, force: bool = False) -> Pat
     else:
         lines.append("**変化なし。**")
     lines.append("")
+    lines.append(
+        "注: 「クリニック→薬局_直線km<=0.04km」は距離列の件数。"
+        "はせがわ・平山は距離を 0.3km に直しているためこの行には入らない。"
+        "門前の件数は門前フラグを正とする。"
+    )
+    lines.append("")
+
+    flag_after = is_gate_flag(vt_after["門前フラグ"])
+    if flag_after.any():
+        remain = (
+            vt_after.loc[flag_after]
+            .groupby(["クリニックID", "クリニック名"])
+            .size()
+            .rename("件数")
+            .reset_index()
+            .sort_values("件数", ascending=False)
+        )
+        lines += [
+            "### 補正後も門前のクリニック（門前フラグ TRUE）",
+            "",
+            "| クリニックID | クリニック名 | 件数 |",
+            "|---|---|---|",
+        ]
+        for _, row in remain.iterrows():
+            lines.append(
+                f"| {row['クリニックID']} | {row['クリニック名']} | {int(row['件数']):,} |"
+            )
+        lines.append("")
 
     moved = vt_before["立地パターン"].eq(GATE) & vt_after["立地パターン"].ne(GATE) & vt_after["立地パターン"].notna()
     if moved.any():

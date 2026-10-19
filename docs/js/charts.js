@@ -25,8 +25,8 @@ export function themeColors() {
 
 export function axisColor(axis) {
   const c = themeColors();
-  if (axis === "門前型") return c.gate;
-  if (axis === "非門前型") return c.nongate;
+  if (axis === "隣の2院" || axis === "門前型") return c.gate;
+  if (axis === "それ以外" || axis === "非門前型") return c.nongate;
   return c.unknown;
 }
 

@@ -177,10 +177,15 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline-color: va
   background: var(--mint);
   color: var(--mint-ink);
 }
-.takeaway .tk-row:nth-child(2) dt { background: var(--butter); color: var(--butter-ink); }
-.takeaway .tk-row:nth-child(3) dt { background: var(--accent); color: #ffffff; }
+.takeaway .tk-row.tone-good dt { background: var(--mint); color: var(--mint-ink); }
+.takeaway .tk-row.tone-caution dt { background: var(--butter); color: var(--butter-ink); }
+.takeaway .tk-row.tone-bad dt { background: var(--peach); color: var(--peach-ink); }
+.takeaway .tk-row.tone-chance dt { background: var(--lilac); color: var(--lilac-ink); }
+.takeaway .tk-row.tk-action dt { background: var(--accent); color: #ffffff; }
 .takeaway dd { margin: 0; font-size: 15.5px; line-height: 1.75; padding-top: 2px; }
-.takeaway .tk-row:nth-child(3) dd { font-weight: 700; }
+.takeaway .tk-row.tk-action dd { font-weight: 700; white-space: pre-line; }
+.kpi.tone-caution .compare::before { content: "△ "; color: var(--butter-ink); font-weight: 700; }
+.kpi.tone-chance .compare::before { content: "◇ "; color: var(--lilac-ink); font-weight: 700; }
 @media (max-width: 599px) {
   .takeaway { padding: 8px 18px; }
   .takeaway .tk-row { grid-template-columns: 1fr; gap: 8px; }
@@ -381,10 +386,36 @@ details.expert h3 { margin-top: 24px; }
   .kpi .value { font-size: 28px; }
 }
 
+.sb-print, .print-actions .btn {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 8px 8px 0;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.print-actions .btn { width: auto; margin: 12px 0 0; display: inline-block; }
+.todo-list { display: grid; gap: 8px; }
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.todo-item input { margin-top: 5px; }
+
 @media print {
   body { background: #fff; }
   .wrap { max-width: 100%; padding: 0; }
   .card, .hero, .takeaway, .figure { box-shadow: none; border: 1px solid var(--line); }
   details.expert > * { display: block; }
   details.expert > summary::before { content: none; }
+  .sb-print, .print-actions { display: none; }
 }

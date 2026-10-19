@@ -13,7 +13,7 @@ import {
 } from "./store.js";
 import { monthsBetween, periodBounds } from "./aggregate.js";
 
-const AXIS_LABEL = { 門前型: "門前", 非門前型: "門前以外", 不明: "不明" };
+const AXIS_LABEL = { 隣の2院: "隣の2院", それ以外: "それ以外の医院", 不明: "不明", 門前型: "隣の2院", 非門前型: "それ以外の医院" };
 
 function el(html) {
   const t = document.createElement("template");
@@ -85,7 +85,7 @@ function fillRoot(dims, params) {
   root.appendChild(
     el(`<div class="sb-filter-block">
       <p class="sb-filter-label">区分</p>
-      <div class="sb-chip-row">${chipGroup("axis", dims.axes || ["門前型", "非門前型", "不明"], f.axis, AXIS_LABEL)}</div>
+      <div class="sb-chip-row">${chipGroup("axis", dims.axes || ["隣の2院", "それ以外", "不明"], f.axis, AXIS_LABEL)}</div>
     </div>`)
   );
   root.appendChild(
@@ -144,12 +144,14 @@ function fillRoot(dims, params) {
       <label class="sb-field">目標枚数 / 月
         <input type="number" min="1" step="50" data-assume="targetMonthly" value="${a.targetMonthly}"/>
       </label>
+      <p class="caption">目標枚数を変えると、データ探索と Phase 3 のスライダーの数字が変わります。</p>
       <label class="sb-field">現状の直近月数
         <input type="number" min="1" max="6" step="1" data-assume="recentMonths" value="${a.recentMonths}"/>
       </label>
       <label class="sb-field">1受診あたり粗利（円）
         <input type="number" min="0" step="100" data-assume="marginYen" value="${a.marginYen}"/>
       </label>
+      <p class="caption">Phase 4 の損失額の計算に使います。</p>
       <button type="button" class="sb-reset" data-role="reset-assume">既定に戻す</button>`;
   }
 

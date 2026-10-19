@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import gaussian_kde
 
+from src.axis import AXIS_OTHER, axis_from_clinic_id
 from src.io import (
     PHARMACY_LAT,
     PHARMACY_LON,
@@ -157,11 +158,7 @@ def plain_map_axes(ax, gaz: pd.DataFrame, max_labels: int = 14, within_km: float
 
 def load_visits() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     vt = read_csv("visit_triangle")
-    vt["軸"] = np.select(
-        [vt["立地パターン"].astype(str).eq("門前型"), vt["立地パターン"].astype(str).isin(NON_GATE)],
-        ["門前型", "非門前型"],
-        default="不明",
-    )
+    vt["軸"] = axis_from_clinic_id(vt["クリニックID"])
     cm = read_csv("clinic_master")
     mesh = read_csv("mesh_population")
     comp = read_csv("competitor_pharmacy")
@@ -312,7 +309,7 @@ def district_clinic_matrix(vt: pd.DataFrame, top_n_clinic: int = 15, top_n_city:
     plt.close(fig)
 
     # non-gate only heatmap (smaller)
-    ng = df.loc[df["軸"] == "非門前型"]
+    ng = df.loc[df["軸"] == AXIS_OTHER]
     if len(ng) > 50:
         top_c2 = ng["クリニック名"].value_counts().head(12).index
         top_city2 = ng["市区町村"].value_counts().head(10).index
@@ -772,10 +769,22 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     rep.add_kpi("半径2km以内の競合薬局", f"{plain['n_comp']}軒",
                 compare=f"うち500m以内に {plain['n_comp_500m']}軒", tone="neutral")
 
+    t1 = str(near_low.iloc[0]["町名"]) if len(near_low) else "千里丘西"
+    t2 = str(near_low.iloc[1]["町名"]) if len(near_low) > 1 else "西駅前町"
+    p1 = int(near_low.iloc[0]["総人口"]) if len(near_low) else 0
+    v1 = int(near_low.iloc[0]["来局ユニーク"]) if len(near_low) else 0
+    p2 = int(near_low.iloc[1]["総人口"]) if len(near_low) > 1 else 0
+    v2 = int(near_low.iloc[1]["来局ユニーク"]) if len(near_low) > 1 else 0
     rep.takeaway(
-        finding=f"患者の多くは薬局の徒歩圏（約1km）に住んでいます。半径1km以内に患者の{plain['share_1km']:.0%}がいます。",
-        judgment="近所では強い一方、少し離れると急に来なくなります。",
-        action=f"「近いのに来局が少ない地域」（{low_names}など）に絞って、チラシや案内の配布先を決めます。",
+        finding=f"患者の{plain['share_1km']:.0%}は薬局から1km以内に住んでいる。1kmを超えると急に来なくなる。",
+        judgment="近所には強い。1.5〜2kmに、まだ来ていない人が多い地域がある。",
+        action=(
+            f"{t1}（人口{p1:,}人、来た人{v1}人）と{t2}（人口{p2:,}人、来た人{v2}人）に、"
+            "QRコード付きチラシを各2,000枚。配布日と枚数を Phase 5 の記録表に書く。"
+        ),
+        measure="配布後8週間で、この2町からの初めての患者が月5人以上（今は月0〜1人）。",
+        link="#targets",
+        tone="chance",
     )
 
     rep.section("distance", "距離と来局")
@@ -790,13 +799,22 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
 
     rep.section("targets", "近いのに来局が少ない地域")
     rep.paragraph("薬局から2km以内で人口が多いのに、自店に来た人の割合が低い地域です。チラシや案内の配布先の候補になります。")
+    rate_half = float(plain["rate_1km"]) * 0.5
     rep.table(
-        ["地域（町名は近似）", "薬局からの距離（km）", "人口（人）", "自店に来た人（人）", "人口のうち自店に来た人の割合"],
+        ["地域（町名は近似）", "薬局からの距離（km）", "人口（人）", "自店に来た人（人）", "来た人の割合", "配る枚数の目安", "期待できる初回患者"],
         [
-            [r["町名"], f"{r['距離km']:.1f}", f"{int(r['総人口']):,}", f"{int(r['来局ユニーク']):,}", f"{r['来局率']:.1%}"]
+            [
+                r["町名"],
+                f"{r['距離km']:.1f}",
+                f"{int(r['総人口']):,}",
+                f"{int(r['来局ユニーク']):,}",
+                f"{r['来局率']:.1%}",
+                f"{int(r['総人口']):,}枚",
+                f"約{int(r['総人口'] * rate_half):,}人",
+            ]
             for _, r in near_low.iterrows()
         ],
-        numeric_cols=[1, 2, 3, 4],
+        numeric_cols=[1, 2, 3, 4, 5, 6],
     )
     rep.add_html(
         '<div class="card map-cta"><p>地域ごとの様子は、町名入りの地図で見るほうがわかりやすくなります。'
@@ -827,6 +845,14 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
         "top_towns": plain["top_towns"],
         "near_low_towns": list(near_low["町名"].head(3)),
         "conclusion": f"患者の{plain['share_1km']:.0%}が半径1km以内。1kmを超えると急に来なくなります。",
+        "actions": [
+            {
+                "what": f"{t1}・{t2}に各2,000枚、QRコード付きチラシ",
+                "who": "現場スタッフ",
+                "measure": "2町からの初回患者が月5人以上",
+                "page": "phase2_catchment.html#targets",
+            }
+        ],
     })
     return {"md": md_path, "html": html_path}
 
