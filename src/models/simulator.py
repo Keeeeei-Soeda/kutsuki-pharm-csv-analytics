@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -17,8 +17,55 @@ class GrowthInputs:
     unique_patients: float = 8885.0
     months: float = 23.0
     mean_visits_per_patient: float = 3.59
+    # 既定値は門前判定 300m 時代の比率。現行（40m）では growth_inputs_from_current() を使う。
     gate_share: float = 0.893
     nongate_share: float = 0.096
+
+
+def axis_visit_shares(vt: Optional[pd.DataFrame] = None) -> Dict[str, float]:
+    """受診件数ベースの門前／非門前／不明シェア（Phase 1 と同じ ``_axis_label``）。"""
+    from src.io import read_csv
+    from src.phase1_flow import _axis_label
+
+    if vt is None:
+        vt = read_csv("visit_triangle")
+    axis = _axis_label(vt["立地パターン"])
+    n = max(len(axis), 1)
+    gate = float((axis == "門前型").sum() / n)
+    nongate = float((axis == "非門前型").sum() / n)
+    n_patients = int(vt["患者ID"].nunique()) if "患者ID" in vt.columns else 0
+    n_months = (
+        int(pd.to_datetime(vt["受診日"]).dt.to_period("M").nunique())
+        if "受診日" in vt.columns
+        else 0
+    )
+    return {
+        "gate_share": gate,
+        "nongate_share": nongate,
+        "unknown_share": float(max(0.0, 1.0 - gate - nongate)),
+        "n_visits": int(len(axis)),
+        "unique_patients": float(n_patients),
+        "mean_visits_per_patient": float(len(vt) / n_patients) if n_patients else 0.0,
+        "months": float(n_months),
+    }
+
+
+def growth_inputs_from_current(
+    monthly_visits: float,
+    target_monthly: float = 3000.0,
+    vt: Optional[pd.DataFrame] = None,
+) -> GrowthInputs:
+    """現行データ（40m門前判定）からシミュレータ入力を組む。"""
+    shares = axis_visit_shares(vt)
+    return GrowthInputs(
+        monthly_visits=monthly_visits,
+        target_monthly=target_monthly,
+        unique_patients=shares["unique_patients"],
+        months=shares["months"],
+        mean_visits_per_patient=shares["mean_visits_per_patient"],
+        gate_share=shares["gate_share"],
+        nongate_share=shares["nongate_share"],
+    )
 
 
 def baseline_decomposition(inp: GrowthInputs) -> Dict[str, float]:

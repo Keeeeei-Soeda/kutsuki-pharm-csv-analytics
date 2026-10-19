@@ -16,7 +16,12 @@ import statsmodels.api as sm
 
 from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv
 from src.kpi import CurrentLevel, current_level, save_page_summary
-from src.models.simulator import GrowthInputs, baseline_decomposition, simulate_scenarios, tornado_sensitivities
+from src.models.simulator import (
+    baseline_decomposition,
+    growth_inputs_from_current,
+    simulate_scenarios,
+    tornado_sensitivities,
+)
 from src.viz.html_report import HtmlReport
 
 FIGURES = ROOT / "reports" / "figures"
@@ -292,7 +297,7 @@ def plain_forecast_figure(df: pd.DataFrame, level: CurrentLevel, next_month: str
 def enhance_simulator_plot(level: CurrentLevel) -> Dict:
     ensure_dirs()
     _setup_font()
-    inp = GrowthInputs(monthly_visits=level.recent_mean, target_monthly=level.target)
+    inp = growth_inputs_from_current(level.recent_mean, level.target)
     base = baseline_decomposition(inp)
     scen = simulate_scenarios(inp)
     tornado = tornado_sensitivities(inp, 0.1)

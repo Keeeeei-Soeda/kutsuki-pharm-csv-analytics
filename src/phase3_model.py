@@ -26,7 +26,12 @@ from src.io import (
 )
 from src.kpi import CurrentLevel, current_level, save_page_summary
 from src.models.huff import attractiveness_from_competitor, fit_lambda_grid, huff_probabilities
-from src.models.simulator import GrowthInputs, baseline_decomposition, simulate_scenarios, tornado_sensitivities
+from src.models.simulator import (
+    baseline_decomposition,
+    growth_inputs_from_current,
+    simulate_scenarios,
+    tornado_sensitivities,
+)
 from src.phase2_catchment import plain_map_axes, town_gazetteer
 from src.viz.html_report import HtmlReport
 
@@ -499,7 +504,7 @@ def plain_scenario_figure(scen: pd.DataFrame, level: CurrentLevel) -> Path:
 
 
 def run_growth_sim(level: CurrentLevel) -> Dict:
-    inp = GrowthInputs(monthly_visits=level.recent_mean, target_monthly=level.target)
+    inp = growth_inputs_from_current(level.recent_mean, level.target)
     base = baseline_decomposition(inp)
     scen = simulate_scenarios(inp)
     tornado = tornado_sensitivities(inp, pct=0.1)
