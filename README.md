@@ -14,6 +14,7 @@
 薬局向け版のページ:
 
 - [トップ](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/)
+- [データ探索](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/explore.html)
 - [Phase 1](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase1_flow.html)
 - [Phase 2](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase2_catchment.html)
 - [Phase 3](https://keeeeei-soeda.github.io/kutsuki-pharm-csv-analytics/phase3_model.html)
@@ -61,6 +62,9 @@ python3 -m src.build_map       # 商圏マップ（Leaflet / 地理院タイル�
 # Pages用にコピー（phase3〜6・pathways・map は docs/ へ自動コピー）
 cp reports/phase1_flow.html reports/phase2_catchment.html docs/
 cp reports/figures/* docs/figures/
+# 探索層の集計JSONと対話ページ（apply_ui_shell の前）
+python3 -m src.export_explore_data
+python3 -m src.build_explore
 # トップページの経営サマリー（各ページが data/processed/page_summaries/ に出した値を読む）
 python3 -m src.build_summary
 # UIシェル（サイドバー）を全ページへ適用（学術版への導線はサイドバー下部のリンク）
