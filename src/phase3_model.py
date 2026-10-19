@@ -656,6 +656,7 @@ def write_reports(vr, mesh_m, clogit, huff, growth) -> Dict[str, Path]:
     )
 
     rep.section("scenarios", "施策ごとの到達見込み")
+    rep.add_html('<section class="card span-12" id="growth-simulator" data-simulator="1"><h3>条件を動かして試す</h3></section>')
     rep.figure(
         FIGURES / "phase3_scenarios_plain.png",
         point=f"どの施策を強めても、目標の3,000枚には届きません（最大は約{growth['best_value']:,.0f}枚）。",
