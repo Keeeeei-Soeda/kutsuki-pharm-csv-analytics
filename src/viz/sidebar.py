@@ -27,6 +27,10 @@ FONTS_LINK = (
 
 # icon は viewBox 0 0 24 24 の線画パス
 NAV_PAGES: List[dict] = [
+    {"key": "explore", "href": "explore.html", "title": "データ探索",
+     "headline": "データを絞り込んで見る",
+     "desc": "枚数・推移・クリニック・距離・再来", "group": "explore", "blocked": False,
+     "icon": '<circle cx="11" cy="11" r="7"/><path d="M16 16l5 5"/>'},
     {"key": "p1", "href": "phase1_flow.html", "title": "処方箋の流れ",
      "headline": "処方箋はどこから来ているか",
      "desc": "Phase 1 · 門前と門前以外", "group": "phase", "blocked": False,
@@ -151,6 +155,7 @@ def render_sidebar(
         # 日付までにして、同じ日に何度適用しても差分が出ないようにする
         "{{GENERATED}}": _esc(generated or datetime.now().strftime("%Y-%m-%d")),
         "{{BREADCRUMB}}": _esc(breadcrumb),
+        "{{EXPLORE_ITEMS}}": _nav_items("explore", active_key),
         "{{PHASE_ITEMS}}": _nav_items("phase", active_key),
         "{{EXTRA_ITEMS}}": _nav_items("extra", active_key),
         "{{PAGE_TOC}}": _toc_items(toc or []),
@@ -285,6 +290,14 @@ def apply_shell(html_path: PathLike, active_key: Optional[str] = None) -> Path:
     # 7) JS を差し込む
     text = text.replace(
         "</body>", f'<script data-shell="sidebar">\n{sidebar_js()}\n</script>\n</body>', 1
+    )
+    from src.viz.explore_assets import enhance_html
+
+    name = path.name
+    text = enhance_html(
+        text,
+        explore_page=name == "explore.html",
+        phase3=name == "phase3_model.html",
     )
     if "</html>" not in text or len(text) < len(original) * 0.5:
         raise RuntimeError(f"shell 適用で本文が失われた可能性があります: {path}")

@@ -79,6 +79,7 @@ def summary_html(s: Dict[str, Dict[str, object]]) -> str:
         f"{SUMMARY_BEGIN}\n"
         '    <section class="exec-summary" aria-labelledby="summary">\n'
         '      <h2 id="summary">経営サマリー</h2>\n'
+        '      <p class="caption">数字は既定値での計算です。画面の前提値を変えても、この欄は変わりません。</p>\n'
         '      <div class="exec-grid">\n'
         f'        <div class="exec-block"><h3>いまの状況</h3>{ul(status)}</div>\n'
         f'        <div class="exec-block"><h3>わかったこと</h3>{ul(findings, ordered=True)}</div>\n'
