@@ -27,6 +27,17 @@ export async function loadExploreData() {
     loadJson("params.json"),
     loadJson("events.json"),
   ]);
+  normalizeNames(dims);
   if (!isReady()) hydrate({ dims, params });
   return { facts, totals, weekly, retention, dims, params, events };
+}
+
+/** 元データの半角カナ（ｸﾘﾆｯｸ など）を全角にそろえて表示する。 */
+function normalizeNames(dims) {
+  if (!dims || dims.__normalized) return;
+  const fix = (s) => (typeof s === "string" ? s.replace(/[｡-ﾟ]+/g, (m) => m.normalize("NFKC")) : s);
+  Object.values(dims.clinics || {}).forEach((c) => {
+    c.name = fix(c.name);
+  });
+  dims.__normalized = true;
 }

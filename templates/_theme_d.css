@@ -204,12 +204,29 @@ h3 { font-size: 16px; font-weight: 700; }
 .fig-explain strong { color: var(--butter-ink); }
 
 /* ===== 表 ===== */
-.card.table-scroll { padding: 0; overflow: hidden; }
+.card.table-scroll { padding: 0; overflow-x: auto; overflow-y: hidden; }
 table { border-radius: var(--radius); background: var(--surface); }
 th { background: var(--bg); color: var(--muted); font-size: 12.5px; font-weight: 700; }
 th, td { border-bottom-color: var(--line-soft); }
 th.num { text-align: right; font-family: inherit; font-size: 12.5px; }
 tr:hover td { background: #fffaf6; }
+
+/* ===== 図（ECharts）・保存ボタン ===== */
+.chart-canvas { border: none; border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.chart-save, .chart-toolbar button, .toolbar-row button, .explore-chip { border-radius: 999px; padding: 6px 12px; }
+.chart-save:hover, .toolbar-row button:hover, .explore-chip:hover { background: var(--sb-hover-bg); }
+.model-badge { background: var(--lilac); color: var(--lilac-ink); }
+.explore-model-note {
+  display: inline-block;
+  margin: 14px 0 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+}
+.explore-model-note a { color: var(--accent-strong); font-weight: 700; }
+.wrap select { border-radius: 999px; padding: 6px 14px; }
 
 /* ===== コールアウト ===== */
 .callout { border: none; border-radius: var(--radius-sm); margin: 16px 0; padding: 16px 20px; }
@@ -289,6 +306,59 @@ details.expert h3 { margin-top: 24px; }
 
 .footer { border-top: 1px dashed var(--line); color: var(--muted); }
 .note { border-radius: var(--radius-sm); }
+
+/* ===== DataBank 修正前／修正後タブ ===== */
+.version-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+.version-switch-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.version-switch-seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--line-soft);
+  border-radius: 999px;
+}
+.version-switch-seg a {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: none;
+  line-height: 1.2;
+}
+.version-switch-seg a:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, .7);
+}
+.version-switch-seg a[aria-current="page"] {
+  color: #fff;
+  background: var(--accent);
+}
+.version-switch-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+}
+@media (max-width: 599px) {
+  .version-switch-hint { margin-left: 0; flex-basis: 100%; }
+}
 
 /* ===== モバイル（_sidebar.css のモバイル指定より後ろなのでここで上書き） ===== */
 @media (max-width: 1279px) and (min-width: 900px) {

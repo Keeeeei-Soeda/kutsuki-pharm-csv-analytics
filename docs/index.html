@@ -417,6 +417,156 @@ a:focus-visible, button:focus-visible {
   h2 { font-size: 19px; }
 }
 
+/* フィルタチップ（全ページ共通） */
+.explore-status { margin: 12px 0 8px; }
+.explore-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.explore-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line, #eadfd6);
+  background: var(--accent-soft, #ffe9df);
+  color: var(--ink, #3a2e28);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1.3;
+}
+.explore-chip span[aria-hidden] {
+  opacity: .45;
+  font-weight: 400;
+}
+.explore-chip:hover {
+  background: var(--surface, #fff);
+  border-color: var(--accent, #c4472b);
+}
+.explore-chip:hover span[aria-hidden] { opacity: 1; color: var(--accent, #c4472b); }
+.explore-model-note { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+
+/* 商圏マップ: Leaflet/Google の高 z-index を枠内に閉じ込める */
+.map-shell {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+/* 地図ライブラリの高 z-index は .map-shell の isolation 内に閉じる。
+   ペイン同士の相対 z-index は上書きしない（自店ペインがクリニックより上に出るため）。 */
+.map-chrome {
+  position: absolute;
+  inset: 10px 10px auto 10px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  pointer-events: none;
+}
+.map-panel {
+  pointer-events: auto;
+  background: var(--bg-overlay, rgba(255, 252, 247, .94));
+  border: 1px solid var(--line, #eadfd6);
+  border-radius: 12px;
+  box-shadow: var(--shadow, 0 2px 14px rgba(90, 60, 40, .07));
+  max-width: min(240px, calc(100vw - 48px));
+  font-size: 12px;
+  overflow: hidden;
+}
+.map-panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+.map-panel-icon { opacity: .7; }
+.map-panel-body { display: none; padding: 0 10px 10px; }
+.map-panel.is-open .map-panel-body { display: block; }
+.map-panel-label {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .04em;
+}
+.map-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+  cursor: pointer;
+}
+.map-radio-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.map-chip {
+  border: 1px solid var(--line);
+  background: var(--surface, #fff);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.map-chip.is-on {
+  background: var(--accent, #c4472b);
+  border-color: var(--accent, #c4472b);
+  color: #fff;
+  font-weight: 700;
+}
+.map-chip:disabled { opacity: .4; cursor: not-allowed; }
+.comp-marker { background: transparent; border: 0; }
+.comp-diamond {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2.5px solid #7b5ea7;
+  border-radius: 50%;
+  box-shadow: none;
+  transform: none;
+}
+.legend-comp { width: 12px; height: 12px; margin: 0 3px; flex: 0 0 auto; }
+.store-legend {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1f6e4d;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #1f6e4d;
+  flex: 0 0 auto;
+}
+.bubble {
+  background: rgba(120, 110, 100, 0.16);
+  border: 1.5px solid #8d8577;
+}
+.bubble-size {
+  border-radius: 50%;
+  background: rgba(120, 110, 100, 0.16);
+  border: 1.5px solid #8d8577;
+  flex: 0 0 auto;
+}
+.swatch.dot { border-radius: 50%; }
+.swatch.ring {
+  border-radius: 50%;
+  background: #fff;
+  border: 2.5px solid #7b5ea7;
+}
+.swatch-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0,0,0,.12);
+}
+.legend-row .num { font-variant-numeric: tabular-nums; }
+
 /* Phase 3 シミュレーター（左揃えの横スライダー） */
 .sim-sliders { display: grid; gap: 12px; margin: 12px 0 4px; text-align: left; }
 .sim-row {
@@ -513,6 +663,105 @@ a:focus-visible, button:focus-visible {
   .sidebar, .topbar, .nav-overlay, .skip-link { display: none !important; }
   body { display: block; background: #fff; }
   .wrap { max-width: 100%; }
+}
+
+/* ===== 共通の部品（生成日が古いページにも同じ見た目を当てる） ===== */
+[hidden] { display: none !important; }
+
+/* 図（ECharts）と保存ボタン */
+.chart-wrap { margin: 8px 0 18px; }
+.chart-canvas { width: 100%; min-height: 320px; background: var(--surface, #fff); border: 1px solid var(--line); border-radius: 12px; }
+.chart-save, .chart-toolbar button, .toolbar-row button {
+  margin: 0 0 8px;
+  background: var(--surface, #fff);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.toolbar-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+.toolbar-row button { margin: 0; }
+.has-js .chart-print-fallback { display: none; }
+.chart-events {
+  margin: 8px 4px 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chart-events b { color: var(--warn, #8a5714); margin-right: 3px; }
+@media print {
+  .chart-canvas, .chart-save, .chart-events { display: none !important; }
+  .chart-print-fallback { display: block !important; }
+}
+
+/* 推定図のバッジ */
+.model-badge {
+  display: inline-block;
+  margin: 10px 12px 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* フィルタ状態の表示 */
+.explore-status { margin: 12px 0 0; }
+.explore-status:empty { display: none; }
+.explore-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.explore-chip-row:empty { display: none; }
+.explore-chip {
+  border: 1px solid var(--line);
+  background: var(--surface, #fff);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.explore-model-note { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+
+/* 表：数字も本文と同じ書体で、行の高さの中央にそろえる */
+td { vertical-align: middle; }
+.num, td.num, th.num { font-family: inherit; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* フォーム部品の色をテーマに合わせる */
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--accent); }
+.wrap select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface, #fff);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  max-width: 100%;
+}
+
+/* サイドバーの選択中チップは白文字にする */
+.sb-chip.is-on { color: #ffffff; }
+.sb-chip.is-on input { accent-color: #ffffff; }
+.sb-toggle { margin: 0 0 6px; font-size: 12px; }
+
+/* 長い文字列の KPI は一段小さくして、1文字だけの折り返しを防ぐ（クラスは _sidebar.js で付ける） */
+.kpi .value.is-long { font-size: 26px; line-height: 1.35; }
+.kpi .value.is-xlong { font-size: 21px; line-height: 1.4; }
+
+/* 表は狭い画面で横スクロールにする */
+@media (max-width: 899px) {
+  .table-scroll table { min-width: 720px; }
+  .table-scroll td { min-width: 6.5em; }
+  .kpi .value.is-long { font-size: 22px; }
+  .kpi .value.is-xlong { font-size: 19px; }
 }
 /* D案（ソフト・ベント）テーマ。_sidebar.css の後ろに結合され、ベース CSS とサイドバーを上書きする。
    切り替えは src/viz/sidebar.py の THEMES / DEFAULT_THEME（または環境変数 REPORT_THEME）。
@@ -720,12 +969,29 @@ h3 { font-size: 16px; font-weight: 700; }
 .fig-explain strong { color: var(--butter-ink); }
 
 /* ===== 表 ===== */
-.card.table-scroll { padding: 0; overflow: hidden; }
+.card.table-scroll { padding: 0; overflow-x: auto; overflow-y: hidden; }
 table { border-radius: var(--radius); background: var(--surface); }
 th { background: var(--bg); color: var(--muted); font-size: 12.5px; font-weight: 700; }
 th, td { border-bottom-color: var(--line-soft); }
 th.num { text-align: right; font-family: inherit; font-size: 12.5px; }
 tr:hover td { background: #fffaf6; }
+
+/* ===== 図（ECharts）・保存ボタン ===== */
+.chart-canvas { border: none; border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.chart-save, .chart-toolbar button, .toolbar-row button, .explore-chip { border-radius: 999px; padding: 6px 12px; }
+.chart-save:hover, .toolbar-row button:hover, .explore-chip:hover { background: var(--sb-hover-bg); }
+.model-badge { background: var(--lilac); color: var(--lilac-ink); }
+.explore-model-note {
+  display: inline-block;
+  margin: 14px 0 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+}
+.explore-model-note a { color: var(--accent-strong); font-weight: 700; }
+.wrap select { border-radius: 999px; padding: 6px 14px; }
 
 /* ===== コールアウト ===== */
 .callout { border: none; border-radius: var(--radius-sm); margin: 16px 0; padding: 16px 20px; }
@@ -805,6 +1071,59 @@ details.expert h3 { margin-top: 24px; }
 
 .footer { border-top: 1px dashed var(--line); color: var(--muted); }
 .note { border-radius: var(--radius-sm); }
+
+/* ===== DataBank 修正前／修正後タブ ===== */
+.version-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+.version-switch-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.version-switch-seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--line-soft);
+  border-radius: 999px;
+}
+.version-switch-seg a {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: none;
+  line-height: 1.2;
+}
+.version-switch-seg a:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, .7);
+}
+.version-switch-seg a[aria-current="page"] {
+  color: #fff;
+  background: var(--accent);
+}
+.version-switch-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+}
+@media (max-width: 599px) {
+  .version-switch-hint { margin-left: 0; flex-basis: 100%; }
+}
 
 /* ===== モバイル（_sidebar.css のモバイル指定より後ろなのでここで上書き） ===== */
 @media (max-width: 1279px) and (min-width: 900px) {
@@ -904,7 +1223,17 @@ details.expert h3 { margin-top: 24px; }
 </aside>
 
 <main class="wrap" id="main">
-    <header class="hero">
+<nav class="version-switch" aria-label="DataBankの版">
+  <span class="version-switch-label">データ</span>
+  <div class="version-switch-seg" role="tablist">
+    <a href="index.html" role="tab" aria-current="page">修正後</a>
+    <a href="before/index.html" role="tab">修正前</a>
+  </div>
+  <span class="version-switch-hint">今回取り込んだ修正後 DataBank</span>
+</nav>
+
+
+<header class="hero">
       <div class="eyebrow">Kutsuki DataBank Analytics</div>
       <h1>くつき薬局南茨木店<br/>患者獲得モデル分析</h1>
       <p>自店の処方箋データから、処方箋の出どころ・患者の住まい・定着・施策の効果を見るレポートです。生の患者CSVは公開していません。</p>
@@ -1128,6 +1457,21 @@ details.expert h3 { margin-top: 24px; }
   }
   window.addEventListener("scroll", fallback, { passive: true });
   fallback();
+}());
+
+/* 長い文字列の KPI 値に印を付け、CSS で一段小さく表示する（1文字だけ次の行に落ちるのを防ぐ） */
+(function () {
+  function textWidth(s) {
+    var w = 0;
+    for (var i = 0; i < s.length; i++) { w += s.charCodeAt(i) > 0xff ? 1 : 0.6; }
+    return w;
+  }
+  var nodes = document.querySelectorAll(".kpi .value");
+  for (var i = 0; i < nodes.length; i++) {
+    var w = textWidth((nodes[i].textContent || "").trim());
+    nodes[i].classList.toggle("is-xlong", w > 10);
+    nodes[i].classList.toggle("is-long", w > 6.5 && w <= 10);
+  }
 }());
 
 </script>

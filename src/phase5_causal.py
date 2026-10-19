@@ -26,13 +26,13 @@ import statsmodels.api as sm
 import yaml
 
 from src.corrections import gate_distance_km
-from src.io import PHARMACY_NAME, PROCESSED_DIR, RAW_DIR, ROOT, SEED, ensure_dirs, read_csv
+from src.io import PHARMACY_NAME, PROCESSED_DIR, RAW_DIR, ROOT, SEED, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR, DOCS_DIR
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
-DOCS = ROOT / "docs"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
+DOCS = DOCS_DIR
 EVENTS_YAML = ROOT / "config" / "events.yaml"
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 
@@ -362,15 +362,15 @@ def plot_timeline(aux: pd.DataFrame, ev: pd.DataFrame) -> Path:
     x = d.index.to_timestamp()
     fig, ax = plt.subplots(figsize=(11, 4.6))
     ax.plot(x, d["処方箋枚数"], color="#1b2430", lw=2, label="処方箋枚数（全体）")
-    ax.plot(x, d["門前(はせ、平山）枚数"], color=COLOR_GATE, lw=1.6, label="門前2院の枚数")
-    ax.plot(x, d["広域合計枚数"], color=COLOR_NONGATE, lw=1.6, label="広域（門前以外）の枚数")
+    ax.plot(x, d["門前(はせ、平山）枚数"], color=COLOR_GATE, lw=1.6, label="上位2院（はせがわ・平山）の枚数")
+    ax.plot(x, d["広域合計枚数"], color=COLOR_NONGATE, lw=1.6, label="上位2院以外の枚数")
     ax.plot(x, d["新患数"], color=COLOR_NEAR, lw=1.6, ls="--", label="新患数")
     _event_lines(ax, ev, as_period=False)
     ax.set_ylabel("件／月")
     ax.set_title(f"{PHARMACY_NAME} 月次推移と施策イベント（2024-09〜2026-07、補助資料）")
-    ax.legend(fontsize=8, ncol=4, loc="upper left")
+    ax.legend(fontsize=8, ncol=4, loc="upper center", bbox_to_anchor=(0.5, -0.1), frameon=False)
     legend = "  ".join(f"{i + 1}:{n}" for i, n in enumerate(ev["name"]))
-    fig.text(0.01, -0.04, legend, fontsize=7.5, color="#5b6776", wrap=True)
+    fig.text(0.01, -0.1, legend, fontsize=7.5, color="#5b6776", wrap=True)
     fig.tight_layout()
     out = FIGURES / "phase5_timeline.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
@@ -667,8 +667,8 @@ def write_report(ev: pd.DataFrame, did: Dict, its: Dict, figs: Dict[str, Path],
         figs["timeline"],
         point="施策の前後で、処方箋や新患の数がはっきり変わった時期は見当たりません。",
         explain=(
-            "黒が処方箋全体、橙が門前2院、青が門前以外、緑の点線が新患の月別の数です。"
-            "縦の点線と網掛けが施策の時期で、番号は下の注記に対応します。"
+            "黒が処方箋全体、橙が上位2院（はせがわ・平山）、青が上位2院以外、緑の点線が新患（初めて来局した人）の月別の数です。"
+            "縦の点線と網掛けが施策の時期で、丸数字は図の下の一覧に対応します。"
         ),
     )
 

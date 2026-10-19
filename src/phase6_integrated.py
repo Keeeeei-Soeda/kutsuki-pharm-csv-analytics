@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
-from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv
+from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR, DOCS_DIR
 from src.kpi import CurrentLevel, current_level, save_page_summary
 from src.models.simulator import (
     baseline_decomposition,
@@ -24,9 +24,9 @@ from src.models.simulator import (
 )
 from src.viz.html_report import HtmlReport
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
-DOCS = ROOT / "docs"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
+DOCS = DOCS_DIR
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 TRAIN_END = "2026-01"
 VALID_START = "2026-02"

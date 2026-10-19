@@ -24,12 +24,15 @@ from src.io import (
     SEED,
     ensure_dirs,
     read_csv,
+
+    FIGURES_DIR,
+    REPORTS_DIR,
 )
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 
 
@@ -776,10 +779,8 @@ def write_reports(catch, matrix, mesh_stats, pressure, net, map_path: Path, vt: 
     )
 
     rep.section("distance", "距離と来局")
-    rep.chart(
-        "p2-dist",
-        "distance",
-        fallback=FIGURES / "phase2_distance_plain.png",
+    rep.figure(
+        FIGURES / "phase2_distance_plain.png",
         point=(
             f"1km以内の地域では人口の{plain['rate_1km']:.0%}前後が来ていますが、"
             "1kmを超えると急に少なくなります。"

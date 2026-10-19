@@ -13,12 +13,12 @@ from html import escape
 from pathlib import Path
 from typing import Dict, List
 
-from src.io import ROOT
+from src.io import ROOT, DOCS_DIR
 from src.kpi import load_page_summaries
 from src.viz.html_report import FOOTER_NOTE
 from src.viz.sidebar import NAV_PAGES
 
-INDEX = ROOT / "docs" / "index.html"
+INDEX = DOCS_DIR / "index.html"
 
 SUMMARY_BEGIN = "<!-- exec-summary:begin -->"
 SUMMARY_END = "<!-- exec-summary:end -->"

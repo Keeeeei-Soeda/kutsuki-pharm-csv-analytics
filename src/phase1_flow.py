@@ -18,12 +18,12 @@ import statsmodels.api as sm
 from statsmodels.tsa.seasonal import STL
 
 from src.corrections import gate_distance_km
-from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv
+from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR
 
 GATE_KM = gate_distance_km()
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 # 図の表記（分析上の区分名 → 薬局長向けの言い方）
 AXIS_PLAIN = {"門前型": "門前", "非門前型": "門前以外"}

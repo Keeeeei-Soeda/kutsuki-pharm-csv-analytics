@@ -71,7 +71,19 @@ python3 -m src.build_summary
 python3 -m src.apply_ui_shell
 ```
 
-分析を回さず UI だけ直したいときは `python3 -m src.apply_ui_shell` のみでよい。
+### DataBank 修正前／修正後の二重生成
+
+各ページ上部のタブで **修正後**（`docs/`）と **修正前**（`docs/before/`）を切り替える。
+分析補正（`corrections.yaml`）は両側で同じ設定を使う。
+
+```bash
+# Chatwork受領前スナップショットは data/raw_before/ に置く
+python3 -m src.run_databank_variants              # before → after → UIシェル
+python3 -m src.run_databank_variants --only after # 修正後だけ
+DATABANK_VARIANT=before python3 -m src.phase1_flow  # 単体モジュールも可
+```
+
+分析を回さず UI だけ直したいときは `python3 -m src.apply_ui_shell` のみでよい（`docs/before/` にも適用）。
 `docs/academic/` は凍結版なので、通常の再生成では `python3 -m src.snapshot_academic` を実行しない。
 
 「現状の処方箋枚数」は直近3か月の平均（`src/kpi.py`）。全期間平均は参考値として併記する。

@@ -21,6 +21,7 @@ build/
 
 # 生データ・個人情報を含むCSVは公開しない（GitHub Pages用）
 data/raw/
+data/raw_before/
 data/interim/
 *.csv
 !data/processed/.gitkeep
@@ -28,6 +29,7 @@ data/interim/
 # 大きな中間成果（必要なら後で選択的に追加）
 data/processed/*.parquet
 data/processed/*.csv
+data/processed_before/
 
 # ローカル作業用の元ファイル（ルート直下の受領CSV/XLSX）
 /*.csv

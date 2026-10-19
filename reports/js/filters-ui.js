@@ -13,7 +13,7 @@ import {
 } from "./store.js";
 import { monthsBetween, periodBounds } from "./aggregate.js";
 
-const AXIS_LABEL = { 門前型: "門前型", 非門前型: "非門前型", 不明: "不明" };
+const AXIS_LABEL = { 門前型: "門前", 非門前型: "門前以外", 不明: "不明" };
 
 function el(html) {
   const t = document.createElement("template");
@@ -260,7 +260,7 @@ function bind(root, assume, dims, params) {
 }
 
 function chipLabel(key, value, dims) {
-  if (key === "axis") return value;
+  if (key === "axis") return AXIS_LABEL[value] || value;
   if (key === "dept") return value;
   if (key === "dist") return dims.dist_labels?.[value] || value;
   if (key === "clinic") return dims.clinics?.[value]?.name || value;
@@ -297,10 +297,17 @@ function renderStatus(dims) {
   }
   if (f.compare) chips.push({ key: "compare", label: chipLabel("compare", f, dims) });
 
+  const mapPage = document.querySelector("[data-map]");
+  const hasFigure = document.querySelector("#main .figure, #main #map, #main iframe");
   const interactive = document.querySelector("[data-chart], [data-explore]");
-  const note = interactive
-    ? ""
-    : `<p class="explore-model-note">このページの図は全期間の分析です。フィルタはデータ探索ページの図に効きます。</p>`;
+  let note = "";
+  if (mapPage) {
+    note =
+      `<p class="explore-model-note">クリニック・診療科の指定は地図に反映されます。円の大きさは全期間の処方箋枚数です。</p>`;
+  } else if (hasFigure && !interactive) {
+    note =
+      `<p class="explore-model-note">このページの図は全期間で集計しています。サイドバーのフィルタは<a href="explore.html">データ探索</a>ページの図に反映されます。</p>`;
+  }
   const chipHtml = chips
     .map(
       (c) =>

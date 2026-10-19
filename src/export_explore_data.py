@@ -14,7 +14,7 @@ import pandas as pd
 import yaml
 
 from src.corrections import gate_distance_km
-from src.io import ROOT, read_csv
+from src.io import ROOT, read_csv, DOCS_DIR
 from src.kpi import RECENT_MONTHS, TARGET_MONTHLY, current_level, monthly_prescriptions
 from src.models.simulator import growth_inputs_from_current, simulate_scenarios
 from src.pathways import load_sequences
@@ -22,7 +22,7 @@ from src.phase1_flow import _axis_label
 from src.phase4_retention import END_DATE, RETENTION_DAYS, attach_first_attrs
 from src.specialty_taxonomy import STANDARD_LABELS, build_specialty_map
 
-DOCS_DATA = ROOT / "docs" / "data"
+DOCS_DATA = DOCS_DIR / "data"
 EVENTS_PATH = ROOT / "config" / "events.yaml"
 ECONOMICS_PATH = ROOT / "config" / "economics.yaml"
 

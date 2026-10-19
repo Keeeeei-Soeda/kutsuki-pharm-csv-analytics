@@ -12,10 +12,10 @@ import numpy as np
 import pandas as pd
 
 from src.corrections import gate_distance_km
-from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs, read_csv
+from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
 
 
 def _setup_font() -> None:

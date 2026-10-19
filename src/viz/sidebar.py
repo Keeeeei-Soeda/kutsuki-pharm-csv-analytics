@@ -10,6 +10,7 @@ from __future__ import annotations
 import html
 import os
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, Union
@@ -157,12 +158,49 @@ def _toc_items(toc: Sequence[Tuple[str, str]]) -> str:
     )
 
 
+def html_databank_variant(html_path: Path) -> str:
+    """HTML の配置から DataBank バリアント（after / before）を判定する。"""
+    try:
+        rel = Path(html_path).resolve().relative_to(ROOT)
+    except ValueError:
+        return "after"
+    parts = rel.parts
+    if len(parts) >= 2 and parts[1] == "before":
+        return "before"
+    return "after"
+
+
+def render_version_switch(html_path: PathLike) -> str:
+    """各ページ上部の「修正後／修正前」セグメント。"""
+    path = Path(html_path)
+    name = path.name
+    variant = html_databank_variant(path)
+    if variant == "before":
+        after_href, before_href = f"../{name}", name
+        hint = "Chatwork受領前の DataBank"
+    else:
+        after_href, before_href = name, f"before/{name}"
+        hint = "今回取り込んだ修正後 DataBank"
+    tmpl = _read("_version_switch.html")
+    values = {
+        "{{AFTER_HREF}}": _esc(after_href),
+        "{{BEFORE_HREF}}": _esc(before_href),
+        "{{AFTER_CURRENT}}": ' aria-current="page"' if variant == "after" else "",
+        "{{BEFORE_CURRENT}}": ' aria-current="page"' if variant == "before" else "",
+        "{{HINT}}": _esc(hint),
+    }
+    for token, value in values.items():
+        tmpl = tmpl.replace(token, value)
+    return tmpl
+
+
 def render_sidebar(
     active_key: Optional[str] = None,
     toc: Optional[Sequence[Tuple[str, str]]] = None,
     *,
     breadcrumb: str = "Kutsuki DataBank",
     home_href: str = "index.html",
+    academic_href: str = "academic/index.html",
     period: str = PERIOD_LABEL,
     generated: Optional[str] = None,
 ) -> str:
@@ -171,6 +209,7 @@ def render_sidebar(
     tmpl = re.sub(r"\A\s*<!--.*?-->\s*", "", _read("_sidebar.html"), flags=re.DOTALL)
     values = {
         "{{HOME_HREF}}": _esc(home_href),
+        "{{ACADEMIC_HREF}}": _esc(academic_href),
         "{{PERIOD}}": _esc(period or PERIOD_LABEL),
         # 日付までにして、同じ日に何度適用しても差分が出ないようにする
         "{{GENERATED}}": _esc(generated or datetime.now().strftime("%Y-%m-%d")),
@@ -202,6 +241,9 @@ _SHELL_CSS_RE = re.compile(
 )
 _SHELL_JS_RE = re.compile(
     r'<script data-shell="sidebar">.*?</script>\s*', re.DOTALL
+)
+_VERSION_SWITCH_RE = re.compile(
+    r'<nav class="version-switch"[^>]*>.*?</nav>\s*', re.DOTALL
 )
 
 
@@ -263,6 +305,30 @@ def apply_headline(text: str, key: Optional[str]) -> str:
     return _TITLE_RE.sub(f"<title>{_esc(title)}</title>", text, count=1)
 
 
+UI_TEXT_FIXES: Tuple[Tuple[str, str], ...] = (
+    # Phase 1: 図を積み上げ棒に替えたので「線の右端」の説明を合わせる
+    ("橙が門前、青が門前以外の月別の処方箋枚数です。線の右端の数字が直近月の枚数です。",
+     "橙が門前、青が門前以外、灰色が不明の月別の処方箋枚数（積み上げ）です。点線は目標の枚数で、棒にカーソルを合わせると内訳が出ます。"),
+    # Phase 1: 診療科の途中切れ
+    ("<td>内科・呼吸器内科・アレルギー科・リハ</td>", "<td>内科・呼吸器内科・アレルギー科ほか</td>"),
+    ("<td>内科・消化器内科・外科・消化器外科・</td>", "<td>内科・消化器内科・外科・消化器外科ほか</td>"),
+    ("<td>整形外科・リハビリテーション科・リウ</td>", "<td>整形外科・リハビリテーション科ほか</td>"),
+    ("<td>内科・脳神経外科・放射線科・リハビリ</td>", "<td>内科・脳神経外科・放射線科ほか</td>"),
+    # Phase 5: 上位2院（はせがわ・平山）は40m基準では門前ではない
+    ("黒が処方箋全体、橙が門前2院、青が門前以外、緑の点線が新患の月別の数です。縦の点線と網掛けが施策の時期で、番号は下の注記に対応します。",
+     "黒が処方箋全体、橙が上位2院（はせがわ・平山）、青が上位2院以外、緑の点線が新患（初めて来局した人）の月別の数です。縦の点線と網掛けが施策の時期で、丸数字は図の下の一覧に対応します。"),
+)
+
+_HALFWIDTH_KANA_RE = re.compile(r"[｡-ﾟ]+")
+
+
+def fix_display_text(text: str) -> str:
+    """表示文言の誤りを直し、元データ由来の半角カナを全角にそろえる（冪等）。"""
+    for old, new in UI_TEXT_FIXES:
+        text = text.replace(old, new)
+    return _HALFWIDTH_KANA_RE.sub(lambda m: unicodedata.normalize("NFKC", m.group(0)), text)
+
+
 def apply_shell(html_path: PathLike, active_key: Optional[str] = None) -> Path:
     """既存レポート HTML を「サイドバー + main」構成へ差し替える（冪等）。"""
     path = Path(html_path)
@@ -302,10 +368,26 @@ def apply_shell(html_path: PathLike, active_key: Optional[str] = None) -> Path:
     text = apply_headline(text, active_key)
     text = align_numeric_headers(text)
 
-    # 6) サイドバーを差し込む
+    # 6) サイドバーを差し込む（before/ 配下は学術リンクを一段上げる）
     toc = extract_toc(text)
-    sidebar = render_sidebar(active_key, toc, breadcrumb=_breadcrumb_of(text))
+    variant = html_databank_variant(path)
+    academic_href = "../academic/index.html" if variant == "before" else "academic/index.html"
+    sidebar = render_sidebar(
+        active_key,
+        toc,
+        breadcrumb=_breadcrumb_of(text),
+        academic_href=academic_href,
+    )
     text = re.sub(r"<body([^>]*)>", lambda m: f"<body{m.group(1)}>\n{sidebar}", text, count=1)
+
+    # 6.5) DataBank 修正前／修正後タブ（#main 直下・冪等）
+    text = _VERSION_SWITCH_RE.sub("", text)
+    switch = render_version_switch(path)
+    text = text.replace(
+        '<main class="wrap" id="main">',
+        f'<main class="wrap" id="main">\n{switch}\n',
+        1,
+    )
 
     # 7) JS を差し込む
     text = text.replace(
@@ -318,7 +400,9 @@ def apply_shell(html_path: PathLike, active_key: Optional[str] = None) -> Path:
         text,
         explore_page=name == "explore.html",
         phase3=name == "phase3_model.html",
+        map_page=name == "map.html",
     )
+    text = fix_display_text(text)
     if "</html>" not in text or len(text) < len(original) * 0.5:
         raise RuntimeError(f"shell 適用で本文が失われた可能性があります: {path}")
     path.write_text(text, encoding="utf-8")

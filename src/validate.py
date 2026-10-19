@@ -24,10 +24,13 @@ from src.io import (
     ensure_dirs,
     load_all,
     read_csv,
+
+    FIGURES_DIR,
+    DOCS_DIR,
 )
 
-DOCS = ROOT / "docs"
-FIGURES = ROOT / "reports" / "figures"
+DOCS = DOCS_DIR
+FIGURES = FIGURES_DIR
 
 
 def _setup_font() -> None:

@@ -17,13 +17,13 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv
+from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, SEED, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR, DOCS_DIR
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
-DOCS = ROOT / "docs"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
+DOCS = DOCS_DIR
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 END_DATE = pd.Timestamp("2026-07-31")
 RETENTION_DAYS = 90

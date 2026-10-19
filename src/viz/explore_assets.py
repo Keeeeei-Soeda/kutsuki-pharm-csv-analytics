@@ -9,19 +9,30 @@ from html import escape
 from pathlib import Path
 from typing import Optional
 
-from src.io import ROOT
+from src.io import ROOT, REPORTS_DIR, DOCS_DIR
 
-DOCS = ROOT / "docs"
-REPORTS = ROOT / "reports"
+DOCS = DOCS_DIR
+REPORTS = REPORTS_DIR
+
+
+def _default_docs() -> Path:
+    return DOCS_DIR
+
+
+def _default_reports() -> Path:
+    return REPORTS_DIR
 
 EXPLORE_CHARTS = {
     "phase1_monthly_plain.png": {"id": "p1-monthly", "kind": "monthly"},
     "phase1_monthly_gate.png": {"id": "p1-monthly-gate", "kind": "monthly"},
     "phase1_top_clinics.png": {"id": "p1-clinics", "kind": "clinic_rank"},
     "phase1_timeseries.png": {"id": "p1-ts", "kind": "monthly", "options": {"kind": "line"}},
-    "phase2_distance_plain.png": {"id": "p2-dist", "kind": "distance"},
     "phase4_retention90.png": {"id": "p4-ret", "kind": "retention90"},
+    "phase5_timeline.png": {"id": "p5-timeline", "kind": "timeline"},
 }
+
+# 枚数チャートに差し替えてしまった図を、元の PNG（来局率）に戻す
+UNWRAP_CHART_IDS = {"p2-dist"}
 
 MODEL_FIGURES = {
     "phase3_visitrate_glm.png",
@@ -36,7 +47,9 @@ MODEL_FIGURES = {
     "phase6_forecast_plain.png",
 }
 
-_SCRIPTS_RE = re.compile(r'\n*<script data-shell="(?:echarts|explore|inline-charts|explore-page)"[\s\S]*?</script>')
+_SCRIPTS_RE = re.compile(
+    r'\n*<script data-shell="(?:echarts|explore|inline-charts|explore-page|map-page)"[\s\S]*?</script>'
+)
 _HASJS_RE = re.compile(r'<script data-shell="has-js">.*?</script>\s*', re.DOTALL)
 _SIM_RE = re.compile(r'\s*<section[^>]*id="growth-simulator"[^>]*>.*?</section>', re.DOTALL)
 _BADGE_RE = re.compile(r'<span class="model-badge">.*?</span>')
@@ -48,7 +61,7 @@ SIMULATOR_HTML = """
 """
 
 
-def explore_script_tags(*, explore_page: bool = False) -> str:
+def explore_script_tags(*, explore_page: bool = False, map_page: bool = False) -> str:
     tags = [
         '<script data-shell="has-js">document.documentElement.classList.add("has-js");</script>',
         '<script data-shell="echarts" src="vendor/echarts.min.js"></script>',
@@ -57,6 +70,8 @@ def explore_script_tags(*, explore_page: bool = False) -> str:
     ]
     if explore_page:
         tags.append('<script data-shell="explore-page" type="module" src="js/pages/explore.js"></script>')
+    if map_page:
+        tags.append('<script data-shell="map-page" type="module" src="js/pages/map.js"></script>')
     return "\n".join(tags)
 
 
@@ -78,17 +93,72 @@ def chart_markup(
     )
 
 
-def copy_explore_assets() -> None:
-    """docs/ の js・vendor・data を reports/ にも置き、ローカルの reports HTML でも読めるようにする。"""
-    REPORTS.mkdir(parents=True, exist_ok=True)
+def copy_explore_assets(
+    *,
+    docs_dir: Path | None = None,
+    reports_dir: Path | None = None,
+) -> None:
+    """docs の js・vendor・data を reports にも置き、ローカルの reports HTML でも読めるようにする。"""
+    docs = docs_dir or _default_docs()
+    reports = reports_dir or _default_reports()
+    reports.mkdir(parents=True, exist_ok=True)
     for name in ("js", "vendor", "data"):
-        src = DOCS / name
-        dest = REPORTS / name
+        src = docs / name
+        dest = reports / name
         if not src.exists():
             continue
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(src, dest)
+
+
+def _find_div_end(text: str, start: int) -> int:
+    """``start`` 位置の ``<div ...>`` に対応する閉じタグの直後を返す。"""
+    i = text.find(">", start) + 1
+    depth = 1
+    while i < len(text) and depth:
+        next_open = text.find("<div", i)
+        next_close = text.find("</div>", i)
+        if next_close < 0:
+            return len(text)
+        if next_open >= 0 and next_open < next_close:
+            depth += 1
+            i = text.find(">", next_open) + 1
+        else:
+            depth -= 1
+            i = next_close + len("</div>")
+    return i
+
+
+def unwrap_charts(text: str) -> str:
+    """誤って対話チャート化した図を、印刷用 PNG の figure に戻す（冪等）。"""
+    for cid in UNWRAP_CHART_IDS:
+        pos = 0
+        needle = f'id="{cid}"'
+        while True:
+            id_pos = text.find(needle, pos)
+            if id_pos < 0:
+                break
+            wrap_start = text.rfind('<div class="chart-wrap"', 0, id_pos)
+            if wrap_start < 0:
+                pos = id_pos + 1
+                continue
+            wrap_end = _find_div_end(text, wrap_start)
+            block = text[wrap_start:wrap_end]
+            fig = re.search(
+                r'<div class="figure(?: chart-print-fallback)?"[^>]*>.*?</div>',
+                block,
+                re.DOTALL,
+            )
+            if not fig:
+                pos = wrap_end
+                continue
+            restored = fig.group(0).replace(
+                'class="figure chart-print-fallback"', 'class="figure"', 1
+            )
+            text = text[:wrap_start] + restored + text[wrap_end:]
+            pos = wrap_start + len(restored)
+    return text
 
 
 def wrap_explore_charts(text: str) -> str:
@@ -157,19 +227,24 @@ def inject_simulator(text: str) -> str:
     return text[:end] + SIMULATOR_HTML + text[end:]
 
 
-def inject_explore_scripts(text: str, *, explore_page: bool = False) -> str:
+def inject_explore_scripts(
+    text: str, *, explore_page: bool = False, map_page: bool = False
+) -> str:
     text = _SCRIPTS_RE.sub("", text)
     text = _HASJS_RE.sub("", text)
-    tags = explore_script_tags(explore_page=explore_page)
+    tags = explore_script_tags(explore_page=explore_page, map_page=map_page)
     if "</body>" in text:
         text = text.replace("</body>", tags + "\n</body>", 1)
     return text
 
 
-def enhance_html(text: str, *, explore_page: bool = False, phase3: bool = False) -> str:
+def enhance_html(
+    text: str, *, explore_page: bool = False, phase3: bool = False, map_page: bool = False
+) -> str:
+    text = unwrap_charts(text)
     text = wrap_explore_charts(text)
     text = inject_model_badges(text)
     if phase3:
         text = inject_simulator(text)
-    text = inject_explore_scripts(text, explore_page=explore_page)
+    text = inject_explore_scripts(text, explore_page=explore_page, map_page=map_page)
     return text

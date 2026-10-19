@@ -21,13 +21,13 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
-from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, ROOT, ensure_dirs, read_csv
+from src.io import PHARMACY_LAT, PHARMACY_LON, PHARMACY_NAME, ROOT, ensure_dirs, read_csv, REPORTS_DIR, DOCS_DIR
 from src.specialty_taxonomy import build_specialty_map
 from src.viz.html_report import FOOTER_NOTE
 from src.viz.sidebar import FONTS_LINK, PERIOD_LABEL, render_sidebar, sidebar_css, sidebar_js
 
-REPORTS = ROOT / "reports"
-DOCS = ROOT / "docs"
+REPORTS = REPORTS_DIR
+DOCS = DOCS_DIR
 
 # 500m メッシュ（1/2地域メッシュ）のセル半幅
 MESH_HALF_LAT = 1 / 480
@@ -160,7 +160,8 @@ def build(out_path: Path = REPORTS / "map.html") -> Path:
         cuts = [float(np.quantile(nonzero, q)) for q in (0.2, 0.4, 0.6, 0.8)]
     else:
         cuts = [0.0, 0.0, 0.0, 0.0]
-    mesh_colors = ["#d9f0d3", "#a6dba0", "#5aae61", "#2b8cbe", "#084081"]
+    # 青系はクリニック（門前以外）と被るため使わない。薄い黄緑 → 濃い緑。
+    mesh_colors = ["#edf8e9", "#bae4b3", "#74c476", "#31a354", "#006d2c"]
     mesh_bands = []
     lows = [0.0] + cuts
     highs = cuts + [float(nonzero[-1]) if nonzero else 0.0]
@@ -168,6 +169,8 @@ def build(out_path: Path = REPORTS / "map.html") -> Path:
         mesh_bands.append({"lo": lo, "hi": hi, "color": col})
 
     max_n = max((c["n"] for c in clinics), default=1)
+    total_n = int(sum(c["n"] for c in clinics))
+    mesh_rate_max = max((m["rate"] for m in meshes), default=0.0)
     # 凡例に出す実数の目盛り（半径は log1p だが表示は実数）
     ticks = [t for t in (10, 50, 200, 1000, 5000, 15000) if t <= max_n] or [max_n]
     if ticks[-1] != max_n:
@@ -180,11 +183,13 @@ def build(out_path: Path = REPORTS / "map.html") -> Path:
         "competitors": competitors,
         "density": density,
         "maxN": max_n,
+        "totalN": total_n,
         "ticks": ticks,
         "meshHalf": {"lat": MESH_HALF_LAT, "lon": MESH_HALF_LON},
         "minCellCount": MIN_CELL_COUNT,
         "meshCuts": cuts,
         "meshBands": mesh_bands,
+        "meshRateMax": mesh_rate_max,
     }
 
     toc = [
@@ -196,7 +201,6 @@ def build(out_path: Path = REPORTS / "map.html") -> Path:
         "map", toc, breadcrumb="Kutsuki DataBank / 地図", period=PERIOD_LABEL
     )
 
-    mesh_rate_max = max((m["rate"] for m in meshes), default=0.0)
     html = f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -212,7 +216,6 @@ def build(out_path: Path = REPORTS / "map.html") -> Path:
   --line: #d9d2c5; --accent: #0f6a6a; --accent-2: #c45c26;
   --shadow: 0 10px 30px rgba(28,36,48,.08);
   --sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
 }}
 * {{ box-sizing: border-box; }}
 body {{ margin:0; font-family: var(--sans); color: var(--ink); background: var(--bg); line-height:1.65; }}
@@ -229,24 +232,44 @@ a {{ color: var(--accent); }}
 .chip {{ background: rgba(255,255,255,.14); border-radius:999px; padding:6px 12px; font-size:12px; }}
 h2 {{ margin:32px 0 12px; font-size:22px; border-left:4px solid var(--accent); padding-left:12px; }}
 .card {{ background: var(--surface); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow: var(--shadow); }}
-#map {{ height: 620px; border-radius:18px; border:1px solid var(--line); box-shadow: var(--shadow); }}
+.map-shell {{
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}}
+#map {{ height: 620px; width: 100%; border: 0; border-radius: 0; }}
 .legend-grid {{ display:grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap:14px; margin-top:14px; }}
 .legend-row {{ display:flex; align-items:center; gap:8px; margin:4px 0; font-size:13px; }}
 .swatch {{ width:16px; height:16px; border-radius:4px; flex:0 0 auto; border:1px solid rgba(0,0,0,.15); }}
-.bubble {{ border-radius:50%; background: rgba(196,92,38,.55); border:1px solid #c45c26; flex:0 0 auto; }}
-.num {{ font-family: var(--mono); font-variant-numeric: tabular-nums; }}
+.swatch.dot {{ border-radius:50%; }}
+.swatch.ring {{ border-radius:50%; background:#fff; border:2.5px solid #7b5ea7; }}
+.bubble {{ background: rgba(120,110,100,.16); border:1.5px solid #8d8577; }}
+.bubble-size {{
+  border-radius:50%; background: rgba(120,110,100,.16); border: 1.5px solid #8d8577; flex:0 0 auto;
+}}
+.swatch-dot {{
+  width:12px; height:12px; border-radius:50%; flex:0 0 auto; border:1px solid rgba(0,0,0,.12);
+}}
+.num {{ font-variant-numeric: tabular-nums; }}
+.legend-note {{ font-size:12px; color: var(--muted); margin: 8px 0 0; }}
 .footer {{ margin-top:36px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:16px; }}
 .leaflet-container {{ font-family: var(--sans); }}
-.map-legend {{
-  background: rgba(255,252,247,.94); padding:8px 10px; border-radius:10px;
-  border:1px solid var(--line); font-size:12px; line-height:1.5; max-width:190px;
+.leaflet-popup-content-wrapper {{ padding-right: 8px; }}
+.leaflet-container a.leaflet-popup-close-button {{
+  top: 6px; right: 8px; width: 22px; height: 22px; font-size: 18px; padding: 0;
 }}
+/* 国旗アイコン付きの既定 prefix を出さない */
+.leaflet-control-attribution .leaflet-attribution-flag {{ display: none !important; }}
 ul {{ padding-left: 1.2rem; }}
 {sidebar_css()}
 </style>
 {FONTS_LINK}
 </head>
-<body>
+<body data-map="1">
 {sidebar}
 <main class="wrap" id="main">
   <header class="hero">
@@ -261,9 +284,12 @@ ul {{ padding-left: 1.2rem; }}
   </header>
 
   <h2 id="map-sec">地図</h2>
-  <div id="map"></div>
+  <div class="map-shell" id="map-shell" data-map="1">
+    <div id="map" role="application" aria-label="商圏マップ"></div>
+  </div>
   <p style="color:var(--muted);font-size:13px;margin-top:8px">
-    右上のコントロールでレイヤを切り替えられます。円・矩形をクリックすると内訳が出ます。
+    左上の「表示の切替」でレイヤを選べます。円・矩形をクリックすると内訳が出ます。
+    地域の色（来局の割合／患者が多い範囲）は同時には出せません。
   </p>
 
   <h2 id="legend">凡例</h2>
@@ -272,23 +298,23 @@ ul {{ padding-left: 1.2rem; }}
       <div>
         <strong style="font-size:13px">クリニック（処方箋の枚数）</strong>
         <div id="bubble-legend"></div>
+        <div class="legend-row"><span class="swatch-dot" style="background:#c45c26"></span>門前のクリニック（40m以内）</div>
+        <div class="legend-row"><span class="swatch-dot" style="background:#2f6f9f"></span>門前以外のクリニック</div>
         <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
           円が大きいほど処方箋が多い（大きさは実際の差より控えめに表示）。
-          数字は実際の枚数です。
+          グレーの輪は大きさの目安、色は門前／門前以外です。
         </p>
       </div>
       <div>
         <strong style="font-size:13px">地域ごとの来局の割合</strong>
         <div id="mesh-legend"></div>
         <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
-          色が濃いほど、その地域の人口のうち自店に来た人の割合が高い（最大 {mesh_rate_max:.1%}）。
+          色が濃いほど、その地域の人口のうち自店に来た人の割合が高い。
         </p>
       </div>
       <div>
         <strong style="font-size:13px">その他</strong>
-        <div class="legend-row"><span class="swatch" style="background:#0f6a6a"></span>自店（くつき薬局南茨木店）</div>
-        <div class="legend-row"><span class="swatch" style="background:#2f6f9f"></span>競合薬局（{len(competitors)}軒）</div>
-        <div class="legend-row"><span class="swatch" style="background:linear-gradient(90deg,#ffeda0,#feb24c,#fc4e2a,#bd0026)"></span>患者が多く住んでいる範囲</div>
+        <div id="other-legend"></div>
       </div>
     </div>
   </div>
@@ -312,7 +338,7 @@ ul {{ padding-left: 1.2rem; }}
       <li>患者密度は集約値。セル単位の件数は {MIN_CELL_COUNT} 件以上のものだけを使っている。</li>
       <li>競合薬局は所在のみ。処方箋枚数は未取得のため、圧力は立地・営業時間の代理指標。</li>
       <li>タイルは国土地理院・OpenStreetMap。Google Maps JS API はキー発行と課金設定が必要なため、
-          要件になった段階で差し替える。</li>
+          要件になった段階で差し替える（`.map-shell` の z-index 封じ込めとフィルタ連動は共通）。</li>
     </ul>
   </div>
   </div>
@@ -324,144 +350,6 @@ ul {{ padding-left: 1.2rem; }}
 </main>
 
 <script id="map-data" type="application/json">{json.dumps(payload, ensure_ascii=False)}</script>
-<script>
-(function () {{
-  var D = JSON.parse(document.getElementById("map-data").textContent);
-
-  var gsi = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{{z}}/{{x}}/{{y}}.png", {{
-    maxZoom: 18, attribution: "地理院タイル（淡色地図）"
-  }});
-  var gsiStd = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{{z}}/{{x}}/{{y}}.png", {{
-    maxZoom: 18, attribution: "地理院タイル（標準地図）"
-  }});
-  var osm = L.tileLayer("https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png", {{
-    maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
-  }});
-
-  var map = L.map("map", {{
-    center: [D.pharmacy.lat, D.pharmacy.lon], zoom: 13, layers: [gsi], scrollWheelZoom: false
-  }});
-  map.on("focus", function () {{ map.scrollWheelZoom.enable(); }});
-  map.on("blur", function () {{ map.scrollWheelZoom.disable(); }});
-
-  /* --- 自店 --- */
-  var storeLayer = L.layerGroup([
-    L.circleMarker([D.pharmacy.lat, D.pharmacy.lon], {{
-      radius: 9, color: "#0f6a6a", fillColor: "#0f6a6a", fillOpacity: .95, weight: 2
-    }}).bindPopup("<b>" + D.pharmacy.name + "</b><br>自店")
-  ]).addTo(map);
-
-  /* --- クリニック: 半径は log1p(件数) --- */
-  var maxLog = Math.log1p(D.maxN);
-  function radiusFor(n) {{ return 4 + 22 * (Math.log1p(n) / maxLog); }}
-  var clinicLayer = L.layerGroup();
-  D.clinics.forEach(function (c) {{
-    L.circleMarker([c.lat, c.lon], {{
-      radius: radiusFor(c.n),
-      color: c.gate ? "#c45c26" : "#2f6f9f",
-      fillColor: c.gate ? "#c45c26" : "#2f6f9f",
-      fillOpacity: .42, weight: 1.2
-    }}).bindPopup(
-      "<b>" + c.name + "</b><br>処方箋 " + c.n.toLocaleString() + " 枚<br>" +
-      (c.sp || "-") + " / " + (c.gate ? "門前" : "門前以外") +
-      (c.km !== null ? "<br>薬局からの距離 " + c.km.toFixed(2) + " km" : "")
-    ).addTo(clinicLayer);
-  }});
-  clinicLayer.addTo(map);
-
-  /* --- メッシュ来局率（対数スケールのコロプレス） --- */
-  function meshColor(rate) {{
-    if (!rate) {{ return "#eeeae0"; }}
-    for (var i = 0; i < D.meshCuts.length; i++) {{
-      if (rate <= D.meshCuts[i]) {{ return D.meshBands[i].color; }}
-    }}
-    return D.meshBands[D.meshBands.length - 1].color;
-  }}
-  var meshLayer = L.layerGroup();
-  D.meshes.forEach(function (m) {{
-    L.rectangle([
-      [m.lat - D.meshHalf.lat, m.lon - D.meshHalf.lon],
-      [m.lat + D.meshHalf.lat, m.lon + D.meshHalf.lon]
-    ], {{
-      color: "#8d8577", weight: .4, fillColor: meshColor(m.rate),
-      fillOpacity: m.rate ? .6 : .18
-    }}).bindPopup(
-      "メッシュ " + m.code + "<br>人口 " + m.pop.toLocaleString() + " 人" +
-      "<br>自店に来た人 " + m.uniq.toLocaleString() + " 人" +
-      "<br>人口のうち自店に来た人の割合 " + (m.rate * 100).toFixed(2) + "%"
-    ).addTo(meshLayer);
-  }});
-
-  /* --- 競合薬局 --- */
-  var compLayer = L.layerGroup();
-  D.competitors.forEach(function (p) {{
-    L.circleMarker([p.lat, p.lon], {{
-      radius: 4.5, color: "#2f6f9f", fillColor: "#fff", fillOpacity: .9, weight: 2
-    }}).bindPopup("<b>" + p.name + "</b><br>競合薬局" +
-      (p.km !== null ? "<br>自店から直線 " + p.km.toFixed(3) + " km" : "")).addTo(compLayer);
-  }});
-
-  /* --- 患者密度（集約済みグリッドの KDE ヒート） --- */
-  var heatLayer = null;
-  if (window.L && L.heatLayer && D.density.points.length) {{
-    heatLayer = L.heatLayer(D.density.points, {{
-      radius: 26, blur: 20, max: D.density.max, minOpacity: .30,
-      gradient: {{ 0.3: "#ffeda0", 0.55: "#feb24c", 0.78: "#fc4e2a", 1.0: "#bd0026" }}
-    }});
-  }}
-
-  var overlays = {{
-    "自店": storeLayer,
-    "クリニック（円が大きいほど処方箋が多い）": clinicLayer,
-    "地域ごとの来局の割合": meshLayer
-  }};
-  overlays["競合薬局（" + D.competitors.length + "軒）"] = compLayer;
-  if (heatLayer) {{ overlays["患者が多く住んでいる範囲"] = heatLayer; }}
-  L.control.layers(
-    {{ "地理院 淡色": gsi, "地理院 標準": gsiStd, "OpenStreetMap": osm }},
-    overlays, {{ collapsed: false }}
-  ).addTo(map);
-
-  /* --- 地図上の凡例 --- */
-  var legend = L.control({{ position: "bottomright" }});
-  legend.onAdd = function () {{
-    var div = L.DomUtil.create("div", "map-legend");
-    var rows = D.ticks.map(function (n) {{
-      var r = radiusFor(n);
-      return '<div style="display:flex;align-items:center;gap:6px;margin:2px 0">' +
-        '<span style="display:inline-block;width:' + (2 * r) + 'px;height:' + (2 * r) +
-        'px;border-radius:50%;background:rgba(196,92,38,.45);border:1px solid #c45c26"></span>' +
-        '<span>' + n.toLocaleString() + ' 枚</span></div>';
-    }}).join("");
-    div.innerHTML = "<b>クリニックの処方箋</b>" + rows;
-    L.DomEvent.disableClickPropagation(div);
-    return div;
-  }};
-  legend.addTo(map);
-
-  /* --- ページ内の凡例（実数表示） --- */
-  var bl = document.getElementById("bubble-legend");
-  if (bl) {{
-    bl.innerHTML = D.ticks.map(function (n) {{
-      var r = radiusFor(n);
-      return '<div class="legend-row"><span class="bubble" style="width:' + (2 * r) +
-        'px;height:' + (2 * r) + 'px"></span><span class="num">' + n.toLocaleString() +
-        '</span> 枚</div>';
-    }}).join("");
-  }}
-  var ml = document.getElementById("mesh-legend");
-  if (ml) {{
-    ml.innerHTML =
-      '<div class="legend-row"><span class="swatch" style="background:#eeeae0"></span>' +
-      '<span class="num">0%</span>（来局なし）</div>' +
-      D.meshBands.map(function (b) {{
-        return '<div class="legend-row"><span class="swatch" style="background:' + b.color +
-          '"></span><span class="num">' + (b.lo * 100).toFixed(2) + '〜' +
-          (b.hi * 100).toFixed(2) + '%</span></div>';
-      }}).join("");
-  }}
-}}());
-</script>
 <script data-shell="sidebar">
 {sidebar_js()}
 </script>
@@ -481,6 +369,12 @@ def publish_docs(path: Path) -> Path:
 
 
 if __name__ == "__main__":
+    from src.viz.sidebar import apply_shell
+
     p = build()
     print("wrote", p, f"({p.stat().st_size/1024:.0f} KB)")
-    print("published", publish_docs(p))
+    docs_path = publish_docs(p)
+    print("published", docs_path)
+    apply_shell(p, "map")
+    apply_shell(docs_path, "map")
+    print("shell applied")

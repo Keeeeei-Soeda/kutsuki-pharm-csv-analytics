@@ -11,7 +11,16 @@ import {
   monthlyStacked,
   rankedList,
 } from "../aggregate.js";
-import { axisColor, renderChart, savePng, themeColors } from "../charts.js";
+import {
+  axisColor,
+  eventMarks,
+  isNarrow,
+  maxWithTarget,
+  renderChart,
+  renderEventList,
+  savePng,
+  themeColors,
+} from "../charts.js";
 
 const AXIS_PLAIN = { 門前型: "門前", 非門前型: "門前以外", 不明: "不明" };
 
@@ -105,21 +114,6 @@ function renderKpis() {
   if (n && k.suppressed) n.textContent = "一部5件未満のセルを除いて集計しています。";
 }
 
-function markEvents(events, show) {
-  if (!show) return { markLine: { data: [] }, markArea: { data: [] } };
-  const colors = themeColors();
-  const line = [];
-  const area = [];
-  for (const ev of events) {
-    if (ev.end && ev.end !== ev.start) {
-      area.push([{ xAxis: ev.start.slice(0, 7), itemStyle: { color: "rgba(180,84,10,0.08)" } }, { xAxis: ev.end.slice(0, 7) }]);
-    } else {
-      line.push({ xAxis: ev.start.slice(0, 7), name: ev.name, lineStyle: { color: colors.target, type: "dashed" } });
-    }
-  }
-  return { markLine: { symbol: "none", data: line, label: { formatter: "{b}" } }, markArea: { data: area } };
-}
-
 let eventsVisible = true;
 
 function renderMonthly() {
@@ -140,13 +134,31 @@ function renderMonthly() {
     itemStyle: { color: stackBy === "axis" ? axisColor(key) : colors.depts[i % colors.depts.length] },
     data: stacked.months.map((ym) => stacked.series.get(ym)?.get(key) || 0),
   }));
-  const marks = markEvents(DATA.events.events || [], eventsVisible);
+  const marks = eventsVisible
+    ? eventMarks(DATA.events.events || [], stacked.months)
+    : { markLine: { data: [] }, markArea: { data: [] }, list: [] };
   if (series[0]) {
     series[0].markLine = {
       symbol: "none",
-      data: [{ yAxis: a.targetMonthly, name: "目標", lineStyle: { color: colors.target, type: "dashed" }, label: { formatter: "目標" } }, ...(marks.markLine.data || [])],
+      data: [
+        {
+          yAxis: a.targetMonthly,
+          name: "目標",
+          lineStyle: { color: colors.target, type: "dashed" },
+          label: {
+            formatter: `目標 ${fmt(a.targetMonthly)}枚`,
+            position: "insideStartTop",
+            color: colors.target,
+            fontWeight: 700,
+          },
+        },
+        ...(marks.markLine.data || []),
+      ],
     };
     series[0].markArea = marks.markArea;
+    renderEventList(canvas, marks.list);
+  } else {
+    renderEventList(canvas, []);
   }
   if (f.compare && f.fromB && f.toB) {
     const b = monthlyStacked(DATA, { ...f, from: f.fromB, to: f.toB }, stackBy);
@@ -168,8 +180,15 @@ function renderMonthly() {
     });
   }
   renderChart(canvas, {
+    legend: { bottom: 0, textStyle: { color: colors.muted } },
+    grid: { left: 8, right: 16, top: 40, bottom: 36, containLabel: true },
     xAxis: { type: "category", data: stacked.months, axisLabel: { rotate: 45 } },
-    yAxis: { type: "value", name: "枚" },
+    yAxis: {
+      type: "value",
+      name: "枚",
+      max: maxWithTarget(a.targetMonthly),
+      interval: a.targetMonthly > 2000 ? Math.ceil((a.targetMonthly * 1.04) / 7 / 500) * 500 : undefined,
+    },
     series,
   });
   const cap = document.getElementById("monthly-note");
@@ -181,12 +200,14 @@ function renderRank() {
   if (!canvas) return;
   const f = getFilters();
   const { map, suppressed } = clinicRanking(DATA, f);
+  const total = [...map.values()].reduce((x, y) => x + y, 0);
+  const narrow = isNarrow(canvas);
   const rows = rankedList(map, DATA.dims.clinic_order).slice(0, rankN).reverse();
   const names = rows.map((r) => DATA.dims.clinics?.[r.key]?.name || r.key);
   const chart = renderChart(canvas, {
-    grid: { left: 140, right: 56, top: 16, bottom: 24, containLabel: false },
-    xAxis: { type: "value", name: "枚" },
-    yAxis: { type: "category", data: names, axisLabel: { width: 130, overflow: "truncate" } },
+    grid: { left: 8, right: narrow ? 84 : 110, top: 16, bottom: 8, containLabel: true },
+    xAxis: { type: "value", name: "枚", splitNumber: narrow ? 3 : 5 },
+    yAxis: { type: "category", data: names, axisLabel: { width: narrow ? 110 : 230, overflow: "truncate" } },
     series: [
       {
         type: "bar",
@@ -195,10 +216,21 @@ function renderRank() {
           clinicId: r.key,
           itemStyle: { color: DATA.dims.clinics?.[r.key]?.gate ? themeColors().gate : themeColors().nongate },
         })),
-        label: { show: true, position: "right", formatter: (p) => fmt(p.value) },
+        label: {
+          show: true,
+          position: "right",
+          formatter: (p) => `${fmt(p.value)}（${total ? Math.round((p.value / total) * 100) : 0}%）`,
+        },
       },
     ],
-    tooltip: { trigger: "item" },
+    tooltip: {
+      trigger: "item",
+      formatter: (p) => {
+        const name = DATA.dims.clinics?.[p.data?.clinicId]?.name || p.name;
+        const pctShare = total ? ((p.value / total) * 100).toFixed(1) : "0";
+        return `${name}<br/>${fmt(p.value)}枚（全体の${pctShare}%）`;
+      },
+    },
   });
   if (chart) {
     chart.off("click");
@@ -217,10 +249,11 @@ function renderDepts() {
   if (!canvas) return;
   const f = getFilters();
   const { map, suppressed } = deptRanking(DATA, f);
+  const narrow = isNarrow(canvas);
   const rows = rankedList(map, DATA.dims.dept_order).reverse();
   const chart = renderChart(canvas, {
-    grid: { left: 100, right: 56, top: 16, bottom: 24 },
-    xAxis: { type: "value", name: "枚" },
+    grid: { left: 8, right: 64, top: 16, bottom: 8, containLabel: true },
+    xAxis: { type: "value", name: "枚", splitNumber: narrow ? 3 : 5 },
     yAxis: { type: "category", data: rows.map((r) => r.key) },
     series: [
       {
@@ -250,7 +283,8 @@ function renderDistance() {
   const { rows, suppressed } = distanceBreakdown(DATA, f, DATA.retention, DATA.dims);
   const labels = rows.map((r) => DATA.dims.dist_labels?.[r.dist] || r.dist);
   renderChart(canvas, {
-    legend: { data: ["枚数", "90日再来率"] },
+    legend: { bottom: 0, data: ["枚数", "90日再来率"] },
+    grid: { left: 8, right: 8, top: 40, bottom: 36, containLabel: true },
     xAxis: { type: "category", data: labels },
     yAxis: [
       { type: "value", name: "枚" },
@@ -260,6 +294,19 @@ function renderDistance() {
       { name: "枚数", type: "bar", data: rows.map((r) => r.n), itemStyle: { color: themeColors().nongate } },
       { name: "90日再来率", type: "line", yAxisIndex: 1, data: rows.map((r) => r.rate), itemStyle: { color: themeColors().gate } },
     ],
+    tooltip: {
+      trigger: "axis",
+      formatter: (params) => {
+        const lines = (Array.isArray(params) ? params : [params]).map((p) => {
+          if (p.seriesName === "90日再来率") {
+            return `${p.marker}${p.seriesName}: ${p.value == null ? "—" : `${Math.round(p.value * 100)}%`}`;
+          }
+          return `${p.marker}${p.seriesName}: ${fmt(p.value)}枚`;
+        });
+        const title = (Array.isArray(params) ? params[0] : params)?.axisValueLabel || "";
+        return `${title}<br/>${lines.join("<br/>")}`;
+      },
+    },
   });
   const cap = document.getElementById("dist-note");
   if (cap) cap.textContent = note(suppressed);

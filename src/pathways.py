@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs, read_csv
+from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs, read_csv, FIGURES_DIR, REPORTS_DIR, DOCS_DIR
 from src.specialty_taxonomy import (
     ACUTE_LABELS,
     CHRONIC_LABELS,
@@ -31,9 +31,9 @@ from src.specialty_taxonomy import (
 from src.kpi import save_page_summary
 from src.viz.html_report import HtmlReport
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
-DOCS = ROOT / "docs"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
+DOCS = DOCS_DIR
 
 MAX_STEP = 4  # 初回〜4回目
 UNKNOWN = "不明"

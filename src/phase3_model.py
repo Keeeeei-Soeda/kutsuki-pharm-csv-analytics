@@ -23,6 +23,10 @@ from src.io import (
     SEED,
     ensure_dirs,
     read_csv,
+
+    FIGURES_DIR,
+    REPORTS_DIR,
+    DOCS_DIR,
 )
 from src.kpi import CurrentLevel, current_level, save_page_summary
 from src.models.huff import attractiveness_from_competitor, fit_lambda_grid, huff_probabilities
@@ -35,9 +39,9 @@ from src.models.simulator import (
 from src.phase2_catchment import plain_map_axes, town_gazetteer
 from src.viz.html_report import HtmlReport
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
-DOCS = ROOT / "docs"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
+DOCS = DOCS_DIR
 NON_GATE = ["患者近接型", "経由型", "遠隔型"]
 
 

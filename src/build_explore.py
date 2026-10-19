@@ -5,13 +5,13 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from src.io import PHARMACY_NAME, ROOT, ensure_dirs
+from src.io import PHARMACY_NAME, ROOT, ensure_dirs, FIGURES_DIR, REPORTS_DIR, DOCS_DIR
 from src.viz.html_report import HtmlReport
 from src.viz.sidebar import PERIOD_LABEL
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
-DOCS = ROOT / "docs"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
+DOCS = DOCS_DIR
 
 
 def build_explore() -> Path:

@@ -2,6 +2,9 @@
 
 分析を再実行せずに UI だけ更新するためのエントリポイント。
 ``python3 -m src.apply_ui_shell``
+
+修正前（``reports/before``・``docs/before``）と修正後（``reports``・``docs``）の
+両方にシェルを当てる。
 """
 
 from __future__ import annotations
@@ -15,8 +18,6 @@ from src.viz.explore_assets import copy_explore_assets
 from src.viz.sidebar import FONTS_LINK, apply_shell
 
 ROOT = Path(__file__).resolve().parents[1]
-REPORTS = ROOT / "reports"
-DOCS = ROOT / "docs"
 
 # ファイル名 → サイドバーの active key
 PAGE_KEYS: Dict[str, str] = {
@@ -33,6 +34,14 @@ PAGE_KEYS: Dict[str, str] = {
     "explore.html": "explore",
 }
 
+# 修正後 → 修正前の順で適用（どちらも独立）
+SHELL_TREES = (
+    ROOT / "reports",
+    ROOT / "docs",
+    ROOT / "reports" / "before",
+    ROOT / "docs" / "before",
+)
+
 
 _FONTS_RE = re.compile(r'<link[^>]*data-shell="fonts"[^>]*>\s*')
 
@@ -44,20 +53,29 @@ def inject_fonts(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def apply_tree(directory: Path) -> List[Path]:
+    touched: List[Path] = []
+    if not directory.exists():
+        return touched
+    for name, key in PAGE_KEYS.items():
+        path = directory / name
+        if path.exists():
+            apply_shell(path, key or None)
+            inject_fonts(path)
+            touched.append(path)
+    return touched
+
+
 def apply_all() -> List[Path]:
     touched: List[Path] = []
-    for directory in (REPORTS, DOCS):
-        if not directory.exists():
-            continue
-        for name, key in PAGE_KEYS.items():
-            path = directory / name
-            if path.exists():
-                apply_shell(path, key or None)
-                inject_fonts(path)
-                touched.append(path)
+    for directory in SHELL_TREES:
+        touched.extend(apply_tree(directory))
     # 学術版への導線はサイドバー下部のリンクに移したので、旧バナーが残っていれば外す（冪等）
     remove_main_banner()
-    copy_explore_assets()
+    # 修正後・修正前それぞれに explore アセットを同期
+    copy_explore_assets(docs_dir=ROOT / "docs", reports_dir=ROOT / "reports")
+    if (ROOT / "docs" / "before").exists():
+        copy_explore_assets(docs_dir=ROOT / "docs" / "before", reports_dir=ROOT / "reports" / "before")
     return touched
 
 

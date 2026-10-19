@@ -20,9 +20,10 @@ from typing import Dict, List, Optional, Sequence
 import pandas as pd
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+from src.io import REPORTS_DIR, ROOT
+
 CONFIG_PATH = ROOT / "config" / "corrections.yaml"
-IMPACT_PATH = ROOT / "reports" / "correction_impact.md"
+IMPACT_PATH = REPORTS_DIR / "correction_impact.md"
 
 # 名前突合に使う列（クリニック系ファイル共通）
 NAME_COLUMNS = ("クリニック名",)

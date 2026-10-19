@@ -8,13 +8,13 @@ from pathlib import Path
 import pandas as pd
 
 from src.corrections import gate_distance_km
-from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs
+from src.io import PHARMACY_NAME, PROCESSED_DIR, ROOT, ensure_dirs, FIGURES_DIR, REPORTS_DIR
 from src.kpi import RECENT_MONTHS, current_level, save_page_summary
 from src.viz.figure_explains import SANKY_EXPLAIN
 from src.viz.html_report import HtmlReport
 
-FIGURES = ROOT / "reports" / "figures"
-REPORTS = ROOT / "reports"
+FIGURES = FIGURES_DIR
+REPORTS = REPORTS_DIR
 TOP_TARGETS = 10
 
 
@@ -24,6 +24,19 @@ def _gate_label(flag: object) -> str:
 
 def _short_name(name: str, width: int = 22) -> str:
     return str(name)[:width]
+
+
+def _short_specialty(value: object, limit: int = 18) -> str:
+    """診療科の列挙を「・」の区切りで切り、途中で切れた科名を出さない。"""
+    text = str(value)
+    if len(text) <= limit:
+        return text
+    kept: list = []
+    for part in text.split("・"):
+        if len("・".join(kept + [part])) > limit:
+            break
+        kept.append(part)
+    return ("・".join(kept) or text[:limit]) + "ほか"
 
 
 def build_phase1_html() -> Path:
@@ -106,7 +119,7 @@ def build_phase1_html() -> Path:
             (f"毎月の処方箋の大半は門前以外で、門前（{gate_def}）は月{recent_gate:,.0f}枚ほど"
              f"（{level.period_label}の平均）です。")
         ),
-        explain="橙が門前、青が門前以外の月別の処方箋枚数です。線の右端の数字が直近月の枚数です。",
+        explain="橙が門前、青が門前以外、灰色が不明の月別の処方箋枚数（積み上げ）です。点線は目標の枚数で、棒にカーソルを合わせると内訳が出ます。",
     )
 
     rep.section("clinics", "クリニック別の処方箋")
@@ -125,7 +138,7 @@ def build_phase1_html() -> Path:
         [
             [
                 _short_name(r["クリニック名"]),
-                str(r["診療科"])[:18] if pd.notna(r["診療科"]) else "-",
+                _short_specialty(r["診療科"]) if pd.notna(r["診療科"]) else "-",
                 f"{int(r['件数']):,}",
                 f"{r['構成比']:.1%}",
                 f"{r['クリニック→薬局_直線km']:.1f}" if pd.notna(r["クリニック→薬局_直線km"]) else "-",

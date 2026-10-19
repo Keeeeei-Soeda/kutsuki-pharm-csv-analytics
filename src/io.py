@@ -2,15 +2,40 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Dict, Optional
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-RAW_DIR = ROOT / "data" / "raw"
+
+# --------------------------------------------------------------------------
+# DataBank バリアント（修正前 / 修正後）
+#   DATABANK_VARIANT=after（既定）… 今回取込の修正後
+#   DATABANK_VARIANT=before        … Chatwork受領前スナップショット
+# --------------------------------------------------------------------------
+_VARIANT_RAW = os.environ.get("DATABANK_VARIANT", "after").strip().lower()
+if _VARIANT_RAW not in ("after", "before"):
+    raise ValueError(f"DATABANK_VARIANT は after / before のいずれか: {_VARIANT_RAW!r}")
+DATABANK_VARIANT = _VARIANT_RAW
+
+if DATABANK_VARIANT == "before":
+    RAW_DIR = ROOT / "data" / "raw_before"
+    PROCESSED_DIR = ROOT / "data" / "processed_before"
+    REPORTS_DIR = ROOT / "reports" / "before"
+    DOCS_DIR = ROOT / "docs" / "before"
+else:
+    RAW_DIR = ROOT / "data" / "raw"
+    PROCESSED_DIR = ROOT / "data" / "processed"
+    REPORTS_DIR = ROOT / "reports"
+    DOCS_DIR = ROOT / "docs"
+
 INTERIM_DIR = ROOT / "data" / "interim"
-PROCESSED_DIR = ROOT / "data" / "processed"
+FIGURES_DIR = REPORTS_DIR / "figures"
+
+# 後方互換エイリアス（既存コードが PROCESSED_DIR 等を import）
+# REPORTS / DOCS は各モジュールで REPORTS_DIR / DOCS_DIR を使う
 
 SEED = 42
 
@@ -63,7 +88,7 @@ def read_csv(
     apply_age_fix: bool = True,
     corrections: bool = True,
 ) -> pd.DataFrame:
-    """data/raw から論理名で読み込む。raw 自体は上書きしない。
+    """data/raw（または raw_before）から論理名で読み込む。raw 自体は上書きしない。
 
     ``config/corrections.yaml`` の有効な補正は読み込み直後に適用される
     （生データ + 補正定義 = 分析用データ）。
@@ -93,5 +118,5 @@ def load_all(names: Optional[list] = None) -> Dict[str, pd.DataFrame]:
 
 
 def ensure_dirs() -> None:
-    for d in (RAW_DIR, INTERIM_DIR, PROCESSED_DIR, ROOT / "reports" / "figures", ROOT / "docs"):
+    for d in (RAW_DIR, INTERIM_DIR, PROCESSED_DIR, FIGURES_DIR, DOCS_DIR):
         d.mkdir(parents=True, exist_ok=True)

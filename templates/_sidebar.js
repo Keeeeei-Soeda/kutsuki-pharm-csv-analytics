@@ -129,3 +129,18 @@
   window.addEventListener("scroll", fallback, { passive: true });
   fallback();
 }());
+
+/* 長い文字列の KPI 値に印を付け、CSS で一段小さく表示する（1文字だけ次の行に落ちるのを防ぐ） */
+(function () {
+  function textWidth(s) {
+    var w = 0;
+    for (var i = 0; i < s.length; i++) { w += s.charCodeAt(i) > 0xff ? 1 : 0.6; }
+    return w;
+  }
+  var nodes = document.querySelectorAll(".kpi .value");
+  for (var i = 0; i < nodes.length; i++) {
+    var w = textWidth((nodes[i].textContent || "").trim());
+    nodes[i].classList.toggle("is-xlong", w > 10);
+    nodes[i].classList.toggle("is-long", w > 6.5 && w <= 10);
+  }
+}());
