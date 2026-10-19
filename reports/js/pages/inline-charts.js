@@ -149,13 +149,40 @@ function mountSimulator() {
     root.innerHTML = `<h3>条件を動かして試す</h3>
       <p class="section-note">今の処方箋の内訳を、スライダーで変えたときの到達枚数です。施策の効果ではありません。</p>
       <div class="sim-sliders">
-        <label>門前の増加率 <input type="range" min="0" max="50" value="0" data-sim="gateGrowth"/><span data-out="gateGrowth">0%</span></label>
-        <label>非門前の倍率 <input type="range" min="10" max="50" value="10" data-sim="nongateMult"/><span data-out="nongateMult">×1.0</span></label>
-        <label>来局頻度の増加率 <input type="range" min="0" max="50" value="0" data-sim="freqGrowth"/><span data-out="freqGrowth">0%</span></label>
-        <label>活動患者の増加率 <input type="range" min="0" max="50" value="0" data-sim="stockGrowth"/><span data-out="stockGrowth">0%</span></label>
+        <div class="sim-row">
+          <span class="sim-label">門前の増加率</span>
+          <input type="range" min="0" max="50" value="0" data-sim="gateGrowth" aria-label="門前の増加率"/>
+          <span class="sim-val" data-out="gateGrowth">0%</span>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">非門前の倍率</span>
+          <input type="range" min="10" max="50" value="10" data-sim="nongateMult" aria-label="非門前の倍率"/>
+          <span class="sim-val" data-out="nongateMult">×1.0</span>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">来局頻度の増加率</span>
+          <input type="range" min="0" max="50" value="0" data-sim="freqGrowth" aria-label="来局頻度の増加率"/>
+          <span class="sim-val" data-out="freqGrowth">0%</span>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">活動患者の増加率</span>
+          <input type="range" min="0" max="50" value="0" data-sim="stockGrowth" aria-label="活動患者の増加率"/>
+          <span class="sim-val" data-out="stockGrowth">0%</span>
+        </div>
       </div>
       <div class="sim-out">
-        <div class="chart-canvas" id="sim-gauge" style="height:220px"></div>
+        <p class="sim-reach"><span id="sim-visits" class="sim-reach-num">—</span><span class="sim-reach-unit">枚/月</span></p>
+        <p class="sim-reach-cap">スライダー条件での到達枚数</p>
+        <div class="sim-progress" role="img" aria-label="目標に対する達成率">
+          <div class="sim-progress-head">
+            <span class="sim-progress-label">目標に対する達成率</span>
+            <span class="sim-progress-pct" id="sim-pct">—%</span>
+          </div>
+          <div class="sim-progress-track">
+            <div class="sim-progress-fill" id="sim-fill"></div>
+            <div class="sim-progress-goal" title="目標 100%"></div>
+          </div>
+        </div>
         <p id="sim-need"></p>
       </div>`;
     root.querySelectorAll("[data-sim]").forEach((input) => {
@@ -183,24 +210,19 @@ function updateSimulator() {
   const inp = currentInputs();
   const levers = leversFromDom(root);
   const out = simulateLevers(inp, levers);
-  const colors = themeColors();
   const pct = Math.min(100, Math.max(0, out.reachRatio * 100));
-  renderChart(document.getElementById("sim-gauge"), {
-    series: [
-      {
-        type: "gauge",
-        min: 0,
-        max: 100,
-        axisLine: { lineStyle: { width: 14, color: [[0.7, colors.muted], [1, colors.accent]] } },
-        pointer: { width: 4 },
-        detail: { formatter: () => `${fmt(out.visits)}枚`, fontSize: 18 },
-        data: [{ value: pct, name: "目標比" }],
-      },
-    ],
-  });
+  const visitsEl = document.getElementById("sim-visits");
+  if (visitsEl) visitsEl.textContent = fmt(Math.round(out.visits));
+  const pctEl = document.getElementById("sim-pct");
+  if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+  const fill = document.getElementById("sim-fill");
+  if (fill) {
+    fill.style.width = `${pct}%`;
+    fill.classList.toggle("is-ok", pct >= 100);
+  }
   const need = document.getElementById("sim-need");
   if (need) {
-    need.textContent = `非門前だけで目標に届くには ×${out.needNongateMult.toFixed(1)} が必要です。達成率 ${Math.round(out.reachRatio * 100)}%。`;
+    need.textContent = `非門前だけで目標（${fmt(inp.target_monthly)}枚）に届くには ×${out.needNongateMult.toFixed(1)} が必要です。`;
   }
   void simulateScenarios(inp);
 }
